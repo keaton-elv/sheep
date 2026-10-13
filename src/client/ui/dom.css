@@ -172,8 +172,10 @@
   font-size: 22px;
   transition: transform 80ms;
 }
-.sv-close:hover {
-  transform: scale(1.15);
+@media (hover: hover) {
+  .sv-close:hover {
+    transform: scale(1.15);
+  }
 }
 .sv-close .sv-sprite {
   --s: 1.5;
@@ -202,9 +204,15 @@
   transition: transform 80ms ease-out;
   touch-action: manipulation;
 }
-.sv-btn:hover:not(:disabled),
+/* Hover lifts the button instead of growing it, so full-width buttons never poke past a dialog's
+   scroll edge, and only devices that really hover get it (touch would leave it stuck on). */
+@media (hover: hover) {
+  .sv-btn:hover:not(:disabled) {
+    transform: translateY(calc(var(--px) * -1));
+    border-image-source: var(--img-button-hover);
+  }
+}
 .sv-btn:focus-visible {
-  transform: scale(1.06);
   border-image-source: var(--img-button-hover);
   outline: none;
 }

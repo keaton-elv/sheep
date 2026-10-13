@@ -1,3 +1,4 @@
+import { ITEM_KEY_PATTERN } from "../shared/bundles";
 import { isValidDayKey } from "../shared/calendar";
 import {
   CATEGORIES,
@@ -128,4 +129,10 @@ export function moveDecor(body: unknown): MoveDecorInput {
 
 export function farmName(body: unknown): string {
   return str(obj(body).farmName, "farmName", LIMITS.farmName, { required: true });
+}
+
+export function itemKey(body: unknown): string {
+  const k = obj(body).key;
+  if (typeof k !== "string" || !ITEM_KEY_PATTERN.test(k)) throw new BadInput("That doesn't fit in the chest...");
+  return k;
 }

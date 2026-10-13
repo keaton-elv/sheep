@@ -216,6 +216,20 @@ export const api = {
     return s;
   },
 
+  /** Put something picked up around the farm into the shared chest (key like "item.forage.blackberry"). */
+  async collectItem(key: string): Promise<FarmState> {
+    const s = await call<FarmState>("POST", "/items", { key });
+    store.set(s);
+    return s;
+  },
+
+  /** Complete a bundle (see shared/bundles.ts): its items leave the chest, cloth arrives. */
+  async completeBundle(id: string): Promise<FarmState> {
+    const s = await call<FarmState>("POST", `/bundles/${id}`);
+    store.set(s);
+    return s;
+  },
+
   async loomStart(): Promise<FarmState> {
     const s = await call<FarmState>("POST", "/loom/start");
     store.set(s);

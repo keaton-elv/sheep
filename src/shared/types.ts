@@ -62,6 +62,11 @@ export interface Sheep {
   hat: number | null;
   /** The plan's very first name. Renaming it and then changing it back = ORIGINAL PLAN. */
   originalName: string;
+  /**
+   * The plan's first date (the date it was bought with, or the first date it was ever given).
+   * Moving the date away and back counts as going back to the ORIGINAL PLAN too. null = never had one.
+   */
+  originalDate: string | null;
   /** How many times this sheep has gone back to its ORIGINAL PLAN. */
   originalReturns: number;
 }
@@ -124,7 +129,9 @@ export type FarmEventKind =
   | "renamed"
   | "hatted"
   /** A plan got renamed back to its original name. */
-  | "original";
+  | "original"
+  /** A bundle was completed (subject = bundle name). */
+  | "bundled";
 
 /** Things that happened on the farm, shown as letters in the mailbox. */
 export interface FarmEvent {
@@ -146,6 +153,10 @@ export interface FarmState {
   totalWool: number;
   /** How many times any plan went back to its ORIGINAL PLAN. */
   originalPlans: number;
+  /** Things picked up around the farm (forage, tree seeds, artifacts), by item key -> count. Shared chest. */
+  items: Record<string, number>;
+  /** How many times each bundle has been completed, by bundle id. */
+  bundles: Record<string, number>;
   loom: LoomState | null;
   decorations: Decoration[];
   sheep: Sheep[];

@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { BUNDLES } from "../shared/bundles";
 import {
   DECOR_COST,
   HAT_COST,
@@ -47,6 +48,7 @@ type SheepRow = {
   hat: number | null;
   original_name: string | null;
   original_returns: number | null;
+  original_date: string | null;
 };
 
 type DecorRow = { id: string; kind: string; fx: number; fy: number; variant: number; created_at: number };
@@ -69,6 +71,7 @@ function toSheep(r: SheepRow): Sheep {
     seed: r.seed,
     hat: r.hat ?? null,
     originalName: r.original_name ?? r.name,
+    originalDate: r.original_date ?? null,
     originalReturns: r.original_returns ?? 0,
   };
 }
@@ -131,6 +134,10 @@ export class Farm extends DurableObject<Env> {
         subject TEXT NOT NULL,
         sheep_id TEXT
       );
+      CREATE TABLE IF NOT EXISTS items (
+        key TEXT PRIMARY KEY,
+        count INTEGER NOT NULL DEFAULT 0
+      );
       CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -144,6 +151,11 @@ export class Farm extends DurableObject<Env> {
       this.sql.exec(`ALTER TABLE sheep ADD COLUMN original_name TEXT`);
       this.sql.exec(`ALTER TABLE sheep ADD COLUMN original_returns INTEGER NOT NULL DEFAULT 0`);
       this.sql.exec(`UPDATE sheep SET original_name = name WHERE original_name IS NULL`);
+    }
+    // v4: the original plan includes its first date.
+    if (!cols.some((c) => c.name === "original_date")) {
+      this.sql.exec(`ALTER TABLE sheep ADD COLUMN original_date TEXT`);
+      this.sql.exec(`UPDATE sheep SET original_date = date WHERE original_date IS NULL`);
     }
     this.sql.exec(
       `INSERT OR IGNORE INTO meta (key, value) VALUES ('farm_name', ?), ('founded_at', ?), ('wool', '0'), ('cloth', '0'), ('total_wool', '0')`,
@@ -218,6 +230,10 @@ export class Farm extends DurableObject<Env> {
       cloth: this.getNum("cloth"),
       totalWool: this.getNum("total_wool"),
       originalPlans: this.getNum("original_plans"),
+      items: Object.fromEntries(
+        this.sql.exec<{ key: string; count: number }>(`SELECT key, count FROM items WHERE count > 0`).toArray().map((r) => [r.key, r.count]),
+      ),
+      bundles: Object.fromEntries(BUNDLES.map((b) => [b.id, this.getNum(`bundle_${b.id}`)])),
       loom: loomStarted && loomReady ? { startedAt: Number(loomStarted), readyAt: Number(loomReady) } : null,
       decorations: this.sql.exec<DecorRow>(`SELECT * FROM decorations ORDER BY created_at`).toArray().map(toDecor),
       sheep: this.sql.exec<SheepRow>(`SELECT * FROM sheep ORDER BY created_at`).toArray().map(toSheep),
@@ -240,8 +256,8 @@ export class Farm extends DurableObject<Env> {
     const golden = Math.random() < GOLDEN_CHANCE ? 1 : 0;
     const row = this.sql
       .exec<SheepRow>(
-        `INSERT INTO sheep (id, name, notes, link, category, date, created_at, seed, golden, original_name)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+        `INSERT INTO sheep (id, name, notes, link, category, date, created_at, seed, golden, original_name, original_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
         id,
         input.name,
         input.notes,
@@ -252,6 +268,7 @@ export class Farm extends DurableObject<Env> {
         seed,
         golden,
         input.name,
+        input.date,
       )
       .one();
     const sheep = toSheep(row);
@@ -263,17 +280,22 @@ export class Farm extends DurableObject<Env> {
     const existing = this.findSheep(id);
     if (!existing) return fail(404, "That sheep wandered off.");
     const next = { ...existing, ...patch };
-    // ORIGINAL PLAN: renamed away at some point, and now renamed right back.
+    // ORIGINAL PLAN: the plan (its name, and its date once it has had one) wandered away from how it
+    // started, and now it's right back. A plan bought without a date adopts the first date it gets.
+    const originalDate = existing.originalDate ?? next.date;
     const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-    const backToOriginal = !same(existing.name, existing.originalName) && same(next.name, existing.originalName);
+    const isOriginal = (s: { name: string; date: string | null }) =>
+      same(s.name, existing.originalName) && (originalDate === null || s.date === originalDate);
+    const backToOriginal = !isOriginal(existing) && isOriginal(next);
     this.sql.exec(
-      `UPDATE sheep SET name = ?, notes = ?, link = ?, category = ?, date = ?, memory = ?, original_returns = original_returns + ? WHERE id = ?`,
+      `UPDATE sheep SET name = ?, notes = ?, link = ?, category = ?, date = ?, memory = ?, original_date = ?, original_returns = original_returns + ? WHERE id = ?`,
       next.name,
       next.notes,
       next.link,
       next.category,
       next.date,
       next.memory,
+      originalDate,
       backToOriginal ? 1 : 0,
       id,
     );
@@ -347,6 +369,26 @@ export class Farm extends DurableObject<Env> {
     this.sql.exec(`UPDATE sheep SET hat = ? WHERE id = ?`, hat, id);
     this.changed(hat === null ? null : this.logEvent("hatted", existing.name, id), origin);
     return ok(this.findSheep(id)!);
+  }
+
+  // ---------- RPC: chest & bundles ----------
+
+  /** Something picked up around the farm goes into the shared chest. */
+  async collectItem(key: string, origin: string | null): Promise<Result<FarmState>> {
+    this.sql.exec(`INSERT INTO items (key, count) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET count = count + 1`, key);
+    return ok(this.changed(null, origin));
+  }
+
+  /** Put one of each of a bundle's items in, get cloth back. */
+  async completeBundle(id: string, origin: string | null): Promise<Result<FarmState>> {
+    const bundle = BUNDLES.find((b) => b.id === id);
+    if (!bundle) return fail(404, "There's no such bundle...");
+    const have = (k: string) => this.sql.exec<{ count: number }>(`SELECT count FROM items WHERE key = ?`, k).toArray()[0]?.count ?? 0;
+    if (bundle.items.some((k) => have(k) < 1)) return fail(409, "Something's still missing from that bundle...");
+    for (const k of bundle.items) this.sql.exec(`UPDATE items SET count = count - 1 WHERE key = ?`, k);
+    this.setMeta("cloth", this.getNum("cloth") + bundle.reward);
+    this.setMeta(`bundle_${bundle.id}`, this.getNum(`bundle_${bundle.id}`) + 1);
+    return ok(this.changed(this.logEvent("bundled", bundle.name, null), origin));
   }
 
   // ---------- RPC: loom ----------

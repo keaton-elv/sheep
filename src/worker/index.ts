@@ -117,6 +117,10 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     if (action === "hat" && method === "POST") return fromResult(await farm.setHat(id, v.hat(await readJson(request)), origin));
   }
 
+  if (route === "/items" && method === "POST") return fromResult(await farm.collectItem(v.itemKey(await readJson(request)), origin));
+  const bundleMatch = /^\/bundles\/([a-z]{1,20})$/.exec(route);
+  if (bundleMatch && method === "POST") return fromResult(await farm.completeBundle(bundleMatch[1]!, origin));
+
   if (route === "/loom/start" && method === "POST") return fromResult(await farm.startLoom(origin));
   if (route === "/loom/collect" && method === "POST") return fromResult(await farm.collectLoom(origin));
 
