@@ -1,8 +1,7 @@
 // "Hold it!" A Stardew-style title screen over the (already running) farm, built from the game's
-// real title pieces (sky, the big cloud bank, drifting clouds, corner bushes, birds) plus a little
-// San Francisco along the bottom (the Golden Gate in the haze, the city on its hills, Postcard
-// Row), with a dialogue box asking a riddle about Snickers. Remembered afterwards by the server's
-// cookie.
+// real title pieces (sky, the big cloud bank, drifting clouds, birds) with Alamo Square along the
+// bottom (the Painted Ladies across the park's lawn, downtown hazy behind them), and a dialogue
+// box asking a riddle about Snickers. Remembered afterwards by the server's cookie.
 //
 // The answer box is deliberately a plain text field outside any <form>: no type="password", and
 // no "pass"/"pw" anywhere in its attributes (iOS reads the placeholder, label, name and id to
@@ -17,20 +16,18 @@ import { drawLayers, HEAD_FRONT, opaqueAt, type Layer, type PartName } from "../
 import { api } from "../net";
 import { el, frameIcon, spriteIcon, uiRoot } from "./dom";
 import {
-  BAY,
-  CITY_H,
-  LADIES_H,
-  LADIES_W,
+  alamoSheet,
   LOGO,
-  paintBay,
-  paintCity,
-  paintFog,
-  paintLadies,
+  paintAlamo,
+  planAlamo,
   registerPasswordArt,
+  sheepFrame,
   TITLE_ART,
   TITLE_BIRD,
   TITLE_SHEETS,
+  type AlamoPlan,
   type Rect,
+  type TitlePhase,
 } from "./password-art";
 import "./password.css";
 
@@ -53,9 +50,7 @@ const TEASES = [
 
 const BASE = import.meta.env.BASE_URL;
 
-type Phase = "dawn" | "day" | "dusk" | "night";
-/** Which corner-bush variant goes with the sky: green by day, red at sunset, blue at night. */
-const BUSH_VARIANT: Record<Phase, number> = { dawn: 0, day: 0, dusk: 1, night: 2 };
+type Phase = TitlePhase;
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
@@ -240,9 +235,6 @@ function cropEl(cls: string, sheet: { src: string; w: number; h: number }, r: Re
 
 let lastTease = -1;
 
-/** The row (above the bottom) of the red beacons on top of the bridge's towers. */
-const BEACON_ROW = BAY.water + BAY.tower + 1;
-
 function phase(): Phase {
   // Match the farm underneath, including the ?time=HH:MM debug override.
   const forced = /^(\d{1,2}):\d{2}$/.exec(new URLSearchParams(location.search).get("time") ?? "");
@@ -390,9 +382,6 @@ export function showPasswordGate(): Promise<void> {
       buildBank();
       sky.appendChild(bank);
       TITLE_ART.clouds.forEach((r, i) => drift(cropEl("gate-puff", sheet, r), [6, 30, 18][i]!, [140, 105, 175][i]!, [0.55, 0.15, 0.85][i]!));
-      const v = BUSH_VARIANT[ph];
-      sky.appendChild(cropEl("gate-bush is-left", sheet, TITLE_ART.bushLeft[v]!));
-      sky.appendChild(cropEl("gate-bush is-right", sheet, TITLE_ART.bushRight[v]!));
       sky.classList.add("is-real");
     });
     void loadImage(TITLE_SHEETS.title.src).then((img) => {
@@ -414,72 +403,100 @@ export function showPasswordGate(): Promise<void> {
       }
     });
 
-    // ---------- San Francisco, along the bottom ----------
-    // Hand-drawn in password-art.ts (no sheets to wait for): the bay and the Golden Gate, Karl the
-    // Fog drifting through, the city on its hills, and the Painted Ladies, all behind the bushes.
-    // The wide layers are as wide as the screen, so they're repainted when the width changes.
+    // ---------- Alamo Square, along the bottom ----------
+    // The Painted Ladies across the park's lawn (painted in password-art.ts from the title page's
+    // own sheet for the season, plus the farm's grass, trees and sheep). Whole device pixels per
+    // art pixel like the farm (a notch smaller if that won't fit), as big as it can be without
+    // ever reaching up under the dialogue box. Rebuilt when the window changes size.
 
-    const layer = (cls: string, w: number, h: number) => {
-      const c = document.createElement("canvas");
-      c.className = `gate-sf ${cls}`;
-      c.width = w;
-      c.height = h;
-      c.style.width = `calc(var(--cp) * ${w})`;
-      c.style.height = `calc(var(--cp) * ${h})`;
-      return c;
-    };
-    const paint = (c: HTMLCanvasElement, fn: (ctx: CanvasRenderingContext2D) => void) => {
+    const season = farmSeason();
+    const scene = el("div", { class: "gate-scene" });
+    const sceneArt = document.createElement("canvas");
+    sceneArt.className = "gate-scene__art";
+    scene.appendChild(sceneArt);
+    sky.appendChild(scene);
+    let alamo: HTMLImageElement | null = null;
+    let sceneKey = "";
+    /** The grazing sheep: their canvases and the spots they stand on. */
+    let flock: { c: HTMLCanvasElement; spot: AlamoPlan["sheep"][number] }[] = [];
+    /** Space kept between the dialogue box and the tallest gable (CSS px). */
+    const GAP = 10;
+
+    const buildScene = () => {
+      if (!alamo || closed || !gate.isConnected) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const dpr = Math.max(1, Math.round((window.devicePixelRatio || 1) * 100) / 100);
+      const r = box.getBoundingClientRect();
+      const key = `${vw}x${vh}@${dpr}:${Math.round(r.left)},${Math.round(r.right)},${Math.round(r.bottom)}`;
+      if (key === sceneKey) return;
+      sceneKey = key;
+      // The farm's own pixel size (see Game.resize), stepping down while the scene won't fit.
+      const farmK = Math.max(2, Math.floor(Math.min(vw * dpr, vh * dpr) / 240));
+      const minK = Math.max(1, Math.min(farmK, Math.ceil(dpr * 1.25)));
+      let pick: { sp: number; plan: AlamoPlan } | null = null;
+      for (let k = farmK; k >= minK; k--) {
+        const sp = k / dpr;
+        const w = Math.ceil(vw / sp) + 1;
+        const room = Math.floor((vh - r.bottom - GAP) / sp);
+        const dl = Math.floor((r.left - 6) / sp);
+        const dr = Math.ceil((r.right + 6) / sp);
+        const target = Math.round((vh * (vw < vh ? 0.42 : 0.38)) / sp);
+        const res = planAlamo(alamo, w, room, dl, dr, target, k === minK);
+        pick = { sp, plan: res.plan };
+        if (res.fits) break;
+      }
+      if (!pick) return;
+      const { sp, plan } = pick;
+      gate.style.setProperty("--sp", `${sp}px`);
       try {
-        const ctx = c.getContext("2d");
-        if (!ctx) return;
-        ctx.clearRect(0, 0, c.width, c.height);
-        fn(ctx);
+        paintAlamo(sceneArt, alamo, plan, ph, season);
       } catch {
         /* scenery: never let it break the gate */
       }
-    };
-    const bay = layer("gate-bay", 1, BAY.h);
-    const city = layer("gate-city", 1, CITY_H);
-    const ladies = layer("gate-ladies", LADIES_W, LADIES_H);
-    paint(ladies, (ctx) => paintLadies(ctx, ph));
-    // Two wisps of fog: a long one along the roadway, a thin one through the towers' tops.
-    const fogs = (
-      [
-        [150, 14, 3, BAY.water + BAY.deck - 7, 95, 0.42, -140],
-        [110, 9, 11, BAY.water + BAY.tower - 20, 130, 0.7, 30],
-      ] as const
-    ).map(([w, h, seed, bottom, dur, start, rest]) => {
-      const fog = layer("gate-fog", w, h);
-      fog.classList.remove("gate-sf");
-      paint(fog, (ctx) => paintFog(ctx, w, h, ph, seed));
-      fog.style.bottom = `calc(var(--cp) * ${bottom})`;
-      fog.style.animationDuration = `${dur}s`;
-      fog.style.animationDelay = `${-dur * start}s`;
-      return { fog, rest };
-    });
-    const beacons = [-1, 1].map(() => el("span", { class: "gate-beacon" }));
-    for (const b of beacons) b.style.bottom = `calc(var(--cp) * ${BEACON_ROW})`;
-    sky.append(bay, ...fogs.map((f) => f.fog), ...beacons, city, ladies);
-
-    let sfKey = "";
-    const buildSF = () => {
-      const cpCss = parseFloat(gate.style.getPropertyValue("--cp")) || 1;
-      const screenW = window.innerWidth / cpCss;
-      const w = Math.ceil(screenW) + 2;
-      const cx = Math.floor(screenW / 2);
-      const key = `${w}:${cx}`;
-      if (key === sfKey) return;
-      sfKey = key;
-      for (const c of [bay, city]) {
-        c.width = w;
-        c.style.width = `calc(var(--cp) * ${w})`;
+      scene.style.width = `calc(var(--sp) * ${plan.w})`;
+      scene.style.height = `calc(var(--sp) * ${plan.h})`;
+      // By day the cloud bank towers up from behind the row (its faded foot hides behind the
+      // houses), like the clouds behind the real title screen. After dark it sinks out of the way
+      // of the stars.
+      if (ph !== "night") gate.style.setProperty("--bank-bottom", `calc(var(--sp) * ${Math.max(0, plan.lawn + 10)})`);
+      // Sheep graze by day (at night they're asleep in the barn).
+      for (const s of flock) s.c.remove();
+      flock = [];
+      if (ph !== "night") {
+        for (const spot of plan.sheep) {
+          const c = document.createElement("canvas");
+          c.className = "gate-scene__sheep";
+          c.style.left = `calc(var(--sp) * ${spot.x})`;
+          c.style.top = `calc(var(--sp) * ${spot.y})`;
+          sheepFrame(c, spot.front ? 12 : 14, spot.flip, ph);
+          scene.appendChild(c);
+          flock.push({ c, spot });
+        }
       }
-      paint(bay, (ctx) => paintBay(ctx, w, cx, ph));
-      paint(city, (ctx) => paintCity(ctx, w, cx, ph));
-      ladies.style.left = `calc(var(--cp) * ${cx - Math.floor(LADIES_W / 2)})`;
-      // With motion turned off the fog just rests near the bridge.
-      for (const { fog, rest } of fogs) fog.style.setProperty("--fog-rest", `translateX(calc(var(--cp) * ${cx + rest}))`);
-      beacons.forEach((b, i) => (b.style.left = `calc(var(--cp) * ${cx + (i ? 1 : -1) * (BAY.span / 2) - 1})`));
+    };
+
+    void loadImage(alamoSheet(season)).then((img) => {
+      if (closed || !img) return;
+      alamo = img;
+      buildScene();
+      scene.classList.add("is-in");
+      if (!reducedMotion()) later(graze, 900);
+    });
+
+    /**
+     * Now and then a sheep puts its head down for a few mouthfuls (the real eating frames: 16-19
+     * facing us, 14 side-on), then looks up again.
+     */
+    const graze = () => {
+      const s = flock[Math.floor(Math.random() * flock.length)];
+      if (s) {
+        const frames = s.spot.front ? [16, 17, 18, 19, 18, 19, 18, 19, 17, 16, 12] : [4, 14, 4, 14, 14, 4, 14];
+        frames.forEach((f, i) => later(() => sheepFrame(s.c, f, s.spot.flip, ph), i * 260));
+        if (s.spot.front) later(() => sheepFrame(s.c, 13, s.spot.flip, ph), frames.length * 260 + 1400);
+        if (s.spot.front) later(() => sheepFrame(s.c, 12, s.spot.flip, ph), frames.length * 260 + 1560);
+      }
+      later(graze, 3200 + Math.random() * 4200);
     };
 
     // ---------- logo ----------
@@ -578,10 +595,13 @@ export function showPasswordGate(): Promise<void> {
       const ck = Math.max(1, Math.min(6, Math.round((window.innerHeight * dpr * 0.42) / 330)));
       gate.style.setProperty("--cp", `${ck / dpr}px`);
       buildBank();
-      buildSF();
+      buildScene();
     };
     size();
     addEventListener("resize", size);
+    // A longer message can make the dialogue box taller: keep the scene clear of it.
+    const boxWatch = typeof ResizeObserver === "function" ? new ResizeObserver(() => buildScene()) : null;
+    boxWatch?.observe(box);
 
     // ---------- typing ----------
 
@@ -771,6 +791,7 @@ export function showPasswordGate(): Promise<void> {
       timers.forEach(clearTimeout);
       clearInterval(typing);
       removeEventListener("resize", size);
+      boxWatch?.disconnect();
       gate.remove();
       uiRoot.inert = false;
     };

@@ -1,14 +1,18 @@
 // Title-screen art for the password gate.
 // - The chunky "Papa Snickers's Sheep Farm" logo: hand-made glyph masks, carved at runtime with
 //   a bevel, an outline and a 3D extrusion (see buildLogo).
-// - The backdrop comes from Stardew's real title-screen pieces (clouds.png and title_screen.png):
-//   the big cloud bank, the small drifting clouds, the leafy corner bushes (day / sunset / night
-//   versions) and the little flapping birds. These two sheets are only needed here, so the gate
-//   loads them itself instead of making every visit download them at boot. (title_screen.png also
-//   holds the Stardew logo, buttons and other bits we never touch.)
+// - The sky comes from Stardew's real title-screen pieces (clouds.png and title_screen.png): the
+//   big cloud bank, the small drifting clouds and the little flapping birds. These sheets are only
+//   needed here, so the gate loads them itself instead of making every visit download them at
+//   boot. (title_screen.png also holds the Stardew logo, buttons and other bits we never touch.)
 // - Hand-drawn clouds and a bird stay registered as the fallback if the sheets can't load.
+// - Along the bottom: Alamo Square and the Painted Ladies (see the end of the file).
 
+import type { Season } from "../../shared/calendar";
 import { makeCanvas, pixelArt } from "../engine/pixelart";
+import { sheet as spriteSheet } from "../engine/sprites";
+import { GROUND_ATLAS, groundPixels, hash2, type GroundShape } from "../world/world-pixels";
+import { ctx2d, cut, makeCanvasEl, outdoorsSheet, sheetPx } from "../world/world-sheets";
 
 export interface Rect {
   x: number;
@@ -38,17 +42,6 @@ export const TITLE_ART = {
     { x: 260, y: 336, w: 168, h: 116 },
     { x: 115, y: 349, w: 123, h: 82 },
     { x: 20, y: 414, w: 82, h: 46 },
-  ],
-  /** Corner bushes, index 0 = day (green), 1 = sunset (red), 2 = night (blue). */
-  bushLeft: [
-    { x: 0, y: 554, w: 164, h: 142 },
-    { x: 0, y: 707, w: 164, h: 142 },
-    { x: 0, y: 860, w: 164, h: 142 },
-  ],
-  bushRight: [
-    { x: 390, y: 543, w: 122, h: 153 },
-    { x: 390, y: 696, w: 122, h: 153 },
-    { x: 390, y: 849, w: 122, h: 153 },
   ],
 } satisfies Record<string, Rect | Rect[]>;
 
@@ -354,665 +347,522 @@ export function registerPasswordArt(): void {
   ], BIRD_PALETTE);
 }
 
-// ---------- San Francisco, along the bottom of the title screen ----------
+// ---------- Alamo Square, along the bottom of the title screen ----------
 //
-// Hand-drawn (procedurally, pixel by pixel), behind the corner bushes: the Golden Gate Bridge far
-// off in the haze with the headlands and Mt. Tam behind it (Karl the Fog spilling over them), the
-// city's pastel houses climbing its hills (Coit Tower and the Transamerica Pyramid out on wide
-// screens), and Postcard Row (the Painted Ladies) with Alamo Square's lawn right in front. Every
-// layer has day / dawn / dusk / night colors: after dark the towers are floodlit, the roadway's
-// lamps and the city's windows come on, and the Ladies' bay windows glow. Plain fillRects only,
-// seeded so the same screen always gets the same city (it's only repainted when the width changes).
+// Postcard Row: the seven Painted Ladies (710-720 Steiner) stepping down the hill, seen from the
+// lawn of Alamo Square with downtown hazy behind them. The Ladies are pixel art in Pelican Town's
+// own building style (lap siding, fish-scale gables, sash windows, white trim, dark warm outlines),
+// baked together with park pieces lifted from the Pelican Town tilesheets (the park tree, bushes,
+// the lamppost and a bench) into one small sheet per season: sprites/title_alamo_<season>.png
+// (snow on the roofs in winter, pumpkins on the stoops in fall), with two plainer Edwardian
+// neighbors for wide screens. The lawn, the farm's own trees, the sheep and grass tufts come from
+// sheets the farm has already loaded. Everything is painted in daylight at art resolution, then
+// relit for dawn / dusk / night pixel by pixel, with lamplight in the windows and the lamppost
+// after dark.
 
 export type TitlePhase = "dawn" | "day" | "dusk" | "night";
 
-/** The bits of a 2D context the SF art uses. */
-type Pen = Pick<CanvasRenderingContext2D, "fillRect"> & { fillStyle: CanvasRenderingContext2D["fillStyle"] };
-
-type RGB = [number, number, number];
-function rgbOf(hex: string): RGB {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-function hexOf([r, g, b]: RGB): string {
-  const c = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
-  return `#${((1 << 24) | (c(r) << 16) | (c(g) << 8) | c(b)).toString(16).slice(1)}`;
-}
-/** `a` moved toward `b` by t (0..1). */
-function mix(a: string, b: string, t: number): string {
-  const A = rgbOf(a);
-  const B = rgbOf(b);
-  return hexOf([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t]);
+/** The title page's own sheet for a season (only the title page loads it). */
+export function alamoSheet(season: Season): string {
+  return `sprites/title_alamo_${season}.png`;
 }
 
-/** A tiny seeded random (mulberry32), so the city and its lit windows don't change from visit to visit. */
-function seeded(seed: number): () => number {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+/** A Lady's cell in the sheet (cell i at x = i * CELL_W); her lamplit windows are one row down. */
+const CELL_W = 64;
+const CELL_H = 122;
+/** Inside a cell: the row of sidewalk she stands on (her front steps run on a few rows past it). */
+const FOOT = 116;
+/** Neighbors share a party wall, so each Lady starts 61 px after the last. */
+const PITCH = 61;
+/** How far each Lady steps down the hill from the one on her left. */
+const STEP = 4;
+const LADIES = 7;
+/** Cells 7 and 8: the flat-fronted Edwardian neighbors either side of the row (wide screens). */
+const NEIGHBOR_CELLS = [7, 8] as const;
+/** The whole row, cell edge to cell edge. */
+const ROW_W = (LADIES - 1) * PITCH + CELL_W;
 
-/** A smooth hump: h at x = c, falling to 0 at c +- w. */
-function hump(x: number, c: number, w: number, h: number): number {
-  const d = (x - c) / w;
-  return d <= -1 || d >= 1 ? 0 : h * (0.5 + 0.5 * Math.cos(Math.PI * d));
-}
+/** Park pieces in the sheet (lifted from Pelican Town), and downtown with its lit windows. */
+const PIECE = {
+  tree: { x: 0, y: 244, w: 66, h: 110 },
+  bushBig: { x: 66, y: 244, w: 48, h: 48 },
+  bushSmall: { x: 114, y: 244, w: 32, h: 32 },
+  lamp: { x: 146, y: 244, w: 16, h: 64 },
+  lampLit: { x: 162, y: 244, w: 16, h: 16 },
+  bench: { x: 178, y: 244, w: 30, h: 26 },
+  cobble: { x: 178, y: 270, w: 32, h: 32 },
+  skyline: { x: 210, y: 244, w: 256, h: 76 },
+  skylineLit: { x: 210, y: 320, w: 256, h: 76 },
+} satisfies Record<string, Rect>;
 
-// ----- the bay: headlands, Mt. Tam, the water and the bridge -----
+/** Downtown sits this many rows above the lowest Lady's sidewalk (its feet hide behind the row). */
+const SKY_FOOT = 58;
+/** ...and starts this far right of the row's left edge (the Pyramid peeks between Ladies 3 and 4). */
+const SKY_DX = 112;
 
-/** The bay canvas height, and where things sit in it (rows from the bottom). */
-export const BAY = {
-  h: 150,
-  /** The water line. */
-  water: 92,
-  /** Main span between the towers' centers, and tower height above the water. */
-  span: 112,
-  tower: 44,
-  /** The roadway's height above the water. */
-  deck: 12,
+/** The farm's trees.png columns per season, and the two kinds the park gets. */
+const TREE_SEASON_X: Record<Season, number> = { spring: 0, summer: 146, fall: 292, winter: 438 };
+const FARM_TREES = {
+  oak: { y: 0, w: 48, h: 84, winterH: 84 },
+  maple: { y: 160, w: 48, h: 82, winterH: 84 },
 } as const;
+/** grass.png tuft rows per season (three 15x20 variants side by side). */
+const TUFT_ROW: Record<Season, number> = { spring: 0, summer: 20, fall: 40, winter: 80 };
 
-interface BayColors {
-  far: string;
-  farTop: string;
-  hill: string;
-  hillTop: string;
-  hillShade: string;
-  water: string;
-  shine: string;
-  lit: string;
-  shade: string;
-  dark: string;
-  cable: string;
-  hanger: string;
-  pier: string;
-  lamp: string | null;
+/** The lawn: rows of it in front of the lowest Lady (and the most it ever gets). */
+const LAWN_MIN = 16;
+const LAWN_MAX = 96;
+/** ...and the furthest the row may sink below the bottom edge when nothing else fits. */
+const LAWN_FLOOR = -6;
+
+/** Each Lady's silhouette (first opaque row per cell column) and downtown's, read from the sheet. */
+interface Tops {
+  ladies: number[][];
+  sky: number[];
 }
+const topsCache = new WeakMap<HTMLImageElement, Tops>();
 
-const BAY_COLORS: Record<TitlePhase, BayColors> = {
-  day: {
-    far: "#b3d0de", farTop: "#c3dbe6", hill: "#93b9b9", hillTop: "#a6c7c3", hillShade: "#85adb0",
-    water: "#a9d2ea", shine: "#d2ecf8",
-    lit: "#d8604a", shade: "#b0483e", dark: "#8c3c3c", cable: "#b44e44", hanger: "#cf968e", pier: "#a3b6c2", lamp: null,
-  },
-  dawn: {
-    far: "#cdb8cf", farTop: "#dac7d8", hill: "#ab9cb4", hillTop: "#bcaec2", hillShade: "#9e90aa",
-    water: "#ecc8cc", shine: "#fbe2dc",
-    lit: "#dc664e", shade: "#b44c44", dark: "#8e4048", cable: "#b8524a", hanger: "#d6a0a0", pier: "#c4b4c4", lamp: null,
-  },
-  dusk: {
-    far: "#b6809c", farTop: "#c48ea6", hill: "#8f5f84", hillTop: "#9e6c8e", hillShade: "#835578",
-    water: "#f0aa8c", shine: "#ffd4a6",
-    lit: "#bc4a40", shade: "#923840", dark: "#6c2c40", cable: "#9e4044", hanger: "#bf7480", pier: "#9a7090", lamp: "#ffcf86",
-  },
-  night: {
-    far: "#2c3368", farTop: "#343c72", hill: "#232a5a", hillTop: "#2a3262", hillShade: "#1f2552",
-    water: "#2c3572", shine: "#4c5898",
-    // Floodlit towers, glowing roadway lights.
-    lit: "#eda05c", shade: "#bf6e40", dark: "#5c3444", cable: "#a2643e", hanger: "#5a3e52", pier: "#3c4276", lamp: "#ffd27a",
-  },
-};
-
-/**
- * The Golden Gate in the haze: Mt. Tam and the East Bay hills far behind, the headlands on both
- * shores, the water, and the bridge, centered on column `cx` of a w x BAY.h canvas.
- */
-export function paintBay(ctx: Pen, w: number, cx: number, phase: TitlePhase): void {
-  const C = BAY_COLORS[phase];
-  const H = BAY.h;
-  const wy = H - BAY.water; // the water line (top-down row)
-  const put = (x: number, y: number, ww: number, hh: number, color: string) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, ww, hh);
-  };
-
-  // Far hills: Mt. Tam's long ridge up behind the north (right) shore, low East Bay hills
-  // through the gap, and a soft roll along both sides for wide screens.
-  const far = (x: number) => {
-    const d = x - cx;
-    return Math.round(
-      hump(d, 150, 120, 30) + hump(d, 205, 50, 6) + hump(d, 92, 70, 12) + hump(d, -10, 90, 7) + hump(d, -150, 120, 10) + 3 + 2 * Math.sin(x * 0.021),
-    );
-  };
-  // The headlands: the Presidio bluff on the left, the Marin headlands (taller) on the right,
-  // open water under the main span.
-  const nearRaw = (x: number) => {
-    const d = x - cx;
-    const marin = hump(d, 116, 34, 21) + hump(d, 160, 48, 15) + hump(d, 228, 70, 9);
-    const presidio = hump(d, -112, 30, 13) + hump(d, -160, 50, 8) + hump(d, -240, 80, 5);
-    return marin + presidio + (Math.abs(d) > 120 ? Math.max(0, 2 * Math.sin(x * 0.05)) : 0);
-  };
-  const near = (x: number) => Math.round(nearRaw(x));
-  const fogTint = phase === "night" ? "rgba(150,162,214,0.22)" : phase === "dusk" ? "rgba(255,226,214,0.3)" : "rgba(255,255,255,0.34)";
-  for (let x = 0; x < w; x++) {
-    const f = far(x);
-    if (f > 0) {
-      put(x, wy - f, 1, f, C.far);
-      put(x, wy - f, 1, 1, C.farTop);
-    }
-    const n = near(x);
-    if (n > 0) {
-      // The slopes facing away from the (left) light are a shade darker.
-      const away = nearRaw(x + 2) - nearRaw(x - 2) < -0.6;
-      put(x, wy - n, 1, n, away ? C.hillShade : C.hill);
-      put(x, wy - n, 1, 1, C.hillTop);
-      // Karl the Fog, spilling over the Marin headlands: soft, dithered, see-through.
-      const d = x - cx;
-      const blanket = Math.round(hump(d, 150, 64, 5) + hump(d, 210, 36, 3));
-      for (let k = 0; k < blanket; k++) {
-        const y = wy - n + 1 - k;
-        if (k >= blanket - 2 && (x + y) % 2) continue;
-        ctx.fillStyle = fogTint;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-  }
-
-  // The water, with a few glints.
-  put(0, wy, w, H - wy, C.water);
-  const rnd = seeded(7);
-  for (let y = wy + 2; y < H; y += 3) {
-    for (let x = Math.floor(rnd() * 20); x < w; x += 14 + Math.floor(rnd() * 26)) put(x, y, 2 + Math.floor(rnd() * 4), 1, C.shine);
-  }
-
-  // ----- the bridge -----
-  const deckY = wy - BAY.deck; // the roadway's top row
-  const topY = wy - BAY.tower; // the towers' top row
-  const half = BAY.span / 2;
-  const anchor = half + 36; // where the side-span cables come down
-  const roadEnd = anchor + 12;
-
-  // Cables first (towers and roadway go over them).
-  let prev = -1;
-  const cable = (x: number, y: number) => {
-    // Keep the line connected: fill straight down/up to the last column's height.
-    const y0 = prev < 0 ? y : Math.min(prev + 1, y);
-    const y1 = prev < 0 ? y : Math.max(prev - 1, y);
-    put(x, Math.min(y0, y), 1, Math.abs(y1 - y0) + 1, C.cable);
-    prev = y;
-  };
-  // Main span: a parabola from tower top to tower top, nearly touching the road in the middle.
-  const sag = deckY - 2 - (topY + 1);
-  const mainY = (x: number) => Math.round(topY + 1 + sag * (1 - ((x - cx) / half) ** 2));
-  prev = -1;
-  for (let x = cx - half; x <= cx + half; x++) cable(x, mainY(x));
-  // Side spans: down from each tower top to its anchorage, with a gentle sag.
-  const sideY = (t: number) => Math.round(topY + 1 + (deckY - 1 - (topY + 1)) * t + 3 * t * (1 - t));
-  for (const dir of [-1, 1]) {
-    prev = -1;
-    for (let i = 0; i <= anchor - half; i++) cable(cx + dir * (half + i), sideY(i / (anchor - half)));
-  }
-  // Hangers: the fine vertical lines from the cables down to the road.
-  for (let x = cx - half + 3; x <= cx + half - 3; x += 3) {
-    const y = mainY(x) + 1;
-    if (y < deckY) put(x, y, 1, deckY - y, C.hanger);
-  }
-  for (const dir of [-1, 1]) {
-    for (let i = 3; i < anchor - half - 2; i += 3) {
-      const y = sideY(i / (anchor - half)) + 1;
-      if (y < deckY) put(cx + dir * (half + i), y, 1, deckY - y, C.hanger);
-    }
-  }
-
-  // The roadway, its truss, and the approach piers on each shore.
-  put(cx - roadEnd, deckY, roadEnd * 2 + 1, 1, C.lit);
-  put(cx - roadEnd, deckY + 1, roadEnd * 2 + 1, 1, C.dark);
-  for (const dir of [-1, 1]) {
-    for (const off of [anchor, anchor + 6, anchor + 11]) {
-      const x = cx + dir * off;
-      const ground = wy - near(x);
-      if (ground > deckY + 2) put(x, deckY + 2, 1, ground - deckY - 2, C.dark);
-    }
-    // The anchorage block where the cables come down.
-    put(cx + dir * anchor - 1, deckY - 1, 3, 4, C.pier);
-  }
-
-  // The towers: two legs tied by portal struts, on concrete piers.
-  for (const dir of [-1, 1]) {
-    const tx = cx + dir * half; // tower center column
-    const l = tx - 3;
-    put(tx - 4, wy - 3, 8, 3, C.pier);
-    put(l, topY, 2, wy - 3 - topY, C.lit); // the sunny leg
-    put(l + 4, topY, 2, wy - 3 - topY, C.shade); // the shaded leg
-    put(l + 2, topY + 2, 2, wy - 3 - topY - 2, mix(C.dark, C.far, 0.25)); // see-through gap (dim)
-    // Portal struts: a deep cap, then lighter ones stepping down to the road.
-    put(l, topY, 6, 2, C.lit);
-    put(l + 1, topY - 1, 4, 1, C.shade); // the cap's little crown
-    for (const s of [9, 17, 24]) put(l + 2, topY + s, 2, 1, C.lit);
-    put(l + 2, deckY + 6, 2, 1, C.shade); // a strut under the road
-    // Each leg steps in a little as it rises (the towers' setbacks).
-    put(l, topY + 2, 1, 6, C.shade);
-    put(l + 5, topY + 2, 1, 6, C.dark);
-  }
-
-  // The roadway's lamps after dark (the towers' red beacons blink in password.css).
-  if (C.lamp) {
-    for (let x = cx - roadEnd + 1; x <= cx + roadEnd; x += 3) put(x, deckY - 1, 1, 1, C.lamp);
-  }
-}
-
-// ----- the fog -----
-
-/** Karl the Fog: a long, soft wisp that drifts through the Gate (w x h, mostly see-through). */
-export function paintFog(ctx: Pen, w: number, h: number, phase: TitlePhase, seed: number): void {
-  const base = { day: [255, 255, 255], dawn: [255, 236, 232], dusk: [255, 222, 206], night: [160, 172, 222] }[phase];
-  const rnd = seeded(seed);
-  const lumps = Array.from({ length: 5 }, () => ({ c: rnd() * w, wd: w * (0.15 + rnd() * 0.25), hh: h * (0.5 + rnd() * 0.5) }));
-  const mid = Math.floor(h * 0.62);
-  for (let x = 0; x < w; x++) {
-    // Thicker in the middle, wispy at the ends, with a few lumps on top.
-    const env = Math.sin((Math.PI * (x + 0.5)) / w) ** 0.8;
-    let up = h * 0.25 * env;
-    for (const k of lumps) up = Math.max(up, hump(x, k.c, k.wd, k.hh) * env);
-    const down = (h - mid) * env;
-    const top = Math.round(mid - up);
-    const bot = Math.round(mid + down);
-    for (let y = top; y < bot; y++) {
-      const edge = Math.min(y - top, bot - 1 - y);
-      // Dithered edges, a denser core.
-      const a = edge <= 0 ? ((x + y) % 2 ? 0 : 0.28) : edge === 1 ? 0.34 : 0.46;
-      if (!a) continue;
-      ctx.fillStyle = `rgba(${base[0]},${base[1]},${base[2]},${a * Math.min(1, env * 1.6)})`;
-      ctx.fillRect(x, y, 1, 1);
-    }
-  }
-}
-
-// ----- the city -----
-
-/** The rooftops canvas height (rows from the bottom). */
-export const CITY_H = 90;
-
-interface CityLight {
-  /** The air the far-off houses fade into, and how much. */
-  haze: string;
-  amount: number;
-  /** Window dots: unlit, lit, and the share that are lit. */
-  win: string;
-  lit: string;
-  litShare: number;
-}
-const CITY_LIGHT: Record<TitlePhase, CityLight> = {
-  day: { haze: "#b2c9db", amount: 0.6, win: "#8fa9c0", lit: "#8fa9c0", litShare: 0 },
-  dawn: { haze: "#cdb5ca", amount: 0.62, win: "#a993ae", lit: "#ffd9a6", litShare: 0.05 },
-  dusk: { haze: "#a07294", amount: 0.68, win: "#7e5878", lit: "#ffc27a", litShare: 0.2 },
-  night: { haze: "#202657", amount: 0.84, win: "#191e47", lit: "#f3c46a", litShare: 0.3 },
-};
-
-/** San Francisco's houses come in every pastel (and white). */
-const CITY_PASTELS = ["#ffffff", "#fff0c4", "#ffd6de", "#d6eaff", "#dcf2d4", "#efe0ff", "#ffe2c8", "#ffffff"];
-
-/**
- * The city on its hills: rows of little pastel houses climbing up and down, a few trees, Coit
- * Tower on Telegraph Hill and the Transamerica Pyramid downtown (for wide screens), all in haze.
- */
-export function paintCity(ctx: Pen, w: number, cx: number, phase: TitlePhase): void {
-  const C = CITY_LIGHT[phase];
-  const H = CITY_H;
-  const haze = (c: string, more = 0) => mix(c, C.haze, Math.min(1, C.amount + more));
-  const put = (x: number, y: number, ww: number, hh: number, c: string) => {
-    if (ww <= 0 || hh <= 0) return;
-    ctx.fillStyle = c;
-    ctx.fillRect(x, y, ww, hh);
-  };
-  const lit = (r: number) => r < C.litShare;
-  // The skyline's hills (rows above the bottom), always from the same origin so the city is the
-  // same city whatever the width.
-  const hill = (x: number) => {
-    const d = x - cx;
-    return (
-      44 +
-      5 * Math.sin(x * 0.0093 + 0.7) +
-      4 * Math.sin(x * 0.027 + 2.1) +
-      hump(d, -150, 80, 9) + // Pacific Heights
-      hump(d, 196, 34, 12) + // Telegraph Hill
-      hump(d, 120, 40, 6) - // Russian Hill
-      hump(d, 30, 70, 6) // down toward the Marina
-    );
-  };
-  const treeish = (x: number) => {
-    const d = x - cx;
-    return hump(d, -64, 52, 0.8) + hump(d, -420, 90, 0.7) + 0.08; // the Presidio, Golden Gate Park
-  };
-  const TREE = haze("#5f9a6a", -0.08);
-  const TREE_TOP = haze("#86bb84", -0.08);
-  // (Far enough left to start off-screen even on a very wide, very short window.)
-  const origin = cx - 1600 * Math.max(1, Math.ceil((cx + 8) / 1600));
-  const rnd = seeded(1906);
-
-  /** One row of houses along the hill, `down` rows below its crest. */
-  const row = (down: number) => {
-    let x = origin - Math.floor(rnd() * 6);
-    while (x < w) {
-      const hw = 4 + Math.floor(rnd() * 6);
-      const hh = 4 + Math.floor(rnd() * 4);
-      const r1 = rnd();
-      const r2 = rnd();
-      const r3 = rnd();
-      if (x + hw >= 0) {
-        const base = H - Math.round(hill(x + hw / 2) - down * 5);
-        if (r1 < treeish(x) * 0.6) {
-          // A tree: a round, lumpy crown.
-          const tw = hw + 1;
-          put(x, base - hh - 1, tw, H, TREE);
-          put(x + 1, base - hh - 2, tw - 2, 1, TREE);
-          put(x + 1, base - hh - 2, Math.max(1, tw - 4), 1, TREE_TOP);
-          put(x, base - hh - 1, 2, 1, TREE_TOP);
-        } else {
-          const body = haze(CITY_PASTELS[Math.floor(r2 * CITY_PASTELS.length)]!);
-          const top = base - hh;
-          put(x, top, hw, H, body);
-          put(x, top, hw, 1, mix(body, phase === "night" ? "#4a5290" : "#ffffff", 0.4)); // sunny roof edge
-          put(x + hw - 1, top + 1, 1, H, mix(body, C.haze, 0.5)); // its shady side
-          // A window (two on the wider houses), sometimes none.
-          if (r3 > 0.15) {
-            const wy = top + 2 + (r3 > 0.6 ? 1 : 0);
-            put(x + 1 + Math.floor(r3 * 3) % Math.max(1, hw - 2), wy, 1, 1, lit(r3) ? C.lit : C.win);
-            if (hw >= 7) put(x + hw - 3, wy, 1, 1, lit((r3 * 7.3) % 1) ? C.lit : C.win);
-          }
+function topsOf(img: HTMLImageElement): Tops {
+  const hit = topsCache.get(img);
+  if (hit) return hit;
+  const scan = (r: Rect): number[] => {
+    const c = makeCanvasEl(r.w, r.h);
+    const ctx = ctx2d(c, true);
+    ctx.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+    const d = ctx.getImageData(0, 0, r.w, r.h).data;
+    const top: number[] = [];
+    for (let x = 0; x < r.w; x++) {
+      let t = r.h;
+      for (let y = 0; y < r.h; y++) {
+        if (d[(y * r.w + x) * 4 + 3]! > 0) {
+          t = y;
+          break;
         }
       }
-      x += hw;
+      top.push(t);
     }
+    return top;
   };
-
-  // Back rows first (up on the crest), each next row a step lower and in front.
-  const rows = Math.ceil(70 / 5);
-  for (let down = 0; down < rows; down++) {
-    row(down);
-    if (down === 0) landmarks(ctx, cx, H - Math.round(hill(cx + 196)), H - Math.round(hill(cx + 300)), haze, phase);
+  let tops: Tops;
+  try {
+    tops = {
+      ladies: Array.from({ length: LADIES + NEIGHBOR_CELLS.length }, (_, i) => scan({ x: i * CELL_W, y: 0, w: CELL_W, h: CELL_H })),
+      sky: scan(PIECE.skyline),
+    };
+  } catch {
+    // No readback (shouldn't happen, same origin): assume full cells.
+    tops = { ladies: Array.from({ length: LADIES + NEIGHBOR_CELLS.length }, () => new Array<number>(CELL_W).fill(0)), sky: new Array<number>(PIECE.skyline.w).fill(0) };
   }
+  topsCache.set(img, tops);
+  return tops;
 }
 
-/** Coit Tower on Telegraph Hill and the Transamerica Pyramid, tiny and hazy, right of the bridge. */
-function landmarks(ctx: Pen, cx: number, coitBase: number, pyramidBase: number, haze: (c: string, more?: number) => string, phase: TitlePhase): void {
-  const put = (x: number, y: number, ww: number, hh: number, c: string) => {
-    ctx.fillStyle = c;
-    ctx.fillRect(x, y, ww, hh);
-  };
-  const stone = haze("#fbf3e0", -0.15);
-  const stoneShade = haze("#cfc4b0", -0.15);
-  // Coit Tower: a fluted column with a crown of arches.
-  const tx = cx + 196;
-  put(tx - 2, coitBase - 15, 4, 15, stone);
-  put(tx + 1, coitBase - 15, 1, 15, stoneShade);
-  put(tx - 3, coitBase - 17, 6, 2, stone);
-  put(tx - 2, coitBase - 18, 4, 1, stoneShade);
-  put(tx - 1, coitBase - 16, 1, 1, phase === "night" ? "#f3c46a" : stoneShade);
-  // The Transamerica Pyramid with its downtown neighbors.
-  const px = cx + 300;
-  const tower = haze("#dfe8f0", -0.1);
-  const towerShade = haze("#aebdcc", -0.1);
-  for (const [dx, tw, th] of [
-    [-16, 7, 22],
-    [-9, 6, 28],
-    [8, 8, 25],
-    [16, 6, 18],
-  ] as const) {
-    put(px + dx, pyramidBase - th, tw, th, tower);
-    put(px + dx + tw - 1, pyramidBase - th, 1, th, towerShade);
-    for (let y = pyramidBase - th + 2; y < pyramidBase; y += 3) put(px + dx + 1, y, tw - 3, 1, towerShade);
-  }
-  const ph = 40;
-  for (let y = 0; y < ph; y++) {
-    const half = Math.floor((y / ph) * 4);
-    put(px - half, pyramidBase - ph + y, half * 2 + 1, 1, stone);
-    if (half) put(px + half, pyramidBase - ph + y, 1, 1, stoneShade);
-  }
-  put(px, pyramidBase - ph - 4, 1, 4, stone); // the spire
-  if (phase === "night" || phase === "dusk") put(px, pyramidBase - ph - 5, 1, 1, "#ff6a5a");
+/** Where everything goes, in art px, for a canvas `w` wide. */
+export interface AlamoPlan {
+  w: number;
+  h: number;
+  /** Rows of lawn in front of the lowest Lady's sidewalk. */
+  lawn: number;
+  /** The lowest (rightmost) Lady's sidewalk row. */
+  foot: number;
+  /** Lady 0's cell's left edge. */
+  rowX: number;
+  /** Wide screens: all seven Ladies, with the park's trees beside the row instead of in front of it. */
+  wide: boolean;
+  /** Spots for the grazing sheep (frame's left/top, art px) and which way they face. */
+  sheep: { x: number; y: number; flip: boolean; front: boolean }[];
 }
 
-// ----- Postcard Row -----
-
-/** One Painted Lady's width (they stand shoulder to shoulder) and the lowest one's peak. */
-const LADY_W = 24;
-const LADY_H = 58;
-/** How far each house steps down the hill from the one on its left. */
-const LADY_STEP = 2;
-const LADIES = 7;
-/** Alamo Square's lawn runs on past the end houses, then rolls away. */
-const LAWN_MARGIN = 22;
-/** Where the lawn meets a house (rows down from her peak). */
-const LAWN_AT = 50;
-/** The whole row's canvas size. */
-export const LADIES_W = LADIES * LADY_W + LAWN_MARGIN * 2;
-export const LADIES_H = LADY_H + (LADIES - 1) * LADY_STEP;
-
-/** [body, accent] for each house, left to right. */
-const LADY_PAINT: [string, string][] = [
-  ["#9fd6bd", "#e0786a"], // mint, coral
-  ["#bba5de", "#f0bf4c"], // lavender, gold
-  ["#f3a7b9", "#5f9cc6"], // pink, blue
-  ["#f4d779", "#7aae6c"], // butter, green
-  ["#9cc4ec", "#e9875a"], // sky, orange
-  ["#f6b98e", "#8a7bc8"], // peach, violet
-  ["#b9d08e", "#d06e8a"], // sage, rose
-];
-
-const TRIM = "#fff6e2";
-const TRIM_SHADE = "#e3d3b6";
-const OUTLINE = "#4a3350";
-const DOOR = "#6e4230";
-
-/** Shift a daylight color into the phase's light. */
-function inLight(c: string, phase: TitlePhase): string {
-  switch (phase) {
-    case "dawn":
-      return mix(c, "#ffc7bc", 0.14);
-    case "dusk":
-      return mix(c, "#6a3a6e", 0.34);
-    case "night":
-      return mix(c, "#151a46", 0.64);
-    default:
-      return c;
-  }
+/**
+ * The houses along the street, left to right: [sheet cell, place in the row] (the Ladies are 0-6;
+ * on wide screens a neighbor stands either side, at -1 and 7).
+ */
+function houses(wide: boolean): [number, number][] {
+  const row: [number, number][] = Array.from({ length: LADIES }, (_, i) => [i, i]);
+  return wide ? [[NEIGHBOR_CELLS[0], -1], ...row, [NEIGHBOR_CELLS[1], LADIES]] : row;
 }
 
-/** The house's peak row for house i (they step down the hill to the right). */
-const ladyTop = (i: number) => LADIES_H - LADY_H - (LADIES - 1 - i) * LADY_STEP;
-
-/** The Painted Ladies: seven Queen Annes stepping down the hill, Alamo Square's lawn in front. */
-export function paintLadies(ctx: Pen, phase: TitlePhase): void {
-  const rnd = seeded(710); // 710 Steiner
-  for (let i = 0; i < LADIES; i++) {
-    const [body, accent] = LADY_PAINT[i]!;
-    paintLady(ctx, LAWN_MARGIN + i * LADY_W, ladyTop(i), body, accent, phase, rnd);
-  }
-  paintLawn(ctx, phase);
-}
-
-/** The park's lawn: it follows the street down the hill and rolls off past both ends. */
-function paintLawn(ctx: Pen, phase: TitlePhase): void {
-  const grass = inLight("#86c35e", phase);
-  const crest = inLight("#a8d873", phase);
-  const tuft = inLight("#6dab4f", phase);
-  const deep = inLight("#5e9a48", phase);
-  const rnd = seeded(1857);
-  const H = LADIES_H;
-  const housesW = LADIES * LADY_W;
-  const tops: number[] = [];
-  for (let x = 0; x < LADIES_W; x++) {
-    // The street line, as a smooth slope through each house's lawn row.
-    const t = (x - LAWN_MARGIN) / LADY_W - 0.5;
-    let top = ladyTop(0) + LAWN_AT + t * LADY_STEP;
-    // Past the houses, the lawn rounds off down to the bottom edge.
-    const out = x < LAWN_MARGIN ? LAWN_MARGIN - x : x >= LAWN_MARGIN + housesW ? x - LAWN_MARGIN - housesW + 1 : 0;
-    if (out) top += (H - top) * (1 - Math.cos((Math.PI / 2) * (out / LAWN_MARGIN)));
-    const y = Math.round(top);
-    if (y >= H) {
-      tops.push(H);
-      continue;
+/** How far the art rises above the lowest Lady's sidewalk, column by column. */
+function riseProfile(w: number, rowX: number, tops: Tops, wide: boolean): number[] {
+  const rise = new Array<number>(w).fill(0);
+  const hs = houses(wide);
+  for (let x = 0; x < w; x++) {
+    let r = 0;
+    for (const [cell, i] of hs) {
+      const cx = x - (rowX + i * PITCH);
+      if (cx < 0 || cx >= CELL_W) continue;
+      const t = tops.ladies[cell]![cx]!;
+      if (t < CELL_H) r = Math.max(r, FOOT - t + (LADIES - 1 - i) * STEP);
     }
-    ctx.fillStyle = grass;
-    ctx.fillRect(x, y, 1, H - y);
-    ctx.fillStyle = crest;
-    ctx.fillRect(x, y, 1, 1);
-    // Tufts and a little shading toward the bottom.
-    for (let yy = y + 2; yy < H; yy++) {
-      const r = rnd();
-      if (r < 0.08) {
-        ctx.fillStyle = tuft;
-        ctx.fillRect(x, yy, 1, 1);
-      } else if (yy > H - 4 && r < 0.4) {
-        ctx.fillStyle = deep;
-        ctx.fillRect(x, yy, 1, 1);
+    const sx = x - (rowX + SKY_DX);
+    if (sx >= 0 && sx < PIECE.skyline.w) {
+      const t = tops.sky[sx]!;
+      if (t < PIECE.skyline.h) r = Math.max(r, SKY_FOOT + PIECE.skyline.h - t);
+    }
+    rise[x] = r;
+  }
+  return rise;
+}
+
+/**
+ * Lay the scene out for a canvas `w` art px wide. `room` is how many rows there are between the
+ * bottom of the screen and the dialog box over columns [dl, dr) (the scene must stay below it there),
+ * and `target` the height the scene would like to be. Returns the plan and whether it fits.
+ */
+export function planAlamo(img: HTMLImageElement, w: number, room: number, dl: number, dr: number, target: number, sink = false): { plan: AlamoPlan; fits: boolean } {
+  const tops = topsOf(img);
+  const wide = w >= ROW_W + 2 * PITCH + 60;
+  // Center the row on the middle Lady (on a phone, the ones at the ends run off the edges).
+  const rowX = Math.round(w / 2 - ROW_W / 2);
+  const rise = riseProfile(w, rowX, tops, wide);
+  const maxRise = Math.max(...rise);
+  let under = 0;
+  for (let x = Math.max(0, dl); x < Math.min(w, dr); x++) under = Math.max(under, rise[x]!);
+  const fitLawn = room - under;
+  const want = Math.max(LAWN_MIN, Math.min(LAWN_MAX, target - maxRise));
+  const lawn = Math.min(want, fitLawn);
+  const fits = lawn >= LAWN_MIN;
+  // Out of other options (the smallest pixel size we'll go to), the row may sink a little below
+  // the bottom edge instead of reaching up under the box: the lawn, then the steps, go first.
+  const lawnRows = fits ? lawn : sink ? Math.max(LAWN_FLOOR, lawn) : LAWN_MIN;
+  const h = maxRise + lawnRows + 1;
+  const foot = h - lawnRows;
+  // Sheep graze on the lawn when there's room for them.
+  const sheep: AlamoPlan["sheep"] = [];
+  if (lawnRows >= 48 && !wide) {
+    // One up on the grass above the path, one down by the bottom edge (see the path in paintAlamo).
+    sheep.push({ x: Math.round(w * 0.1), y: h - Math.round(lawnRows * 0.3) - 40, flip: false, front: true });
+    if (w >= 240) sheep.push({ x: Math.round(w * 0.64), y: h - 38, flip: true, front: false });
+  } else if (wide) {
+    sheep.push({ x: rowX - PITCH - 84, y: h - 33, flip: false, front: true });
+    sheep.push({ x: rowX + ROW_W + PITCH + 38, y: h - 31, flip: true, front: false });
+  }
+  return { plan: { w, h, lawn: lawnRows, foot, rowX, wide, sheep }, fits };
+}
+
+/** A Lady's sidewalk row (they step down the hill to the right). */
+const ladyFoot = (plan: AlamoPlan, i: number) => plan.foot - (LADIES - 1 - i) * STEP;
+
+/** The sidewalk's line: a straight slope through the Ladies' feet, carried on past both ends. */
+function slopeY(plan: AlamoPlan, x: number): number {
+  const t = (x - (plan.rowX + 2 + PITCH / 2)) / PITCH;
+  return Math.round(ladyFoot(plan, 0) + t * STEP);
+}
+
+/** Relight daylight pixels for the time of day (in place). */
+function relight(d: Uint8ClampedArray, phase: TitlePhase): void {
+  if (phase === "day") return;
+  // [multiply r, g, b] then [add r, g, b]
+  const m =
+    phase === "night"
+      ? [0.3, 0.34, 0.56, 8, 10, 30]
+      : phase === "dusk"
+        ? [1.02, 0.78, 0.6, 14, 4, 6]
+        : [0.86, 0.78, 0.88, 14, 6, 18];
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    d[i] = d[i]! * m[0]! + m[3]!;
+    d[i + 1] = d[i + 1]! * m[1]! + m[4]!;
+    d[i + 2] = d[i + 2]! * m[2]! + m[5]!;
+  }
+}
+
+/** Raw pixels of a piece of the sheet (cached per image). */
+const pieceCache = new WeakMap<HTMLImageElement, Map<string, ImageData>>();
+function piecePx(img: HTMLImageElement, r: Rect): ImageData | null {
+  let m = pieceCache.get(img);
+  if (!m) pieceCache.set(img, (m = new Map()));
+  const k = `${r.x},${r.y},${r.w},${r.h}`;
+  const hit = m.get(k);
+  if (hit) return hit;
+  try {
+    const c = makeCanvasEl(r.w, r.h);
+    const ctx = ctx2d(c, true);
+    ctx.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+    const d = ctx.getImageData(0, 0, r.w, r.h);
+    m.set(k, d);
+    return d;
+  } catch {
+    return null;
+  }
+}
+
+/** Relight a whole canvas for the time of day. */
+function relightCanvas(c: HTMLCanvasElement, phase: TitlePhase): void {
+  if (phase === "day") return;
+  const ctx = ctx2d(c, true);
+  const d = ctx.getImageData(0, 0, c.width, c.height);
+  relight(d.data, phase);
+  ctx.putImageData(d, 0, 0);
+}
+
+/** Paint Alamo Square into `c` (sized to the plan) for a time of day and season. */
+export function paintAlamo(c: HTMLCanvasElement, img: HTMLImageElement, plan: AlamoPlan, phase: TitlePhase, season: Season): void {
+  const { w, h } = plan;
+  if (c.width !== w || c.height !== h) {
+    c.width = w;
+    c.height = h;
+  }
+  const out = ctx2d(c, true);
+  out.clearRect(0, 0, w, h);
+  // Two layers, each relit before its own lights go on: downtown far behind, and everything else.
+  const back = makeCanvasEl(w, h);
+  const front = makeCanvasEl(w, h);
+  let ctx = ctx2d(back, true);
+  const piece = (r: Rect, x: number, y: number, flip = false) => {
+    if (!flip) {
+      ctx.drawImage(img, r.x, r.y, r.w, r.h, x, y, r.w, r.h);
+      return;
+    }
+    ctx.save();
+    ctx.translate(x + r.w, y);
+    ctx.scale(-1, 1);
+    ctx.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+    ctx.restore();
+  };
+  const farm = (src: HTMLCanvasElement | null, x: number, y: number, flip = false) => {
+    if (!src) return;
+    if (!flip) {
+      ctx.drawImage(src, x, y);
+      return;
+    }
+    ctx.save();
+    ctx.translate(x + src.width, y);
+    ctx.scale(-1, 1);
+    ctx.drawImage(src, 0, 0);
+    ctx.restore();
+  };
+  const seed = 0xa1a0;
+  const lamps: { x: number; foot: number }[] = [];
+
+  // ----- far: downtown -----
+  const skyX = plan.rowX + SKY_DX;
+  const skyY = plan.foot - SKY_FOOT - PIECE.skyline.h;
+  piece(PIECE.skyline, skyX, skyY);
+  relightCanvas(back, phase);
+  if (phase === "night" || phase === "dusk") {
+    // Downtown's glow on the haze behind it.
+    const gx = skyX + PIECE.skyline.w / 2;
+    const gy = plan.foot - SKY_FOOT;
+    // Fades out before the canvas top, or its edge shows as a line across the night sky.
+    const reach = Math.max(8, Math.min(PIECE.skyline.w * 0.6, gy - 1));
+    const grad = ctx.createRadialGradient(gx, gy, 4, gx, gy, reach);
+    grad.addColorStop(0, phase === "night" ? "rgba(255, 170, 120, 0.22)" : "rgba(255, 220, 170, 0.18)");
+    grad.addColorStop(1, "rgba(255, 170, 120, 0)");
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-over";
+    ctx.fillStyle = grad;
+    ctx.fillRect(gx - PIECE.skyline.w, gy - PIECE.skyline.w, PIECE.skyline.w * 2, PIECE.skyline.w * 2);
+    ctx.restore();
+  }
+  if (phase === "night") piece(PIECE.skylineLit, skyX, skyY);
+
+  // ----- near: the row, the street and the park -----
+  ctx = ctx2d(front, true);
+
+  // Postcard Row, left (top of the hill) to right, between its neighbors on wide screens.
+  const hs = houses(plan.wide);
+  for (const [cell, i] of hs) {
+    ctx.drawImage(img, cell * CELL_W, 0, CELL_W, CELL_H, plan.rowX + i * PITCH, ladyFoot(plan, i) - FOOT, CELL_W, CELL_H);
+  }
+  // Shrubs in the little front gardens under the bay windows (the sidewalk hides their feet).
+  for (const [, i] of hs) {
+    piece(PIECE.bushSmall, plan.rowX + i * PITCH + 4 + (i % 2) * 3, ladyFoot(plan, i) + 13 - PIECE.bushSmall.h, i % 2 === 1);
+  }
+
+  // The sidewalk along the slope (pale concrete with joints), under the Ladies' steps.
+  for (let x = 0; x < w; x++) {
+    const s = slopeY(plan, x);
+    ctx.fillStyle = "#d3cbc4";
+    ctx.fillRect(x, s - 1, 1, 6);
+    ctx.fillStyle = "#e9e3dc";
+    ctx.fillRect(x, s - 1, 1, 1);
+    ctx.fillStyle = "#9f9290";
+    ctx.fillRect(x, s + 4, 1, 1);
+    if ((x + 3) % 14 === 0) {
+      ctx.fillStyle = "#bbb0aa";
+      ctx.fillRect(x, s, 1, 4);
+    }
+  }
+  // The front steps run out over the sidewalk.
+  for (const [cell, i] of hs) {
+    const x = plan.rowX + i * PITCH;
+    const f = ladyFoot(plan, i);
+    ctx.drawImage(img, cell * CELL_W + 38, FOOT - 14, 26, CELL_H - FOOT + 14, x + 38, f - 14, 26, CELL_H - FOOT + 14);
+  }
+
+  // The lawn: the farm's own Stardew grass, with a cobbled path (Pelican Town's cobbles) through it.
+  let lawnTop = h;
+  for (let x = 0; x < w; x++) lawnTop = Math.min(lawnTop, slopeY(plan, x) + 5);
+  const lawnH = h - lawnTop;
+  const path = plan.lawn >= 48 && !plan.wide;
+  /** The path's centerline (scene coords): in from the bottom left, curving up and off to the right. */
+  const pathPts: [number, number][] = [
+    [-12, h - Math.round(plan.lawn * 0.18)],
+    [Math.round(w * 0.3), h - Math.round(plan.lawn * 0.36)],
+    [Math.round(w * 0.62), h - Math.round(plan.lawn * 0.5)],
+    [w + 12, h - Math.round(plan.lawn * 0.56)],
+  ];
+  if (lawnH > 0) {
+    const atlas = sheetPx(outdoorsSheet(season), GROUND_ATLAS.x, GROUND_ATLAS.y, GROUND_ATLAS.w, GROUND_ATLAS.h);
+    const shapes: GroundShape[] = [];
+    if (path) {
+      for (let i = 0; i + 1 < pathPts.length; i++) {
+        const [ax, ay] = pathPts[i]!;
+        const [bx, by] = pathPts[i + 1]!;
+        shapes.push({ kind: "cap", ax, ay: ay - lawnTop, bx, by: by - lawnTop, r: 6 });
       }
     }
-    tops.push(y);
+    const g = groundPixels({ w, h: lawnH, season, seed, atlas, shapes, avoid: [{ x: 0, y: 0, w, h: 14 }] });
+    const data = new Uint8ClampedArray(g.px.data);
+    const cob = piecePx(img, PIECE.cobble);
+    for (let y = 0; y < lawnH; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        const o = i * 4;
+        if (cob && g.dirt[i]) {
+          // Cobbles instead of dirt; shaded under the grass's lip and along the edges.
+          const co = (((y + lawnTop) & 31) * 32 + (x & 31)) * 4;
+          const up = y > 0 && !g.dirt[i - w];
+          const up2 = y > 1 && !g.dirt[i - 2 * w];
+          const side = (x > 0 && !g.dirt[i - 1]) || (x < w - 1 && !g.dirt[i + 1]) || (y < lawnH - 1 && !g.dirt[i + w]);
+          const k = up ? 0.62 : up2 ? 0.8 : side ? 0.86 : 1;
+          data[o] = cob.data[co]! * k;
+          data[o + 1] = cob.data[co + 1]! * k;
+          data[o + 2] = cob.data[co + 2]! * k;
+        }
+      }
+    }
+    // Clip the lawn to the slope (it starts just below the sidewalk), with a dark lip at the curb.
+    for (let x = 0; x < w; x++) {
+      const top = slopeY(plan, x) + 5 - lawnTop;
+      for (let y = 0; y < Math.min(top, lawnH); y++) data[(y * w + x) * 4 + 3] = 0;
+      for (const [dy, k] of [
+        [0, 0.66],
+        [1, 0.86],
+      ] as const) {
+        if (top + dy < 0 || top + dy >= lawnH) continue;
+        const o = ((top + dy) * w + x) * 4;
+        data[o] = data[o]! * k;
+        data[o + 1] = data[o + 1]! * k;
+        data[o + 2] = data[o + 2]! * (k + 0.04);
+      }
+    }
+    const lawnCanvas = makeCanvasEl(w, lawnH);
+    ctx2d(lawnCanvas).putImageData(new ImageData(data, w, lawnH), 0, 0);
+    ctx.drawImage(lawnCanvas, 0, lawnTop);
   }
-  // A park tree on each shoulder of the lawn.
-  for (const tx of [11, LADIES_W - 12]) paintParkTree(ctx, tx, tops[tx]! + 2, phase);
+
+  // Grass tufts on the lawn (off the path).
+  const tuftRow = TUFT_ROW[season];
+  const tufts = [0, 1, 2].map((v) => cut("grass", v * 15, tuftRow, 15, 20));
+  const onPath = (x: number, y: number) => {
+    if (!path) return false;
+    for (let i = 0; i + 1 < pathPts.length; i++) {
+      const [ax, ay] = pathPts[i]!;
+      const [bx, by] = pathPts[i + 1]!;
+      if (x < ax - 10 || x > bx + 10) continue;
+      const t = (x - ax) / (bx - ax);
+      const py = ay + (by - ay) * Math.max(0, Math.min(1, t));
+      if (Math.abs(y - py) < 12) return true;
+    }
+    return false;
+  };
+  const nT = Math.round((w * plan.lawn) / 1100);
+  for (let k = 0, n = 0; k < nT * 4 && n < nT; k++) {
+    const x = Math.floor(hash2(k, 3, seed) * (w + 8)) - 8;
+    const y = plan.foot + 16 + Math.floor(hash2(k, 4, seed) * Math.max(1, plan.lawn - 10));
+    if (onPath(x + 7, y - 2)) continue;
+    farm(tufts[k % 3] ?? null, x, y - 20);
+    n++;
+  }
+
+  // Park furniture: a lamppost and a bench by the path (or flanking the row on wide screens).
+  if (path) {
+    const lx = Math.round(w * 0.47);
+    const lf = h - Math.round(plan.lawn * 0.46) - 5;
+    lamps.push({ x: lx, foot: lf });
+    const bx = Math.round(w * 0.56);
+    piece(PIECE.bench, bx, lf - PIECE.bench.h + 2);
+  } else if (plan.wide) {
+    lamps.push({ x: plan.rowX + 30, foot: h - 2 });
+    lamps.push({ x: plan.rowX + ROW_W - 38, foot: h - 2 });
+  }
+  for (const l of lamps) piece(PIECE.lamp, l.x, l.foot - PIECE.lamp.h);
+
+  // Trees: the Pelican Town park tree framing the corners, the farm's maples and oaks beside it.
+  const treeS = TREE_SEASON_X[season];
+  const oak = cut("trees", treeS, FARM_TREES.oak.y, FARM_TREES.oak.w, season === "winter" ? FARM_TREES.oak.winterH : FARM_TREES.oak.h);
+  const maple = cut("trees", treeS, FARM_TREES.maple.y, FARM_TREES.maple.w, season === "winter" ? FARM_TREES.maple.winterH : FARM_TREES.maple.h);
+  if (plan.wide) {
+    // Beside the row: the big park tree at each end, then maples and oaks out to the edges.
+    for (let x = plan.rowX - PITCH - 52, k = 0; x > -70; x -= 54, k++) {
+      if (k % 2 === 0) piece(PIECE.tree, x - 4, h + 3 - PIECE.tree.h, k % 4 === 2);
+      else farm(k % 4 === 1 ? maple : oak, x + 6, h + 1 - (maple?.height ?? 82));
+    }
+    for (let x = plan.rowX + ROW_W + PITCH - 6, k = 0; x < w + 70; x += 54, k++) {
+      if (k % 2 === 0) piece(PIECE.tree, x, h + 3 - PIECE.tree.h, k % 4 === 0);
+      else farm(k % 4 === 1 ? oak : maple, x + 6, h + 1 - (oak?.height ?? 84), true);
+    }
+  } else {
+    piece(PIECE.tree, -30, h + 6 - PIECE.tree.h);
+    piece(PIECE.tree, w - 36, h + 6 - PIECE.tree.h, true);
+  }
+  // A couple of bushes along the bottom edge.
+  if (plan.lawn >= 30 && !plan.wide) {
+    piece(PIECE.bushSmall, Math.round(w * 0.8), h - 24);
+    piece(PIECE.bushBig, Math.round(w * 0.14) - 16, h - 26);
+  }
+
+  relightCanvas(front, phase);
+
+  // Lamplight: most windows at night, some at dusk, a few early risers at dawn.
+  const lit = phase === "night" ? [-1, 0, 1, 2, 3, 4, 5, 6, 7] : phase === "dusk" ? [1, 3, 4, 6, 7] : phase === "dawn" ? [2, 5] : [];
+  for (const [cell, i] of hs) {
+    if (lit.includes(i)) ctx.drawImage(img, cell * CELL_W, CELL_H, CELL_W, CELL_H, plan.rowX + i * PITCH, ladyFoot(plan, i) - FOOT, CELL_W, CELL_H);
+  }
+  if (phase !== "day") {
+    for (const l of lamps) {
+      const ly = l.foot - PIECE.lamp.h;
+      piece(PIECE.lampLit, l.x, ly);
+      // A soft pool of warm light around the lantern (Stardew's lights are soft and round).
+      const cx = l.x + 8;
+      const cy = ly + 8;
+      const r = phase === "night" ? 40 : 22;
+      const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, r);
+      grad.addColorStop(0, `rgba(255, 214, 140, ${phase === "night" ? 0.55 : 0.25})`);
+      grad.addColorStop(0.4, `rgba(255, 190, 110, ${phase === "night" ? 0.2 : 0.09})`);
+      grad.addColorStop(1, "rgba(255, 190, 110, 0)");
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = grad;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      ctx.restore();
+    }
+  }
+
+  out.drawImage(back, 0, 0);
+  out.drawImage(front, 0, 0);
 }
 
-const PARK_TREE = [
-  ".....oooo.....",
-  "...ooGGHHoo...",
-  "..oGGHHHHGGo..",
-  ".oGGHHHHGGGgo.",
-  ".oGHHHGGGGGgo.",
-  "oGGHHGGGGGGggo",
-  "oGGGGGGGGgGggo",
-  "oGgGGGGGgGgggo",
-  ".ogGGgGGggggo.",
-  ".oggggggggggo.",
-  "..oogggggooo..",
-  "....ooTtoo....",
-  "......Tt......",
-  "......Tt......",
-  "......Tt......",
-];
-
-/** A round park tree (14 x 15) with its trunk's foot at (cx, foot). */
-function paintParkTree(ctx: Pen, cx: number, foot: number, phase: TitlePhase): void {
-  const pal: Record<string, string> = {
-    o: inLight("#2f5a3c", phase),
-    g: inLight("#4f8a4c", phase),
-    G: inLight("#68a85a", phase),
-    H: inLight("#8cc86a", phase),
-    T: inLight("#7a5236", phase),
-    t: inLight("#5a3a28", phase),
-  };
-  const left = cx - 7;
-  const top = foot - PARK_TREE.length;
-  PARK_TREE.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) {
-      const c = pal[row[x]!];
-      if (!c) continue;
-      ctx.fillStyle = c;
-      ctx.fillRect(left + x, top + y, 1, 1);
-    }
-  });
-}
-
-function paintLady(ctx: Pen, ox: number, top: number, body: string, accent: string, phase: TitlePhase, rnd: () => number): void {
-  const L = (c: string) => inLight(c, phase);
-  const B = L(body);
-  const Bs = L(mix(body, "#4a3a6a", 0.18)); // siding shadow lines
-  const A = L(accent);
-  const As = L(mix(accent, "#3a2a50", 0.3));
-  const T = L(TRIM);
-  const Ts = L(TRIM_SHADE);
-  const O = L(OUTLINE);
-  const D = L(DOOR);
-  const night = phase === "night";
-  const dusk = phase === "dusk";
-  // Window glass: sky reflections by day; lamplight (in some windows) after dark.
-  const litShare = night ? 0.72 : dusk ? 0.3 : 0;
-  const glass = (lit: boolean) =>
-    lit
-      ? { top: night ? "#fff1b4" : "#ffe2a0", fill: night ? "#ffcf62" : "#ffc070" }
-      : { top: L(dusk ? "#f4b892" : phase === "dawn" ? "#f6d4d2" : "#b6dcf2"), fill: L("#4f7096") };
-
-  const put = (x: number, y: number, w: number, h: number, c: string) => {
-    if (h <= 0 || w <= 0) return;
-    ctx.fillStyle = c;
-    ctx.fillRect(ox + x, top + y, w, h);
-  };
-  const pane = (x: number, y: number, w: number, h: number, side: boolean) => {
-    const g = glass(rnd() < litShare);
-    put(x, y, w, h, side && !night ? mix(g.fill, "#2a3050", 0.2) : g.fill);
-    put(x, y, w, 1, g.top);
-    if (!night && !dusk) put(x, y + 1, 1, 1, g.top); // a glint in the corner
-  };
-  const H = LAWN_AT + 2; // the walls run on down behind the lawn
-
-  // The front gable: outline, white bargeboard, fish-scale shingles in the accent color.
-  for (let r = 0; r < 12; r++) {
-    const l = 11 - r;
-    const rr = 12 + r;
-    put(l, r, 1, 1, O);
-    put(rr, r, 1, 1, O);
-    if (rr - l >= 2) {
-      put(l + 1, r, 1, 1, T);
-      put(rr - 1, r, 1, 1, Ts);
-    }
-    if (rr - l >= 4) {
-      put(l + 2, r, rr - l - 3, 1, A);
-      if (r % 2 === 1) for (let x = l + 2 + (r % 4 === 1 ? 0 : 1); x < rr - 1; x += 2) put(x, r, 1, 1, As);
-    }
+/** A sheep frame (32x32) from the farm's sheep sheet, relit for the time of day. */
+export function sheepFrame(c: HTMLCanvasElement, index: number, flip: boolean, phase: TitlePhase): void {
+  const src = spriteSheet("sheep");
+  if (!src) return;
+  c.width = 32;
+  c.height = 32;
+  const ctx = ctx2d(c, true);
+  ctx.clearRect(0, 0, 32, 32);
+  ctx.save();
+  if (flip) {
+    ctx.translate(32, 0);
+    ctx.scale(-1, 1);
   }
-  // The little arched attic window.
-  put(11, 4, 2, 1, T);
-  put(10, 5, 1, 5, T);
-  put(13, 5, 1, 5, T);
-  pane(11, 5, 2, 4, false);
-  put(10, 9, 4, 1, T);
-
-  // Cornice with dentils.
-  put(0, 12, 24, 1, T);
-  put(0, 12, 1, 2, O);
-  put(23, 12, 1, 2, O);
-
-  // The walls (outlined), with lap siding.
-  put(0, 14, 1, H - 14, O);
-  put(23, 14, 1, H - 14, O);
-  put(1, 13, 22, H - 13, B);
-  for (let x = 2; x < 23; x += 2) put(x, 13, 1, 1, Ts);
-  for (let y = 16; y < H; y += 3) put(1, y, 22, 1, Bs);
-  put(22, 14, 1, H - 14, Bs); // the shady side
-
-  // Upstairs: a three-sided bay window.
-  put(3, 15, 18, 1, T);
-  put(3, 16, 18, 1, A);
-  put(3, 17, 18, 10, T);
-  pane(4, 18, 3, 8, true);
-  pane(8, 18, 8, 8, false);
-  put(8, 22, 8, 1, T); // the sash's meeting rail
-  pane(17, 18, 3, 8, true);
-  put(3, 26, 18, 1, T);
-  put(3, 27, 18, 1, A);
-  for (let x = 4; x < 20; x += 3) put(x, 27, 1, 1, As);
-  put(4, 28, 16, 1, Ts);
-
-  // The belt between the floors.
-  put(1, 31, 22, 1, T);
-  put(1, 32, 22, 1, A);
-
-  // Downstairs: a bay on the left, the front door under its hood on the right.
-  put(2, 34, 13, 11, T);
-  pane(3, 35, 2, 8, true);
-  pane(6, 35, 5, 8, false);
-  pane(12, 35, 2, 8, true);
-  put(2, 44, 13, 1, A);
-  put(3, 45, 11, 1, Ts);
-  // Door: a pediment hood, a transom, the door, and a stoop down to the street.
-  put(18, 31, 2, 1, Ts);
-  put(17, 32, 4, 1, T);
-  put(16, 33, 6, 1, T);
-  put(16, 34, 1, 12, T);
-  put(21, 34, 1, 12, T);
-  pane(17, 34, 4, 2, false);
-  put(17, 36, 4, 10, D);
-  put(18, 37, 2, 3, L("#8a5a44"));
-  if (night || dusk) put(15, 34, 1, 1, "#ffe7a0"); // the porch lamp
-  put(15, 46, 7, 1, T);
-  put(16, 47, 7, 1, Ts);
-  put(17, 48, 6, 1, T);
-  put(18, 49, 5, 1, Ts);
+  ctx.drawImage(src, (index % 4) * 32, Math.floor(index / 4) * 32, 32, 32, 0, 0, 32, 32);
+  ctx.restore();
+  if (phase !== "day") {
+    const d = ctx.getImageData(0, 0, 32, 32);
+    relight(d.data, phase);
+    ctx.putImageData(d, 0, 0);
+  }
 }

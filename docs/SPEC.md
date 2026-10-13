@@ -83,7 +83,9 @@ and desktop works great too.
   lives in the toolbar's … menu.
 - **Title page:** "Hold it! How would you describe Snickers's beautiful eyes?" (the answer is the
   password). A plain text field with nothing that iOS reads as a password or contact field, so no
-  AutoFill. Snickers sits on the logo, with the Golden Gate Bridge and the Painted Ladies on the skyline.
+  AutoFill. Snickers sits on the logo. The backdrop is Alamo Square: the Painted Ladies built from Pelican Town's
+  houses (recolored to pastels, seasonal roofs), the park lawn with Stardew trees, a lamppost and bench, a couple of
+  grazing sheep, and a faint downtown skyline; lit windows and lamps at night. One small sheet per season.
 - **Calendar:** Stardew festivals only where something happens on the farm (Spirit's Eve, the Feast of the
   Winter Star...). The rest of the board is real holidays and Bay Area events.
 - **Page background** follows the season's grass color (and tints the phone's status bar). No scrollbars.
