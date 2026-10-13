@@ -1,3 +1,348 @@
-// STUB — implemented by a UI agent.
+// Pierre's billboard: a paper calendar of a real month pinned to a wooden board.
+// Days with plans get tiny sheep faces; tap a day to see (or add) its plans.
 
-export function initCalendar(): void {}
+import "./calendar.css";
+import { sfx } from "../audio";
+import { isRetired, store } from "../net";
+import { capitalize, dayKey, daysBetween, monthName, parseDayKey, seasonOf, stardewDate } from "../../shared/calendar";
+import { CATEGORY_LABELS, type FarmState, type Sheep } from "../../shared/types";
+import { openMemory } from "./barn";
+import { registerCalendarArt } from "./calendar-art";
+import { festivalOn } from "./calendar-festivals";
+import { categoryIcon, farmNow, sheepHead } from "./calendar-util";
+import { el, heartsEl, openDialog, openMenu, plural, registerMenu, relativeDays, spriteIcon } from "./dom";
+
+const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DOW_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MAX_HEADS = 2;
+const UPCOMING = 5;
+
+const QUIET_DAY = [
+  "Nothing planned yet. The sheep are suspiciously free.",
+  "A wide open day. Perfect for an adventure... or a nap.",
+  "No plans! Marnie has sheep for every occasion.",
+  "Free as a sheep in springtime.",
+];
+
+export function initCalendar(): void {
+  registerCalendarArt();
+  // Optional arg: a "YYYY-MM-DD" day to jump to and select.
+  registerMenu("calendar", (arg?: unknown) => openCalendar(typeof arg === "string" ? arg : undefined));
+}
+
+/** Plans grouped by their day key; woolly ones first. */
+function plansByDay(state: FarmState | null): Map<string, Sheep[]> {
+  const map = new Map<string, Sheep[]>();
+  if (!state) return map;
+  for (const s of state.sheep) {
+    if (!s.date) continue;
+    let list = map.get(s.date);
+    if (!list) map.set(s.date, (list = []));
+    list.push(s);
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => Number(a.shearedAt !== null) - Number(b.shearedAt !== null) || a.createdAt - b.createdAt);
+  }
+  return map;
+}
+
+/** Open a plan: a sheep still in the pasture gets its info card, a barn sheep its memory. */
+function openPlan(s: Sheep): void {
+  if (isRetired(s)) openMemory(s.id);
+  else openMenu("sheep", s.id);
+}
+
+function openCalendar(focus?: string): void {
+  const today = farmNow();
+  const todayKey = dayKey(today);
+  const focusDate = (focus ? parseDayKey(focus) : null) ?? today;
+  let viewY = focusDate.getFullYear();
+  let viewM = focusDate.getMonth();
+  let selected: string | null = dayKey(focusDate);
+  let showUndated = false;
+  let showOverdue = false;
+
+  const root = el("div", { class: "fm-cal fm-menu" });
+  const d = openDialog({ className: "fm-cal-dialog fm-menu", body: root, onClose: () => off() });
+  d.box.setAttribute("aria-label", "Calendar");
+
+  const go = (delta: number) => {
+    const next = new Date(viewY, viewM + delta, 1, 12);
+    viewY = next.getFullYear();
+    viewM = next.getMonth();
+    const sel = selected ? parseDayKey(selected) : null;
+    if (!sel || sel.getFullYear() !== viewY || sel.getMonth() !== viewM) {
+      selected = today.getFullYear() === viewY && today.getMonth() === viewM ? todayKey : null;
+    }
+    sfx("blip");
+    render();
+  };
+
+  const jumpTo = (key: string) => {
+    const date = parseDayKey(key);
+    if (!date) return;
+    viewY = date.getFullYear();
+    viewM = date.getMonth();
+    selected = key;
+    sfx("select");
+    render();
+    root.querySelector(".fm-cal__paper")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  };
+
+  function render(): void {
+    const state = store.state;
+    const byDay = plansByDay(state);
+    root.replaceChildren(
+      el("div", { class: "fm-cal__left" }, paper(state, byDay)),
+      el("div", { class: "fm-cal__right" }, dayPanel(state, byDay), upcoming(state)),
+    );
+  }
+
+  // ---------- the paper calendar ----------
+
+  function paper(state: FarmState | null, byDay: Map<string, Sheep[]>): HTMLElement {
+    const season = seasonOf(new Date(viewY, viewM, 15, 12));
+    const first = new Date(viewY, viewM, 1, 12);
+    const offset = (first.getDay() + 6) % 7; // Monday-first
+    const days = new Date(viewY, viewM + 1, 0, 12).getDate();
+    const isThisMonth = today.getFullYear() === viewY && today.getMonth() === viewM;
+
+    const grid = el("div", { class: "fm-cal__grid" });
+    for (let i = 0; i < offset; i++) grid.appendChild(el("div", { class: "fm-cal__cell is-blank", "aria-hidden": "true" }));
+    for (let day = 1; day <= days; day++) {
+      const date = new Date(viewY, viewM, day, 12);
+      const key = dayKey(date);
+      const plans = byDay.get(key) ?? [];
+      const fest = festivalOn(date, state?.foundedAt);
+      const woolly = plans.filter((p) => p.shearedAt === null).length;
+      const label = [
+        `${monthName(viewM)} ${day}`,
+        key === todayKey ? "today" : "",
+        plans.length ? plural(plans.length, "plan") : "",
+        plans.length && woolly < plans.length ? `${plans.length - woolly} done` : "",
+        fest ? fest.name : "",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      const heads = el("span", { class: "fm-cal__heads" });
+      const shown = plans.length > MAX_HEADS ? MAX_HEADS - 1 : plans.length;
+      for (const p of plans.slice(0, shown)) {
+        heads.appendChild(el("span", { class: `fm-cal__face ${p.shearedAt !== null ? "is-done" : ""}` }, sheepHead(p.shearedAt !== null, { golden: p.golden })));
+      }
+      if (plans.length > shown) heads.appendChild(el("span", { class: "fm-cal__more" }, `+${plans.length - shown}`));
+
+      const cell = el(
+        "button",
+        {
+          type: "button",
+          class: [
+            "fm-cal__cell",
+            key === todayKey ? "is-today" : "",
+            key === selected ? "is-selected" : "",
+            plans.length ? "has-plans" : "",
+            fest ? "is-festival" : "",
+            daysBetween(today, date) < 0 ? "is-past" : "",
+            date.getDay() === 0 || date.getDay() === 6 ? "is-weekend" : "",
+          ].join(" "),
+          "aria-label": label,
+          "aria-pressed": String(key === selected),
+          title: fest ? fest.name : undefined,
+        },
+        el("span", { class: "fm-cal__num" }, String(day)),
+        fest ? spriteIcon("ui.festflag", { class: "fm-cal__flag" }) : null,
+        plans.length ? heads : null,
+      );
+      cell.addEventListener("click", () => {
+        selected = key;
+        sfx("select");
+        render();
+        // On phones the day panel sits below the grid: nudge it into view.
+        if (matchMedia("(max-width: 699px)").matches) root.querySelector(".fm-cal__day")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      });
+      grid.appendChild(cell);
+    }
+    const trailing = (7 - ((offset + days) % 7)) % 7;
+    for (let i = 0; i < trailing; i++) grid.appendChild(el("div", { class: "fm-cal__cell is-blank", "aria-hidden": "true" }));
+
+    const nav = (label: string, delta: number, aria: string) =>
+      el("button", { type: "button", class: "fm-cal__nav", "aria-label": aria, on: { click: () => go(delta) } }, label);
+
+    const sheet = el(
+      "div",
+      { class: `fm-cal__paper is-${season}` },
+      el("div", { class: "fm-cal__head" }, nav("‹", -1, "Previous month"), el("h2", { class: "fm-cal__title" }, el("span", { class: "fm-cal__season" }, capitalize(season)), el("span", { class: "fm-cal__month" }, `${monthName(viewM)} ${viewY}`)), nav("›", 1, "Next month")),
+      el("div", { class: "fm-cal__dow", "aria-hidden": "true" }, ...DOW.map((x, i) => el("span", { class: i >= 5 ? "is-weekend" : "" }, x))),
+      grid,
+      isThisMonth
+        ? null
+        : el("button", { type: "button", class: "fm-cal__today", on: { click: () => jumpTo(todayKey) } }, "Back to today"),
+    );
+    addSwipe(sheet, go);
+    return sheet;
+  }
+
+  // ---------- the selected day ----------
+
+  function dayPanel(state: FarmState | null, byDay: Map<string, Sheep[]>): HTMLElement {
+    if (!selected) {
+      return el("div", { class: "fm-note fm-cal__day is-hint" }, el("p", null, "Tap a day to see what's planned."));
+    }
+    const date = parseDayKey(selected);
+    if (!date) return el("div");
+    const key = selected;
+    const plans = byDay.get(key) ?? [];
+    const rel = daysBetween(today, date);
+    const fest = festivalOn(date, state?.foundedAt);
+    const sub = [state ? stardewDate(date, state.foundedAt) : capitalize(seasonOf(date)), relativeDays(rel)].join(" · ");
+
+    const list = el("ul", { class: "fm-cal__plans" });
+    for (const p of plans) list.appendChild(el("li", null, planRow(p, null)));
+
+    let quip = QUIET_DAY[(date.getDate() + date.getMonth()) % QUIET_DAY.length]!;
+    if (date.getDay() === 3) quip = "Pierre's is closed on Wednesdays. Perfect excuse for a date?";
+    if (rel < 0) quip = "Nothing happened here... or nobody wrote it down.";
+
+    return el(
+      "div",
+      { class: "fm-note fm-cal__day" },
+      el("h3", { class: "fm-cal__dayname" }, `${DOW_FULL[date.getDay()]}, ${monthName(date.getMonth())} ${date.getDate()}`),
+      el("p", { class: "fm-cal__sub" }, sub),
+      fest
+        ? el("p", { class: "fm-cal__fest" }, spriteIcon("ui.festflag"), el("span", null, el("b", null, fest.name), " ", fest.note))
+        : null,
+      plans.length ? list : el("p", { class: "fm-cal__quiet" }, state ? quip : "The billboard is still being pinned up..."),
+      state
+        ? el(
+            "button",
+            {
+              type: "button",
+              class: "sv-btn sv-btn--primary fm-cal__add",
+              on: { click: () => openMenu("marnie", { date: key }) },
+            },
+            sheepHead(false),
+            el("span", null, plans.length ? "Plan another thing this day" : "Plan something on this day"),
+          )
+        : null,
+    );
+  }
+
+  // ---------- coming up / undated / overdue ----------
+
+  function upcoming(state: FarmState | null): HTMLElement | null {
+    if (!state) return null;
+    const woolly = state.sheep.filter((s) => s.shearedAt === null);
+    const dated: { s: Sheep; d: Date; rel: number }[] = [];
+    for (const s of woolly) {
+      const date = s.date ? parseDayKey(s.date) : null;
+      if (date) dated.push({ s, d: date, rel: daysBetween(today, date) });
+    }
+    dated.sort((a, b) => a.rel - b.rel || a.s.createdAt - b.s.createdAt);
+    const soon = dated.filter((x) => x.rel >= 0).slice(0, UPCOMING);
+    const overdue = dated.filter((x) => x.rel < 0);
+    const undated = woolly.filter((s) => !s.date).sort((a, b) => b.createdAt - a.createdAt);
+
+    const note = el("div", { class: "fm-note fm-cal__soon" }, el("h3", null, "Coming up"));
+    if (soon.length) {
+      const ul = el("ul", { class: "fm-cal__plans" });
+      for (const x of soon) {
+        ul.appendChild(el("li", null, planRow(x.s, el("span", { class: `fm-chip ${x.rel <= 1 ? "is-soon" : ""}` }, relativeDays(x.rel)), true)));
+      }
+      note.appendChild(ul);
+    } else {
+      note.appendChild(el("p", { class: "fm-cal__quiet" }, "Nothing on the books yet. Give a sheep a date and it'll show up here!"));
+    }
+
+    if (overdue.length) {
+      note.appendChild(
+        disclosure(
+          `${plural(overdue.length, "plan")} slipped past ${overdue.length === 1 ? "its" : "their"} date`,
+          showOverdue,
+          (v) => {
+            showOverdue = v;
+            render();
+          },
+          overdue.map((x) => planRow(x.s, el("span", { class: "fm-chip is-late" }, relativeDays(x.rel)), true)),
+          "Still woolly! Shear them if you did it, or pick a new day.",
+        ),
+      );
+    }
+    if (undated.length) {
+      note.appendChild(
+        disclosure(
+          `${plural(undated.length, "sheep", "sheep")} without a date`,
+          showUndated,
+          (v) => {
+            showUndated = v;
+            render();
+          },
+          undated.map((s) => planRow(s, null)),
+          "Pick a day on a sheep's card and it'll appear on the calendar.",
+        ),
+      );
+    }
+    return note;
+  }
+
+  function planRow(s: Sheep, trailing: HTMLElement | null, showDate = false): HTMLElement {
+    const date = s.date ? parseDayKey(s.date) : null;
+    const meta: (string | HTMLElement)[] = [];
+    const cat = categoryIcon(s.category);
+    if (cat) meta.push(cat);
+    meta.push(CATEGORY_LABELS[s.category] ?? "Plan");
+    if (showDate && date && store.state) meta.push(` · ${stardewDate(date, store.state.foundedAt).replace(/, Year \d+$/, "")}`);
+    if (s.shearedAt !== null) meta.push(el("span", { class: "fm-cal__done" }, " · ✂ done!"));
+    return el(
+      "button",
+      { type: "button", class: `fm-plan ${s.shearedAt !== null ? "is-done" : ""}`, on: { click: () => openPlan(s) } },
+      el("span", { class: "fm-plan__icon" }, sheepHead(s.shearedAt !== null, { golden: s.golden })),
+      el(
+        "span",
+        { class: "fm-plan__text" },
+        el("span", { class: "fm-plan__name" }, s.name),
+        el("span", { class: "fm-plan__meta" }, ...meta),
+      ),
+      trailing ?? (s.pets > 0 ? heartsEl(s.pets) : null),
+    );
+  }
+
+  function disclosure(label: string, open: boolean, set: (v: boolean) => void, rows: HTMLElement[], hint: string): HTMLElement {
+    const id = `fm-disc-${Math.random().toString(36).slice(2, 8)}`;
+    return el(
+      "div",
+      { class: `fm-disc ${open ? "is-open" : ""}` },
+      el(
+        "button",
+        { type: "button", class: "fm-disc__toggle", "aria-expanded": String(open), "aria-controls": id, on: { click: () => set(!open) } },
+        el("span", { class: "fm-disc__caret", "aria-hidden": "true" }, open ? "▾" : "▸"),
+        el("span", null, label),
+      ),
+      open
+        ? el("div", { id }, el("ul", { class: "fm-cal__plans" }, ...rows.map((r) => el("li", null, r))), el("p", { class: "fm-cal__hint" }, hint))
+        : null,
+    );
+  }
+
+  const off = store.changed.on(render);
+  render();
+}
+
+/** Horizontal swipe on the calendar paper flips months (phones). */
+function addSwipe(target: HTMLElement, go: (delta: number) => void): void {
+  let x0 = 0;
+  let y0 = 0;
+  let id: number | null = null;
+  target.addEventListener("pointerdown", (ev) => {
+    if (ev.pointerType === "mouse") return;
+    id = ev.pointerId;
+    x0 = ev.clientX;
+    y0 = ev.clientY;
+  });
+  target.addEventListener("pointerup", (ev) => {
+    if (id !== ev.pointerId) return;
+    id = null;
+    const dx = ev.clientX - x0;
+    const dy = ev.clientY - y0;
+    if (Math.abs(dx) > 60 && Math.abs(dy) < 40) go(dx < 0 ? 1 : -1);
+  });
+  target.addEventListener("pointercancel", () => (id = null));
+}

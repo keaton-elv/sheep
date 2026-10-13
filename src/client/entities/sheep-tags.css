@@ -1,0 +1,150 @@
+/* Crisp DOM name tags that float under each sheep (positioned every frame from sheep.ts). */
+
+/* `#ui > *` turns pointer events back on for every overlay (ID specificity), so this full-screen
+   layer has to out-specify it, or it would swallow every tap meant for the farm canvas. */
+#ui > .sheep-tags,
+.sheep-tags {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Stay under the HUD, toolbar and dialogs (we're the first child of #ui). */
+  z-index: 0;
+  contain: layout style;
+}
+#ui > .sheep-tags[hidden],
+.sheep-tags[hidden] {
+  display: none;
+}
+
+.sheep-tag {
+  --tag-bg: #fff4d8;
+  --tag-ink: #3b2316;
+  --tag-edge: #7a4e2a;
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.28em;
+  max-width: 14ch;
+  padding: 0.08em 0.45em 0.14em;
+  border: max(1px, calc(var(--px) * 0.5)) solid var(--tag-edge);
+  border-radius: 0.45em;
+  background: var(--tag-bg);
+  color: var(--tag-ink);
+  box-shadow: 0 max(1px, calc(var(--px) * 0.5)) 0 rgba(59, 35, 22, 0.35);
+  font: 600 clamp(11px, calc(var(--px) * 5.5), 15px) / 1.15 "Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform, opacity;
+  transition: opacity 400ms ease;
+}
+@media (min-width: 640px) {
+  .sheep-tag {
+    max-width: 20ch;
+  }
+}
+
+.sheep-tag__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheep-tag__dot {
+  flex: none;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--cat, #b58a5a);
+  box-shadow: inset 0 0 0 max(1px, calc(var(--px) * 0.4)) rgba(59, 35, 22, 0.35);
+}
+
+.sheep-tag__icon {
+  flex: none;
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+/* Category colors. */
+.sheep-tag[data-cat="date"] { --cat: #ff7fa6; }
+.sheep-tag[data-cat="workshop"] { --cat: #f09a3e; }
+.sheep-tag[data-cat="travel"] { --cat: #59b8f0; }
+.sheep-tag[data-cat="adventure"] { --cat: #69c25a; }
+.sheep-tag[data-cat="food"] { --cat: #f2cf3c; }
+.sheep-tag[data-cat="cozy"] { --cat: #b48ef0; }
+.sheep-tag[data-cat="other"] { --cat: #b58a5a; }
+
+/* Done! The plan happened. */
+.sheep-tag.is-done {
+  --tag-bg: #dff5c8;
+  --tag-ink: #2f5a1c;
+  --tag-edge: #4f8a32;
+}
+.sheep-tag.is-done .sheep-tag__icon {
+  color: #3f7a26;
+}
+/* A little "done!" sticker slapped on the corner of the name plate. */
+.sheep-tag__done {
+  position: absolute;
+  top: -0.85em;
+  right: -0.55em;
+  padding: 0.02em 0.32em 0.08em;
+  border-radius: 0.3em;
+  background: #4f8a32;
+  color: #f4ffe8;
+  font-size: 0.68em;
+  line-height: 1.1;
+  transform: rotate(9deg);
+  box-shadow: 0 max(1px, calc(var(--px) * 0.4)) 0 rgba(30, 60, 15, 0.45);
+}
+
+/* Golden sheep get a golden name plate. */
+.sheep-tag.is-golden {
+  --tag-bg: #fff0a8;
+  --tag-edge: #b07a12;
+  box-shadow:
+    0 max(1px, calc(var(--px) * 0.5)) 0 rgba(122, 76, 8, 0.45),
+    0 0 0.5em rgba(255, 214, 80, 0.55);
+}
+.sheep-tag.is-golden .sheep-tag__icon {
+  color: #c98a12;
+}
+
+/* Today's the day! */
+.sheep-tag.is-today:not(.is-done) {
+  --tag-edge: #d8452b;
+  animation: sheep-tag-today 1.6s ease-in-out infinite;
+}
+@keyframes sheep-tag-today {
+  0%,
+  100% {
+    box-shadow: 0 max(1px, calc(var(--px) * 0.5)) 0 rgba(59, 35, 22, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 max(1px, calc(var(--px) * 0.5)) 0 rgba(59, 35, 22, 0.35),
+      0 0 0 max(2px, var(--px)) rgba(255, 120, 80, 0.45);
+  }
+}
+
+/* Sleepy sheep at night: dimmer plates. */
+.sheep-tag.is-asleep {
+  filter: saturate(0.6) brightness(0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheep-tag {
+    transition: none;
+  }
+  .sheep-tag.is-today:not(.is-done) {
+    animation: none;
+    box-shadow:
+      0 max(1px, calc(var(--px) * 0.5)) 0 rgba(59, 35, 22, 0.35),
+      0 0 0 max(2px, var(--px)) rgba(255, 120, 80, 0.45);
+  }
+}

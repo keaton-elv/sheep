@@ -1,0 +1,95 @@
+/* Farm sign rename dialog. */
+
+.sv-dialog.fm-sign-dialog {
+  width: min(460px, 100%);
+}
+
+/* A little wooden sign with the current name burned in. */
+.fm-sign__plank {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 10px;
+}
+.fm-sign__plank span {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  padding: 6px 16px;
+  font-weight: 700;
+  font-size: 1.1em;
+  color: #4a1f0a;
+  text-align: center;
+  overflow-wrap: anywhere;
+  background: repeating-linear-gradient(180deg, #e9a25a 0 7px, #d48a44 7px 8px);
+  border: 2px solid #4a1f0a;
+  box-shadow:
+    inset 0 2px 0 #f6c27a,
+    inset 0 -2px 0 #a8642a,
+    0 3px 0 rgba(40, 20, 10, 0.35);
+  text-shadow: 0 1px 0 rgba(255, 220, 160, 0.6);
+}
+.fm-sign__plank span::before,
+.fm-sign__plank span::after {
+  /* nails */
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  background: #5a4a40;
+  box-shadow: 1px 1px 0 #2a1a10;
+}
+.fm-sign__plank span::before {
+  left: 5px;
+}
+.fm-sign__plank span::after {
+  right: 5px;
+}
+
+.fm-sign__say {
+  margin: 0;
+}
+.fm-sign__sig {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+  color: #6b4a33;
+}
+.fm-sign__row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.fm-sign__row .sv-input {
+  flex: 1;
+  min-width: 0;
+}
+.fm-sign__dice {
+  flex: none;
+  min-width: 48px;
+  padding: 4px 8px;
+}
+.fm-sign__dice.is-rolling .sv-sprite {
+  animation: fm-sign-roll 380ms ease-out;
+}
+@keyframes fm-sign-roll {
+  30% {
+    transform: rotate(-25deg) scale(1.15);
+  }
+  65% {
+    transform: rotate(18deg);
+  }
+}
+.fm-sign__founded {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-sign__dice.is-rolling .sv-sprite {
+    animation: none;
+  }
+}

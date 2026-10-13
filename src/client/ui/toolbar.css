@@ -1,0 +1,288 @@
+/* Stardew's bottom toolbar. Sizes are in game pixels (--px) and computed in toolbar.ts so the
+   slots stay >= 40 CSS px on phones and everything sits on the farm's pixel grid. */
+
+.tb {
+  --tb-slot: 20;
+  --tb-gap: 1;
+  --tb-sep: 3;
+  --tb-icon-s: 1;
+  position: fixed;
+  left: 0;
+  /* On home-indicator iPhones (installed to the home screen) the inset is a generous 34px, but
+     the indicator itself only needs ~14px. Sitting just above it keeps the bar from covering
+     the bottom of the pasture, which layout.ts doesn't know got pushed up. */
+  bottom: max(calc(var(--px) * 4), calc(env(safe-area-inset-bottom, 0px) - 14px));
+  z-index: 6;
+  filter: drop-shadow(0 calc(var(--px) * 2) 0 rgba(40, 20, 60, 0.3));
+}
+
+.tb__bar {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--px) * var(--tb-gap));
+  border-style: solid;
+  border-color: transparent;
+  border-width: calc(var(--px) * 5);
+  border-image: var(--tb-img-bar) 5 fill / calc(var(--px) * 5) stretch;
+  image-rendering: pixelated;
+}
+
+.tb__slot {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: calc(var(--px) * var(--tb-slot));
+  height: calc(var(--px) * var(--tb-slot));
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-style: solid;
+  border-color: transparent;
+  border-width: calc(var(--px) * 3);
+  border-image: var(--tb-img-slot) 3 fill / calc(var(--px) * 3) stretch;
+  image-rendering: pixelated;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb__slot.is-first-action {
+  margin-left: calc(var(--px) * var(--tb-sep));
+}
+
+.tb__icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: calc(var(--w) * var(--tb-icon-s) * var(--px) / -2);
+  margin-top: calc(var(--h) * var(--tb-icon-s) * var(--px) / -2);
+  transition: transform 90ms ease-out;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tb__slot:hover .tb__icon {
+    transform: translateY(calc(var(--px) * -1)) scale(1.08);
+  }
+}
+.tb__slot:active .tb__icon,
+.tb__slot.is-pressed .tb__icon {
+  transform: translateY(calc(var(--px) * 1)) scale(0.94);
+}
+.tb__slot:focus-visible {
+  outline: calc(var(--px) * 1) solid var(--focus);
+  outline-offset: calc(var(--px) * 1);
+}
+
+/* The red "in your hand" frame. */
+.tb__slot.is-selected::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--px) * -4);
+  border-style: solid;
+  border-color: transparent;
+  border-width: calc(var(--px) * 3);
+  border-image: var(--tb-img-selected) 3 / calc(var(--px) * 3) stretch;
+  image-rendering: pixelated;
+  pointer-events: none;
+  animation: tb-select 160ms cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes tb-select {
+  from {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+
+/* Slot numbers (desktop only, like Stardew's 1-=). */
+.tb__key {
+  position: absolute;
+  left: calc(var(--px) * -1);
+  top: calc(var(--px) * -2);
+  font-size: max(10px, calc(var(--px) * 5));
+  line-height: 1;
+  font-weight: 700;
+  color: #fff6dc;
+  text-shadow:
+    1px 0 0 #4a1f0a,
+    -1px 0 0 #4a1f0a,
+    0 1px 0 #4a1f0a,
+    0 -1px 0 #4a1f0a;
+  pointer-events: none;
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .tb__key {
+    display: block;
+  }
+}
+
+/* Unread mail. */
+.tb__badge {
+  position: absolute;
+  right: calc(var(--px) * -5);
+  top: calc(var(--px) * -5);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 700;
+  color: #fff;
+  background: #d6304a;
+  box-shadow:
+    0 0 0 2px #5a0d0d,
+    inset 0 -2px 0 #9e1a2e;
+  pointer-events: none;
+  animation: tb-badge-in 220ms cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.tb__badge[hidden] {
+  display: none;
+}
+.tb__slot.has-mail .tb__icon {
+  animation: tb-mail-bounce 2.4s ease-in-out infinite;
+}
+@keyframes tb-mail-bounce {
+  0%,
+  70%,
+  100% {
+    transform: translateY(0);
+  }
+  78% {
+    transform: translateY(calc(var(--px) * -3));
+  }
+  86% {
+    transform: translateY(0);
+  }
+  92% {
+    transform: translateY(calc(var(--px) * -1));
+  }
+}
+@keyframes tb-badge-in {
+  from {
+    transform: scale(0);
+  }
+}
+
+/* Desktop hover label (Stardew's item tooltip box). */
+#ui > .tb__label {
+  pointer-events: none;
+}
+.sv-box.tb__label {
+  position: fixed;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 10px 4px;
+  max-width: 260px;
+  font-size: 0.9em;
+  line-height: 1.25;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity 90ms ease-out,
+    transform 90ms ease-out,
+    visibility 0s 90ms;
+}
+.tb__label.is-on {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 90ms ease-out,
+    transform 90ms ease-out;
+}
+.tb__label-name {
+  font-size: 1.05em;
+}
+.tb__label-hint {
+  color: var(--ink-soft);
+}
+
+/* ---------- the "…" menu ---------- */
+
+.hud-pop.tb-more {
+  padding: 6px;
+  min-width: 220px;
+}
+.tb-more__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tb-more__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  width: 100%;
+  padding: 4px 10px 4px 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 1.02em;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.tb-more__item:hover,
+.tb-more__item:focus-visible {
+  outline: none;
+  background: rgba(255, 248, 230, 0.75);
+  box-shadow: inset 0 0 0 2px rgba(194, 95, 23, 0.55);
+}
+.tb-more__item:active {
+  background: rgba(242, 191, 114, 0.6);
+}
+.tb-more__icon {
+  width: calc(16 * var(--ipx, 2px));
+  height: calc(16 * var(--ipx, 2px));
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.tb-more__text {
+  flex: 1;
+}
+.tb-more__state {
+  flex: none;
+  font-size: 0.85em;
+  padding: 1px 8px;
+  color: #fff6dc;
+  background: #8a7a6a;
+  box-shadow: 0 0 0 2px rgba(74, 31, 10, 0.4);
+}
+.tb-more__state.is-on {
+  background: #3f8a2a;
+}
+
+/* ---------- custom cursors (desktop) ---------- */
+
+@media (hover: hover) and (pointer: fine) {
+  body[data-tool="shears"] #farm {
+    cursor: var(--cursor-shears, crosshair) !important;
+  }
+  body[data-tool="hand"] #farm[style*="cursor: pointer"] {
+    cursor: var(--cursor-hand, pointer) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tb__slot.has-mail .tb__icon,
+  .tb__slot.is-selected::after,
+  .tb__badge {
+    animation: none;
+  }
+}

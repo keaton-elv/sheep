@@ -1,0 +1,225 @@
+/* The barn: memories of finished plans. */
+
+.fm-barn__loading {
+  text-align: center;
+  font-style: italic;
+}
+
+.fm-barn__stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 8px;
+  margin: 0 0 10px;
+  padding: 4px 8px;
+  font-weight: 700;
+  color: #5b3a1e;
+  background: rgba(255, 246, 220, 0.7);
+  box-shadow: inset 0 0 0 2px rgba(201, 147, 90, 0.6);
+}
+
+.fm-barn__section + .fm-barn__section {
+  margin-top: 12px;
+}
+.fm-barn__section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fm-barn__section h3::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #c9935a 0 6px, transparent 6px 10px);
+}
+
+.fm-barn__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.fm-barn__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 8px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: #fff4dc;
+  border: 0;
+  box-shadow:
+    inset 0 0 0 2px #d9a866,
+    0 2px 0 rgba(60, 28, 8, 0.22);
+  touch-action: manipulation;
+  transition: transform 80ms ease-out;
+}
+.fm-barn__row:hover,
+.fm-barn__row:focus-visible {
+  background: #fff9ea;
+  box-shadow:
+    inset 0 0 0 2px #e8a92c,
+    0 2px 0 rgba(60, 28, 8, 0.22);
+  outline: none;
+}
+.fm-barn__row:active {
+  transform: scale(0.99);
+}
+.fm-barn__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  margin: -4px -4px -6px -6px;
+}
+.fm-barn__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.fm-barn__name {
+  font-weight: 700;
+  font-size: 1.05em;
+  overflow-wrap: anywhere;
+}
+.fm-barn__date {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 0.82em;
+  color: var(--ink-soft);
+}
+.fm-barn__gold {
+  color: #b07a0a;
+  font-weight: 700;
+}
+.fm-barn__extra {
+  font-size: 0.82em;
+  font-weight: 700;
+  color: var(--ok-ink);
+}
+.fm-barn__memory {
+  margin-top: 2px;
+  font-size: 0.9em;
+  font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.fm-barn__memory.is-empty {
+  color: #9b7b5f;
+}
+.fm-barn__text .sv-hearts {
+  margin-top: 3px;
+}
+.fm-barn__hint {
+  margin: 4px 0;
+  font-size: 0.9em;
+  color: var(--ink-soft);
+}
+.fm-barn__empty .sv-say {
+  min-height: 0;
+}
+
+/* ---------- memory page ---------- */
+
+.fm-mem__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.fm-mem__pic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border-style: solid;
+  border-width: calc(var(--fm-px) * 4);
+  border-color: transparent;
+  border-image: var(--img-slot) 5 fill / calc(var(--fm-px) * 4) stretch;
+  image-rendering: pixelated;
+}
+.fm-mem__facts {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fm-mem__facts p {
+  margin: 0;
+}
+.fm-mem__cat {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-weight: 700;
+}
+.fm-mem__real {
+  font-size: 0.85em;
+  color: var(--ink-soft);
+}
+.fm-mem__resting {
+  margin: 10px 0 0;
+  padding: 4px 8px;
+  font-size: 0.9em;
+  color: var(--ok-ink);
+  background: rgba(150, 200, 110, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(47, 107, 31, 0.4);
+}
+.fm-mem h3 {
+  margin-top: 14px;
+}
+.fm-mem__memory {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 1.05em;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #fffaf0;
+  box-shadow:
+    inset 0 0 0 2px #e6c08a,
+    inset 4px 0 0 2px #e8a92c;
+}
+.fm-mem__memory.is-empty {
+  font-style: italic;
+  color: #9b7b5f;
+  background: transparent;
+  box-shadow: inset 0 0 0 2px rgba(201, 147, 90, 0.5);
+}
+.fm-mem__notes {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.fm-mem__link {
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+}
+.fm-mem__cal {
+  display: inline-block;
+  margin-top: 10px;
+  min-height: 40px;
+  padding: 4px 0;
+  font: inherit;
+  font-weight: 700;
+  color: #8a3c0e;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

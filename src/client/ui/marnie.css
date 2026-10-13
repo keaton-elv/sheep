@@ -1,0 +1,267 @@
+/* Marnie's Ranch + the Edit sheep form. */
+
+.mr-dialog {
+  width: min(580px, 100%);
+}
+
+.mr-form {
+  /* Icons inside the form scale with the farm's pixels, but never get comically big/small. */
+  --ipx: clamp(1.25px, var(--px), 2px);
+}
+.mr-form .sv-sprite,
+.mr-price .sv-sprite {
+  width: calc(var(--w) * var(--s, 1) * var(--ipx, var(--px)));
+  height: calc(var(--h) * var(--s, 1) * var(--ipx, var(--px)));
+}
+.mr-price {
+  --ipx: clamp(1.5px, var(--px), 2.5px);
+}
+.mr-dialog .sv-dialog__buttons .sv-sprite {
+  --ipx: clamp(1.25px, var(--px), 2px);
+  width: calc(var(--w) * var(--s, 1) * var(--ipx));
+  height: calc(var(--h) * var(--s, 1) * var(--ipx));
+}
+
+.mr-say {
+  margin-bottom: 6px;
+  min-height: 2.9em;
+}
+.mr-speaker {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 8px;
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1.5;
+  vertical-align: 0.1em;
+  color: var(--ink);
+  border-style: solid;
+  border-width: calc(var(--px) * 3);
+  border-color: transparent;
+  border-image: var(--img-button) 4 fill / calc(var(--px) * 3) stretch;
+  image-rendering: pixelated;
+}
+.mr-say.is-pop {
+  animation: mr-say-pop 220ms ease-out;
+}
+@keyframes mr-say-pop {
+  from {
+    opacity: 0.2;
+    transform: translateY(3px);
+  }
+}
+.mr-intro {
+  margin: 0 0 4px;
+  color: var(--ink-soft);
+}
+.mr-soft {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+/* ---------- name + dice ---------- */
+
+.mr-namerow {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.mr-name {
+  flex: 1;
+  min-width: 0;
+}
+.mr-name.is-fresh {
+  animation: mr-fresh 500ms ease-out;
+}
+.mr-dice {
+  flex: none;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 2px 8px;
+}
+.mr-dice.is-rolling .sv-sprite {
+  animation: mr-roll 520ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes mr-roll {
+  0% {
+    transform: rotate(0) scale(1);
+  }
+  20% {
+    transform: rotate(-28deg) scale(1.25) translateY(-4px);
+  }
+  45% {
+    transform: rotate(22deg) scale(1.15) translateY(-2px);
+  }
+  70% {
+    transform: rotate(-10deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(0) scale(1);
+  }
+}
+@keyframes mr-fresh {
+  0% {
+    filter: drop-shadow(0 0 0 #fff) brightness(1.15);
+  }
+  100% {
+    filter: none;
+  }
+}
+
+/* ---------- category chips ---------- */
+
+.mr-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 10px 0;
+  min-width: 0;
+}
+.mr-fieldset > legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
+.mr-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mr-chip {
+  position: relative;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.mr-chip__face {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+  padding: 2px 10px 2px 6px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-style: solid;
+  border-width: calc(var(--px) * 3);
+  border-color: transparent;
+  border-image: var(--img-button) 4 fill / calc(var(--px) * 3) stretch;
+  image-rendering: pixelated;
+  transition: transform 80ms ease-out;
+}
+@media (hover: hover) {
+  .mr-chip:hover .mr-chip__face {
+    transform: translateY(-1px);
+    border-image-source: var(--img-button-hover);
+  }
+}
+.mr-chip input:checked + .mr-chip__face {
+  color: var(--ink);
+  border-image: var(--img-slot) 5 fill / calc(var(--px) * 3) stretch;
+  transform: translateY(1px);
+  text-shadow: 1px 1px 0 rgba(255, 240, 200, 0.7);
+}
+.mr-chip input:checked + .mr-chip__face .sv-sprite {
+  animation: mr-hop 260ms ease-out;
+}
+.mr-chip input:focus-visible + .mr-chip__face {
+  filter: drop-shadow(0 0 0 var(--focus)) drop-shadow(0 0 calc(var(--px) * 1.5) var(--focus));
+}
+@keyframes mr-hop {
+  40% {
+    transform: translateY(-3px);
+  }
+}
+
+/* ---------- date + link ---------- */
+
+.mr-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: 12px;
+}
+@media (min-width: 600px) {
+  .mr-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.mr-grid > .sv-field {
+  min-width: 0;
+}
+.mr-daterow {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.mr-date {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  /* iOS renders empty date inputs collapsed; keep it a proper box. */
+  -webkit-appearance: none;
+  appearance: none;
+}
+.mr-date::-webkit-date-and-time-value {
+  text-align: left;
+}
+.mr-date::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+}
+.mr-clear {
+  flex: none;
+  min-width: 44px;
+  padding: 2px 8px;
+  color: var(--danger);
+}
+.mr-clear[hidden] {
+  display: none;
+}
+.mr-fielderr {
+  margin: 4px 2px 0;
+  color: var(--danger);
+  font-weight: 700;
+}
+.mr-fielderr[hidden] {
+  display: none;
+}
+.mr-hint {
+  margin: 2px 2px 0;
+  font-size: 0.9em;
+  color: var(--ink-soft);
+}
+
+/* ---------- price ---------- */
+
+.mr-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 12px 0 0;
+  padding-top: 8px;
+  border-top: calc(var(--px) * 1) dashed rgba(107, 74, 51, 0.35);
+  font-size: 0.95em;
+}
+.mr-price__label {
+  font-weight: 700;
+}
+.mr-price s {
+  color: var(--danger);
+  font-weight: 700;
+  text-decoration-thickness: 2px;
+}
+
+@media (max-width: 420px) {
+  .mr-chip__face {
+    padding: 2px 8px 2px 4px;
+    gap: 4px;
+    font-size: 0.95em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mr-dice.is-rolling .sv-sprite,
+  .mr-name.is-fresh,
+  .mr-say.is-pop,
+  .mr-chip input:checked + .mr-chip__face .sv-sprite {
+    animation: none;
+  }
+}

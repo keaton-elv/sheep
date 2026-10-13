@@ -1,0 +1,190 @@
+/* Shared bits for the farm menus (calendar, barn, loom, chest, shop, mailbox, farm sign). */
+
+/* Pixel icons inside these menus stay crisp but never get gigantic on big desktop screens:
+   one game pixel = at most 2 CSS px here (the farm itself may use more). */
+.fm-menu {
+  --fm-px: min(var(--px), 2px);
+}
+.fm-menu .sv-sprite {
+  width: calc(var(--w) * var(--s, 1) * var(--fm-px));
+  height: calc(var(--h) * var(--s, 1) * var(--fm-px));
+}
+
+/* Golden sheep shimmer. */
+.fm-golden {
+  filter: sepia(0.85) saturate(2.4) hue-rotate(-8deg) brightness(1.06) drop-shadow(0 0 2px rgba(255, 214, 90, 0.9));
+}
+
+.fm-menu h3 {
+  margin: 0 0 6px;
+  font-size: 1.08em;
+  text-shadow: 1px 1px 0 var(--ink-shadow);
+}
+
+/* A pinned paper note (calendar side panels, letters). */
+.fm-note {
+  position: relative;
+  padding: 10px 12px 12px;
+  background: #fff4dc;
+  color: var(--ink);
+  border: 2px solid #c9935a;
+  box-shadow:
+    inset 0 0 0 2px #fffaf0,
+    0 3px 0 rgba(60, 28, 8, 0.35);
+}
+.fm-note::before {
+  /* the pin */
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff9c8a 0 2px, #d8342c 3px, #8e1a14 5px);
+  box-shadow: 0 2px 0 rgba(40, 20, 10, 0.35);
+}
+
+/* One plan / sheep row: icon, name + meta line, something trailing (hearts or a chip). */
+.fm-plan {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 6px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.fm-plan:hover,
+.fm-plan:focus-visible {
+  background: rgba(255, 214, 120, 0.45);
+  outline: none;
+}
+.fm-plan:active {
+  background: rgba(233, 138, 43, 0.25);
+}
+.fm-plan__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+}
+.fm-plan__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.fm-plan__name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fm-plan__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  font-size: 0.82em;
+  color: var(--ink-soft);
+}
+.fm-plan.is-done .fm-plan__name {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: rgba(59, 35, 22, 0.45);
+  opacity: 0.75;
+}
+.fm-plan.is-done .fm-plan__icon {
+  opacity: 0.6;
+}
+.fm-plan .sv-hearts {
+  flex: none;
+}
+
+/* Little rounded-pixel label. */
+.fm-chip {
+  flex: none;
+  padding: 1px 7px;
+  font-size: 0.82em;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #5b3a1e;
+  background: #f6d9a0;
+  box-shadow:
+    inset 0 0 0 1px #c9935a,
+    0 1px 0 rgba(60, 28, 8, 0.25);
+}
+.fm-chip.is-soon {
+  color: #fff;
+  background: #3f8f2a;
+  box-shadow: inset 0 0 0 1px #24561a;
+}
+.fm-chip.is-late {
+  color: #fff;
+  background: #b3261e;
+  box-shadow: inset 0 0 0 1px #6e140f;
+}
+
+/* Expandable "N sheep without a date" lists. */
+.fm-disc {
+  margin-top: 8px;
+  border-top: 2px dashed rgba(201, 147, 90, 0.6);
+  padding-top: 4px;
+}
+.fm-disc__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  padding: 4px 2px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.fm-disc__toggle:hover,
+.fm-disc__toggle:focus-visible {
+  color: #8a3c0e;
+  outline: none;
+}
+.fm-disc__caret {
+  width: 1em;
+  color: #c25f17;
+}
+
+/* A row of pixel-art item + count (e.g. "12 cloth"). */
+.fm-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.fm-empty {
+  text-align: center;
+  padding: 12px 8px 4px;
+}
+.fm-empty p {
+  margin: 8px 0 0;
+}
+.fm-quip {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 0.85em;
+  font-style: italic;
+  color: var(--ink-soft);
+}

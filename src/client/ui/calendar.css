@@ -1,0 +1,375 @@
+/* Pierre's billboard: a wooden board with a paper calendar and notes pinned to it. */
+
+.sv-dialog.fm-cal-dialog {
+  width: min(760px, 100%);
+  padding: 16px 8px 10px;
+  /* Wooden board: the frame without its parchment fill, planks showing through. */
+  border-image: var(--img-box) 6 / calc(var(--px) * 6) stretch;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      #c9793a 0 calc(var(--px) * 1),
+      #b0642c calc(var(--px) * 1) calc(var(--px) * 11),
+      #7d3f17 calc(var(--px) * 11) calc(var(--px) * 12)
+    ),
+    #b0642c;
+  background-clip: padding-box;
+}
+.fm-cal-dialog .sv-dialog__content {
+  padding: 6px 4px 4px;
+}
+
+.fm-cal {
+  display: grid;
+  gap: 14px;
+}
+.fm-cal__left,
+.fm-cal__right {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+}
+@media (min-width: 700px) {
+  .fm-cal {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* ---------- the calendar paper ---------- */
+
+.fm-cal__paper {
+  --season: #c8541c;
+  --season-dark: #7a2e0c;
+  position: relative;
+  padding: 6px 5px 8px;
+  background: #fff6e0;
+  border: 2px solid #b98a55;
+  box-shadow:
+    inset 0 0 0 2px #fffbf0,
+    0 4px 0 rgba(50, 22, 6, 0.4);
+  touch-action: pan-y;
+}
+.fm-cal__paper::before,
+.fm-cal__paper::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff9c8a 0 2px, #d8342c 3px, #8e1a14 5px);
+  box-shadow: 0 2px 0 rgba(40, 20, 10, 0.35);
+}
+.fm-cal__paper::before {
+  left: 14px;
+}
+.fm-cal__paper::after {
+  right: 14px;
+}
+.fm-cal__paper.is-spring {
+  --season: #4f9a2c;
+  --season-dark: #24561a;
+}
+.fm-cal__paper.is-summer {
+  --season: #d9940f;
+  --season-dark: #7a4a06;
+}
+.fm-cal__paper.is-fall {
+  --season: #c8541c;
+  --season-dark: #6e2a0a;
+}
+.fm-cal__paper.is-winter {
+  --season: #3f7fc0;
+  --season-dark: #1d3f6e;
+}
+
+.fm-cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.fm-cal__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 1.15em;
+  line-height: 1.1;
+  text-align: center;
+}
+.fm-cal__season {
+  font-size: 1.2em;
+  font-weight: 700;
+  color: var(--season);
+  text-shadow:
+    1px 1px 0 var(--season-dark),
+    2px 2px 0 rgba(0, 0, 0, 0.12);
+  letter-spacing: 0.03em;
+}
+.fm-cal__month {
+  font-size: 0.85em;
+  font-weight: 700;
+  color: var(--ink);
+}
+.fm-cal__nav {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font: inherit;
+  font-size: 1.6em;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+  background: none;
+  cursor: pointer;
+  border-style: solid;
+  border-width: calc(var(--fm-px) * 3);
+  border-color: transparent;
+  border-image: var(--img-button) 4 fill / calc(var(--fm-px) * 3) stretch;
+  image-rendering: pixelated;
+  touch-action: manipulation;
+  transition: transform 80ms;
+}
+.fm-cal__nav:hover,
+.fm-cal__nav:focus-visible {
+  transform: scale(1.08);
+  border-image-source: var(--img-button-hover);
+  outline: none;
+}
+.fm-cal__nav:active {
+  transform: scale(0.94);
+}
+
+.fm-cal__dow {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  margin-bottom: 2px;
+  font-size: 0.72em;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.fm-cal__dow .is-weekend {
+  color: var(--season);
+}
+
+.fm-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  padding: 1px;
+  background: #d9b98a;
+}
+
+.fm-cal__cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-width: 0;
+  min-height: 46px;
+  aspect-ratio: 1 / 1.08;
+  padding: 2px 2px 1px;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  background: #fffaf0;
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.fm-cal__cell.is-blank {
+  background: #f3e2c2;
+  cursor: default;
+}
+.fm-cal__cell.is-past:not(.is-today) {
+  background: #f8edd6;
+}
+.fm-cal__cell.is-past .fm-cal__num {
+  opacity: 0.6;
+}
+.fm-cal__cell.has-plans {
+  background: #fff1cf;
+}
+.fm-cal__cell:hover:not(.is-blank),
+.fm-cal__cell:focus-visible {
+  background: #ffe6a8;
+  outline: none;
+}
+.fm-cal__cell.is-selected {
+  background: #ffe08a;
+  box-shadow: inset 0 0 0 2px #e8a92c;
+}
+/* Stardew's red "today" frame, gently pulsing. */
+.fm-cal__cell.is-today::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 2px #d8342c,
+    inset 0 0 0 3px #ffb08a;
+  animation: fm-cal-today 1.2s steps(2, jump-none) infinite alternate;
+}
+@keyframes fm-cal-today {
+  to {
+    box-shadow:
+      inset 0 0 0 2px #ff5a36,
+      inset 0 0 0 3px #ffd2a8;
+  }
+}
+.fm-cal__num {
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1;
+}
+.fm-cal__cell.is-today .fm-cal__num {
+  color: #b3261e;
+}
+.fm-cal__cell.is-weekend .fm-cal__num {
+  color: var(--season-dark);
+}
+.fm-cal__flag {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+.fm-cal__heads {
+  flex: 1;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+.fm-cal__face {
+  position: relative;
+  display: grid;
+  line-height: 0;
+}
+.fm-cal__face + .fm-cal__face {
+  margin-left: calc(var(--fm-px) * -4);
+}
+.fm-cal__face.is-done {
+  opacity: 0.55;
+}
+.fm-cal__face.is-done::after {
+  content: "✂";
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  font-size: 10px;
+  line-height: 1;
+  color: #b3261e;
+  text-shadow: 0 0 2px #fff;
+}
+.fm-cal__more {
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 1;
+  color: #8a3c0e;
+}
+.fm-cal__today {
+  display: block;
+  margin: 6px auto 0;
+  min-height: 40px;
+  padding: 4px 12px;
+  font: inherit;
+  font-weight: 700;
+  color: #b3261e;
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ---------- day panel + coming up ---------- */
+
+.fm-cal__day,
+.fm-cal__soon {
+  margin-top: 4px;
+}
+.fm-cal__day.is-hint p {
+  margin: 4px 0;
+  text-align: center;
+  color: var(--ink-soft);
+}
+.fm-cal__dayname {
+  margin: 0;
+}
+.fm-cal__sub {
+  margin: 0 0 6px;
+  font-size: 0.85em;
+  color: var(--ink-soft);
+}
+.fm-cal__fest {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 4px 6px;
+  font-size: 0.88em;
+  background: #ffe9ec;
+  box-shadow: inset 0 0 0 1px #e8a0aa;
+}
+.fm-cal__fest .sv-sprite {
+  margin-top: 2px;
+}
+.fm-cal__plans {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.fm-cal__quiet {
+  margin: 6px 0;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.fm-cal__hint {
+  margin: 4px 0 2px;
+  font-size: 0.8em;
+  color: var(--ink-soft);
+}
+.fm-cal__done {
+  color: #b3261e;
+  font-weight: 700;
+}
+.fm-cal__add {
+  width: 100%;
+  margin-top: 8px;
+}
+
+@media (max-width: 380px) {
+  .fm-cal__title {
+    font-size: 1.05em;
+  }
+  .fm-cal__nav {
+    width: 40px;
+    height: 40px;
+  }
+  .fm-cal__cell {
+    min-height: 42px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-cal__cell.is-today::after {
+    animation: none;
+  }
+}

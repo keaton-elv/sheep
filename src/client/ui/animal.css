@@ -1,0 +1,435 @@
+/* The animal card (Stardew's animal query menu), for one sheep. */
+
+.an-dialog {
+  width: min(520px, 100%);
+}
+
+.an-card {
+  --ipx: clamp(1.5px, var(--px), 2.25px);
+}
+.an-card .sv-sprite {
+  width: calc(var(--w) * var(--s, 1) * var(--ipx));
+  height: calc(var(--h) * var(--s, 1) * var(--ipx));
+}
+
+/* ---------- header ---------- */
+
+.an-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.an-frame {
+  border-style: solid;
+  border-width: calc(var(--px) * 4);
+  border-color: transparent;
+  border-image: var(--img-slot) 5 fill / calc(var(--px) * 4) stretch;
+  image-rendering: pixelated;
+  line-height: 0;
+}
+
+/* A tiny pasture behind the sheep, dressed for the season and the hour. */
+.an-scene {
+  --sky1: #9fd8ff;
+  --sky2: #d6f0ff;
+  --grass: #79c34c;
+  --grass-top: #9ad866;
+  --grass2: #5aa53a;
+  --dot1: #ffe066;
+  --dot2: #ff9fc4;
+  position: relative;
+  width: 120px;
+  height: 116px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 78%, var(--dot1) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 84% 70%, var(--dot2) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 70% 92%, var(--dot1) 0 1.5px, transparent 2px),
+    linear-gradient(
+      to bottom,
+      var(--sky1) 0%,
+      var(--sky2) 52%,
+      var(--grass-top) 52%,
+      var(--grass-top) 56%,
+      var(--grass) 56%,
+      var(--grass) 82%,
+      var(--grass2) 82%
+    );
+}
+.an-scene[data-season="summer"] {
+  --sky1: #7cc6ff;
+  --sky2: #c6ecff;
+  --grass: #6bb83f;
+  --grass-top: #8fd05a;
+  --grass2: #4f9a30;
+  --dot2: #ff7a5c;
+}
+.an-scene[data-season="fall"] {
+  --sky1: #ffc98a;
+  --sky2: #ffe8c2;
+  --grass: #b89a3e;
+  --grass-top: #d3b452;
+  --grass2: #9a7c2c;
+  --dot1: #e8743a;
+  --dot2: #c8452a;
+}
+.an-scene[data-season="winter"] {
+  --sky1: #b9d3ee;
+  --sky2: #e4eefa;
+  --grass: #f4f8ff;
+  --grass-top: #ffffff;
+  --grass2: #d6e2f2;
+  --dot1: #ffffff;
+  --dot2: #cfe0f5;
+}
+.an-scene.is-night {
+  --sky1: #141a44;
+  --sky2: #343b7a;
+  --grass: #3d6a3a;
+  --grass-top: #4d7e48;
+  --grass2: #2f5530;
+  --dot1: rgba(255, 255, 255, 0.4);
+  --dot2: rgba(255, 255, 255, 0.25);
+}
+.an-scene.is-night[data-season="winter"] {
+  --grass: #9fb0d0;
+  --grass-top: #b8c6e0;
+  --grass2: #8596bb;
+}
+.an-scene.is-night::before {
+  /* stars */
+  content: "";
+  position: absolute;
+  inset: 0 0 50% 0;
+  background:
+    radial-gradient(circle at 12% 20%, #fff 0 1px, transparent 1.5px),
+    radial-gradient(circle at 34% 42%, #fff 0 1px, transparent 1.5px),
+    radial-gradient(circle at 58% 14%, #fff 0 1.2px, transparent 1.7px),
+    radial-gradient(circle at 80% 36%, #fff 0 1px, transparent 1.5px),
+    radial-gradient(circle at 90% 12%, #ffe9a8 0 1.4px, transparent 2px);
+}
+.an-scene.is-night .an-sprite {
+  filter: brightness(0.82) saturate(0.85);
+}
+
+.an-poke {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 96px;
+  height: 96px;
+  margin-left: -48px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.an-poke:focus-visible {
+  outline: 2px dashed var(--focus);
+  outline-offset: -2px;
+}
+.an-sprite {
+  display: block;
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+}
+.an-poke.is-hopping .an-sprite {
+  animation: an-hop 380ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+@keyframes an-hop {
+  35% {
+    transform: translateY(-12px) scaleY(1.04);
+  }
+  70% {
+    transform: translateY(0) scaleY(0.94) scaleX(1.04);
+  }
+}
+
+/* Sleeping: little z's float up. */
+.an-zzz {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  text-shadow: 1px 1px 0 #2c2c5a;
+  pointer-events: none;
+}
+.an-zzz span {
+  position: relative;
+  top: -8px;
+  font-size: 11px;
+  margin-left: 2px;
+}
+.an-scene.is-asleep .an-zzz {
+  display: block;
+  animation: an-zzz 2.4s ease-in-out infinite;
+}
+@keyframes an-zzz {
+  0% {
+    transform: translateY(4px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+}
+
+/* Petted from the card: a heart floats up. */
+.an-petheart {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  z-index: 1;
+  line-height: 0;
+  pointer-events: none;
+  animation: an-petheart 1s ease-out forwards;
+}
+@keyframes an-petheart {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -28px) scale(1);
+  }
+}
+
+/* Golden sheep sparkle. */
+.an-scene.is-golden::after {
+  content: "\2726";
+  position: absolute;
+  top: 26%;
+  left: 18%;
+  color: #fff6a8;
+  font-size: 14px;
+  line-height: 1;
+  text-shadow:
+    0 0 4px #ffd84a,
+    56px 18px 0 #fff6a8,
+    66px -6px 0 #ffe066;
+  animation: an-twinkle 1.6s steps(4) infinite;
+  pointer-events: none;
+}
+@keyframes an-twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.an-head {
+  min-width: 0;
+  /* Room for the dialog's close button in the top-right corner. */
+  padding-right: 16px;
+}
+.an-name {
+  margin: 0;
+  font-size: 1.6em;
+  line-height: 1.1;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-shadow: calc(var(--px) * 1) calc(var(--px) * 1) 0 var(--ink-shadow);
+}
+.an-heartsrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.an-heartcount {
+  font-weight: 700;
+  font-size: 0.9em;
+  color: #c2334a;
+}
+.an-mood {
+  margin: 4px 0 0;
+  line-height: 1.35;
+}
+
+/* ---------- details ---------- */
+
+.an-rows {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 12px;
+  align-items: baseline;
+  margin: 14px 0 0;
+  padding: 6px 10px;
+  border-style: solid;
+  border-width: calc(var(--px) * 4);
+  border-color: transparent;
+  border-image: var(--img-input) 4 fill / calc(var(--px) * 4) stretch;
+  image-rendering: pixelated;
+}
+.an-rows dt {
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.an-rows dd {
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.an-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+.an-chip--gold {
+  color: #94620a;
+}
+.an-date {
+  font-weight: 700;
+}
+.an-sub {
+  font-size: 0.88em;
+  color: var(--ink-soft);
+}
+.an-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.an-link {
+  display: inline-block;
+  padding: 6px 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.an-memory {
+  margin: 0;
+  padding: 6px 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: rgba(255, 255, 255, 0.5);
+  border-left: calc(var(--px) * 2) solid #f08aa8;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.an-memory::before {
+  content: "\201C";
+  font-weight: 700;
+  color: #d0607e;
+  margin-right: 2px;
+}
+.an-memory::after {
+  content: "\201D";
+  font-weight: 700;
+  color: #d0607e;
+  margin-left: 2px;
+}
+.an-linkbtn {
+  min-height: 40px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: #2a5db0;
+  text-align: left;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.an-linkbtn:hover,
+.an-linkbtn:focus-visible {
+  color: #1b3f80;
+  text-decoration-style: solid;
+  outline: none;
+}
+
+/* ---------- actions ---------- */
+
+.an-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (min-width: 600px) {
+  .an-scene {
+    width: 152px;
+    height: 144px;
+  }
+  .an-poke {
+    width: 128px;
+    height: 128px;
+    margin-left: -64px;
+  }
+  .an-sprite {
+    width: 128px;
+    height: 128px;
+  }
+}
+
+@media (max-width: 440px) {
+  .an-top {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: 10px;
+  }
+  .an-head {
+    padding: 0 8px;
+  }
+  .an-heartsrow {
+    justify-content: center;
+  }
+  .an-actions .sv-btn {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .an-petheart {
+    animation: an-petheart-calm 1s steps(2) forwards;
+  }
+  .an-poke.is-hopping .an-sprite,
+  .an-scene.is-asleep .an-zzz,
+  .an-scene.is-golden::after {
+    animation: none;
+  }
+  .an-scene.is-golden::after {
+    opacity: 0.9;
+  }
+}
+@keyframes an-petheart-calm {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}

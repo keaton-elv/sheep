@@ -1,0 +1,82 @@
+// Mayor Lewis's portrait (64x64): grey mustache, flat cap, suspenders. Hand-drawn fallback
+// for "portrait.lewis"; a real Stardew portrait region replaces it automatically.
+// (dom.ts currently never renders portraits, but the key stays registered for later.)
+
+import { pixelArt } from "../engine/pixelart";
+
+let done = false;
+
+export function registerLewisArt(): void {
+  if (done) return;
+  done = true;
+  pixelArt(
+    "portrait.lewis",
+    [
+      "................................................................",
+      "................................................................",
+      "................................................................",
+      "................................................................",
+      "................................................................",
+      "................................................................",
+      "................................................................",
+      "...............................ooo..............................",
+      ".........................oooooooooooooo.........................",
+      "......................oooLLLLLLLLCCCCCCooo......................",
+      ".....................oLLLcLLLLLLCCCCCCCxCCo.....................",
+      "...................ooLLLLcLLLLLLCCCCCCCxCCCoo...................",
+      "..................oLLLLLLcLLLLLCCCCCCCCxCCCCCo..................",
+      ".................oLLLLLLLcLLLLCCCCCCCCCxCCCCCCo.................",
+      "................oLLLLLLLcLLLLCCCCCCCCCCCxCCCCcco................",
+      "................oLLLLLLLcLLLCCCCCCCCCCCCxCCCccco................",
+      "...............oLLLLLLLLcLLCCCCCCCCCCCCCxCCccccco...............",
+      "...............oLLLLLLLLcLCCCCCCCCCCCCCCxCcccccco...............",
+      "...............oLLLLLLLcooooooooooooooooCxcccccco...............",
+      "...............oLoooooooCCCCCCCCCCCCCCCCoooooooco...............",
+      "..............oooLLLLLLCCCCCCCCCCCCCCCCCCCCCCCCooo..............",
+      ".............occcccccccccccccccccccccccccccccccccco.............",
+      "..............oooccccccccccccccccccccccccccccccooo..............",
+      "................ooooooooccccccccccccccccoooooooo................",
+      "...............oGGGWssssoooooooooooooooossogggggo...............",
+      "...............oGGWhhhhhhhSSSSSSSSSSSSSSSSogggggo...............",
+      "...............oGGGhhqGGWGSSSSSSSSSSSSGWGGqggGggo...............",
+      "...............oGGWhhhqgGGGqSSSSSSSSqGGGgqogggggo...............",
+      "...............oGGGhhhhhSSSSSSSSSSSSSSSSSSogggGgo...............",
+      "...............oGGGhhhhSweSSSSSSSSSSSSSweSogggggo...............",
+      "...............oGGGhhhhSeeSSSSSSSSSSSSSeeSogGgggo...............",
+      "..............oSoGhhhhsSeeSSSSSssSSSSSSeeSsogggoso..............",
+      "..............oSoGGhhSSsSSSSSssSSssSSSSSSsSoggnoso..............",
+      "..............oSSoGhhSSkSSSSSsShSSsSSSSSkSssogonso..............",
+      "..............oSSsohSkkkkkSSSshSSSsSSSkkkkkssosnso..............",
+      "...............oSSoSSkkkkkSSSsSSSSnSSSkkkkkssosso...............",
+      "...............ooSoSSSSkSSSSSssSSnsSSSSSkssssosoo...............",
+      ".................ooSSSSSqqqqqqSsnSqqqqqqsssssoo.................",
+      "...................oSSqqGGWWWGqqqqGGWWGGqqsso...................",
+      "...................oSqGGGWGGGGGGqGGWGGGGGGqso...................",
+      "....................qGGGGGGGGGGGqGGGGGGGGGGq....................",
+      "...................qggggggggggqqqqggggggggggq...................",
+      "...................qgggqqqqqqqSSSSqqqqqqqgggq...................",
+      "....................qqqSSSSSSmSSSmSssssssqqq....................",
+      ".......................oSSSSSSmmmSSssssso.......................",
+      "........................oossssssssssssoo........................",
+      "..........................oosssSSsssooo.........................",
+      ".........................oovoooooooovoo.........................",
+      "........................ovvvvossssovvvvo........................",
+      ".........................ovvvvoooovvvvo.........................",
+      ".....................oooooovvvvoovvvvoooooo.....................",
+      "..................oooTTTTToovvvvvvvvoooTTTTooo..................",
+      "................ooBoTTTTTTTTovvvvvvoTTTTTTTToBoo................",
+      "..............oooBBoTTTTTTTTovvvvvvoTTTTTTTToBBooo..............",
+      ".............ouToBBBoTTTTTTTTovvvvoTTTTTTTToBBBotto.............",
+      "...........oouuTToBboTTTTTTTTTovvoTTTTTTTTToBbottttoo...........",
+      "..........ouuuuTToBboTTTTTTTTTTooTTTTTTTTTToBbotttttto..........",
+      ".........oTTTTTTToBboTTTTTTTTTTTTTTTTTTTTTToBbottttttto.........",
+      "........oTTTTTTTToBboTTTTTTTTTTTTTTTTTTTTTToBbotttttttto........",
+      ".......oTTTTTTTTToBboTTTTTTTTTTTTTTTTTTTTTToBbottttttttto.......",
+      "......oTTTTTTTTTToBboTTTTTTTTTTTTTTTTTTTTTToBbotttttttttto......",
+      ".....oTTTTTTTTTTTTobBoTTTTTTTTTTTTTTTTTTTToBBotttttttttttto.....",
+      "....oTTTTTTTTTTTTTobBoTTTTTTTTTTTTTTTTTTTToBBottttttttttttto....",
+      "....oTTTTTTTTTTTTTooooTTTTTTTTTTTTTTTTTTTToooottttttttttttto....",
+    ],
+    { B: "#7a4a2a", C: "#7a6440", G: "#d9d5cf", L: "#9c8456", S: "#f2b98c", T: "#9fc06e", W: "#f6f4ef", b: "#5a3420", c: "#5a472c", e: "#2a1a12", g: "#aaa39b", h: "#ffd6ad", k: "#e8867a", m: "#8c3e30", n: "#b06c4c", o: "#3a2216", q: "#7b7068", s: "#d4916a", t: "#7a9a50", u: "#c9de9a", v: "#f1ead8", w: "#ffffff", x: "#3f3020" },
+  );
+}

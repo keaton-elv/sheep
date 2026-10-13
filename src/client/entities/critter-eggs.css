@@ -1,0 +1,191 @@
+/* Easter-egg overlays: the "new day" banner and the big Stardrop moment. */
+
+.cr-day {
+  position: fixed;
+  left: 50%;
+  top: 26%;
+  z-index: 30;
+  width: min(90vw, 420px);
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  color: #fff4dc;
+  opacity: 0;
+  animation: cr-day 4.6s ease-in-out forwards;
+  --o: #3b2316;
+  text-shadow:
+    calc(var(--px) * 1) 0 0 var(--o),
+    calc(var(--px) * -1) 0 0 var(--o),
+    0 calc(var(--px) * 1) 0 var(--o),
+    0 calc(var(--px) * -1) 0 var(--o),
+    calc(var(--px) * 1) calc(var(--px) * 1) 0 var(--o),
+    calc(var(--px) * -1) calc(var(--px) * 1) 0 var(--o),
+    calc(var(--px) * 1) calc(var(--px) * -1) 0 var(--o),
+    calc(var(--px) * -1) calc(var(--px) * -1) 0 var(--o),
+    0 calc(var(--px) * 2.5) 0 rgba(40, 20, 60, 0.35);
+}
+.cr-day__date {
+  font-size: 1.9em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+}
+.cr-day__flavor {
+  margin-top: 0.3em;
+  font-size: 1em;
+  font-weight: 700;
+  color: #ffe3a8;
+}
+@keyframes cr-day {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  18%,
+  78% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}
+
+/* ---------- Stardrop ---------- */
+
+.cr-stardrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  background: radial-gradient(circle at 50% 45%, rgba(150, 80, 210, 0.35), rgba(18, 10, 40, 0.62) 72%);
+  animation: cr-fade-in 0.4s ease-out;
+}
+.cr-stardrop.is-leaving {
+  animation: cr-fade-out 0.45s ease-in forwards;
+}
+.cr-stardrop__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  transform: translateY(-12vh);
+}
+.cr-stardrop__item {
+  position: relative;
+  z-index: 1;
+  animation:
+    cr-pop 0.8s cubic-bezier(0.2, 1.5, 0.4, 1) both,
+    cr-bob 1.8s ease-in-out 0.8s infinite;
+  filter: drop-shadow(0 0 calc(var(--px) * 4) rgba(255, 190, 255, 0.9));
+}
+.cr-stardrop__halo {
+  position: absolute;
+  width: calc(var(--px) * 90);
+  height: calc(var(--px) * 90);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 225, 255, 0.85), rgba(255, 150, 240, 0.25) 45%, rgba(255, 150, 240, 0) 70%);
+  animation: cr-pulse 1.6s ease-in-out infinite;
+}
+.cr-stardrop__spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  animation: cr-spark 1.5s ease-out var(--d, 0s) infinite;
+}
+.cr-stardrop__caption {
+  position: absolute;
+  top: calc(100% + var(--px) * 14);
+  white-space: nowrap;
+  font-size: 1.25em;
+  font-weight: 700;
+  color: #fff4ff;
+  --o: #3a1250;
+  text-shadow:
+    calc(var(--px) * 1) 0 0 var(--o),
+    calc(var(--px) * -1) 0 0 var(--o),
+    0 calc(var(--px) * 1) 0 var(--o),
+    0 calc(var(--px) * -1) 0 var(--o);
+  animation: cr-fade-in 0.5s ease-out 0.6s both;
+}
+
+@keyframes cr-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes cr-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes cr-pop {
+  0% {
+    transform: scale(0) rotate(-40deg);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+@keyframes cr-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 calc(var(--px) * -4);
+  }
+}
+@keyframes cr-pulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+@keyframes cr-spark {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-day {
+    animation-name: cr-day-still;
+  }
+  @keyframes cr-day-still {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    18%,
+    78% {
+      opacity: 1;
+    }
+  }
+  .cr-stardrop__item,
+  .cr-stardrop__halo {
+    animation: cr-fade-in 0.4s ease-out both;
+  }
+  .cr-stardrop__spark {
+    display: none;
+  }
+}

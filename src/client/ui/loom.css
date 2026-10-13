@@ -1,0 +1,275 @@
+/* Loom + chest menus. */
+
+/* ---------- loom ---------- */
+
+.fm-loom__main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.fm-loom__art {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: end center;
+  padding: calc(var(--fm-px) * 22 + 12px) 10px 4px;
+  min-width: calc(var(--fm-px) * 52);
+}
+.fm-loom__art::after {
+  /* soft lavender ground shadow */
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: calc(var(--fm-px) * 40);
+  height: calc(var(--fm-px) * 6);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(40, 20, 60, 0.25);
+  z-index: 0;
+}
+/* The real Stardew loom brings its own drop shadow. */
+.fm-loom__art.is-real::after {
+  display: none;
+}
+.fm-loom__machine {
+  position: relative;
+  z-index: 1;
+  transform-origin: 50% 100%;
+}
+.fm-loom__art.is-working .fm-loom__machine {
+  animation: fm-loom-clack 0.5s steps(2, jump-none) infinite;
+}
+@keyframes fm-loom-clack {
+  0% {
+    transform: translateX(0) scaleY(1);
+  }
+  50% {
+    transform: translateX(calc(var(--fm-px) * 1)) scaleY(0.98);
+  }
+  100% {
+    transform: translateX(calc(var(--fm-px) * -1)) scaleY(1);
+  }
+}
+/* Stardew's "it's done!" bubble above a machine. */
+.fm-loom__bubble {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--fm-px) * 2);
+  transform: translateX(-50%);
+  background: #fffaf0;
+  border: 2px solid #4a1f0a;
+  border-radius: 40%;
+  box-shadow: 0 2px 0 rgba(40, 20, 10, 0.3);
+  animation: fm-loom-bob 1s ease-in-out infinite alternate;
+}
+.fm-loom__bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-top-color: #4a1f0a;
+  border-bottom: 0;
+}
+@keyframes fm-loom-bob {
+  to {
+    transform: translate(-50%, -4px);
+  }
+}
+
+.fm-loom__status {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.fm-loom__status h3 {
+  margin: 0;
+}
+.fm-loom__status p {
+  margin: 0;
+}
+.fm-loom__hint {
+  font-size: 0.85em;
+  color: var(--ink-soft);
+}
+.fm-loom__eta {
+  font-weight: 700;
+}
+.fm-loom__time {
+  font-variant-numeric: tabular-nums;
+  color: var(--ok-ink);
+}
+
+/* Stardew-style progress bar: dark wood frame, tan groove, green fill with a shine. */
+.fm-loom__bar {
+  position: relative;
+  width: 100%;
+  max-width: 260px;
+  height: 18px;
+  padding: 3px;
+  background: #f2c886;
+  border: 2px solid #4a1f0a;
+  box-shadow:
+    inset 0 0 0 2px #c25f17,
+    inset 0 3px 0 2px #8a3c0e,
+    0 2px 0 rgba(40, 20, 10, 0.3);
+}
+.fm-loom__fill {
+  width: 0;
+  height: 100%;
+  background: linear-gradient(180deg, #a6f07a 0 25%, #5fbf3f 25% 75%, #3f8f2a 75%);
+  transition: width 240ms linear;
+}
+
+.fm-loom__collect {
+  animation: fm-loom-glow 1.1s ease-in-out infinite alternate;
+}
+@keyframes fm-loom-glow {
+  to {
+    filter: drop-shadow(0 0 4px rgba(255, 230, 120, 0.95));
+  }
+}
+
+.fm-loom__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 2px dashed rgba(201, 147, 90, 0.6);
+}
+
+@media (max-width: 400px) {
+  .fm-loom__main {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .fm-loom__status {
+    align-items: center;
+  }
+}
+
+/* ---------- chest ---------- */
+
+.sv-dialog.fm-chest-dialog {
+  width: min(470px, 100%);
+}
+/* 6 x 4 slots, like a (small) Stardew chest. */
+.fm-chest__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+  padding: 6px;
+  background: #8a3c0e;
+  box-shadow:
+    inset 0 0 0 2px #4a1f0a,
+    inset 0 0 0 4px #c25f17;
+}
+.fm-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  background: none;
+  border-style: solid;
+  border-width: calc(var(--fm-px) * 4);
+  border-color: transparent;
+  border-image: var(--img-slot) 5 fill / calc(var(--fm-px) * 4) stretch;
+  image-rendering: pixelated;
+  touch-action: manipulation;
+}
+button.fm-slot {
+  cursor: pointer;
+}
+button.fm-slot:hover,
+button.fm-slot:focus-visible {
+  filter: brightness(1.08);
+  outline: none;
+}
+.fm-slot.is-selected {
+  outline: 3px solid #ff3a2a;
+  outline-offset: -2px;
+  animation: fm-slot-blink 0.9s steps(2, jump-none) infinite alternate;
+}
+@keyframes fm-slot-blink {
+  to {
+    outline-color: #ffb03a;
+  }
+}
+.fm-slot .fm-slot__icon {
+  transition: transform 80ms;
+}
+button.fm-slot:hover .fm-slot__icon {
+  transform: scale(1.1);
+}
+.fm-slot__count {
+  position: absolute;
+  right: 1px;
+  bottom: -2px;
+  font-size: 0.85em;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-shadow:
+    1px 0 0 #3b2316,
+    -1px 0 0 #3b2316,
+    0 1px 0 #3b2316,
+    0 -1px 0 #3b2316,
+    1px 1px 0 #3b2316;
+  pointer-events: none;
+}
+
+.fm-chest__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 3.6em;
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: #fff4dc;
+  box-shadow: inset 0 0 0 2px #d9a866;
+}
+.fm-chest__info.is-idle {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.fm-chest__pic {
+  flex: none;
+}
+.fm-chest__idle {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.fm-chest__lifetime {
+  margin: 10px 0 0;
+  flex-wrap: wrap;
+}
+.fm-chest__loom {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-loom__art.is-working .fm-loom__machine,
+  .fm-loom__bubble,
+  .fm-loom__collect,
+  .fm-slot.is-selected {
+    animation: none;
+  }
+}

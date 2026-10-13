@@ -1,0 +1,42 @@
+/* Anchored parchment popovers (clock report, toolbar "…" menu). */
+
+.sv-box.hud-pop {
+  position: fixed;
+  z-index: 40;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 8px 10px 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: 0.95em;
+  outline: none;
+  animation: hud-pop-in 140ms cubic-bezier(0.2, 1.4, 0.4, 1);
+  /* Sprites inside popovers: follow the farm's pixel size, but never bigger than 2 CSS px
+     per art pixel (both values are whole device pixels, so icons stay crisp). */
+  --ipx: min(var(--px), 2px);
+}
+.hud-pop .sv-sprite {
+  width: calc(var(--w) * var(--s, 1) * var(--ipx));
+  height: calc(var(--h) * var(--s, 1) * var(--ipx));
+}
+.hud-pop[data-placement="below-end"] {
+  transform-origin: top right;
+}
+.hud-pop[data-placement="above"] {
+  transform-origin: bottom center;
+}
+.hud-pop.is-closing {
+  animation: sv-fade-out 110ms ease-in forwards;
+}
+
+@keyframes hud-pop-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-pop {
+    animation: none;
+  }
+}
