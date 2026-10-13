@@ -395,8 +395,8 @@ const PIECE = {
   skylineLit: { x: 210, y: 320, w: 256, h: 76 },
 } satisfies Record<string, Rect>;
 
-/** Downtown sits this many rows above the lowest Lady's sidewalk (its feet hide behind the row). */
-const SKY_FOOT = 58;
+/** Downtown sits this many rows above the lowest Lady's sidewalk (its flat base still hides behind the eaves). */
+const SKY_FOOT = 78;
 /** ...and starts this far right of the row's left edge (the Pyramid peeks between Ladies 3 and 4). */
 const SKY_DX = 112;
 
