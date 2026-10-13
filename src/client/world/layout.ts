@@ -31,8 +31,12 @@ export interface Layout {
   pasture: Rect;
   /** The fence line drawn around the pasture. */
   fence: Rect;
-  /** A gap in the top fence (x range) next to the barn door, where sheep walk in and out. */
-  gate: { x: number; w: number };
+  /**
+   * The gap in the fence where sheep walk between the barn and the pasture.
+   * (x, y) is the center of the gap on the fence line; `w` is the gap width;
+   * `side` says which fence edge it's on (top in portrait, left in landscape).
+   */
+  gate: { x: number; y: number; w: number; side: "top" | "left" };
   /** Barn sprite bounds (112x112, the real Stardew barn size). */
   barn: Rect;
   /** Where sheep enter/exit the barn (feet position). */
@@ -99,9 +103,9 @@ export function computeLayout(w: number, h: number): Layout {
   // The pasture is the fence interior, with room for fence posts and sheep sprites.
   const pasture: Rect = { x: fence.x + 12, y: fence.y + 24, w: fence.w - 24, h: fence.h - 30 };
   const gateW = 28;
-  const gate = portrait
-    ? { x: Math.round(barnDoor.x - gateW / 2), w: gateW }
-    : { x: fence.x + 8, w: gateW }; // landscape: gap at the top-left of the fence, near the barn
+  const gate: Layout["gate"] = portrait
+    ? { x: Math.max(fence.x + gateW, barnDoor.x), y: fence.y, w: gateW, side: "top" }
+    : { x: fence.x, y: Math.min(fence.y + fence.h - gateW, barnDoor.y), w: gateW, side: "left" };
   const critterCorner: Rect = { x: pasture.x + pasture.w - 60, y: pasture.y + pasture.h - 34, w: 60, h: 34 };
 
   const blocked: Rect[] = [critterCorner, inflate(hudClock, 4), inflate(hudToolbar, 4)];

@@ -26,7 +26,8 @@ export type Sfx =
   | "pet" // petting rustle + happy
   | "woosh"
   | "splash"
-  | "chime"; // gentle notification (new mail)
+  | "chime" // gentle notification (new mail)
+  | "meow"; // the farm cat
 
 export function sfx(_name: Sfx, _opts: { volume?: number; pitch?: number } = {}): void {}
 
