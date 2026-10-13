@@ -327,7 +327,15 @@ function initDayBanner(g: Game): void {
     const key = dayKey(now);
     if (lsGet("farm.lastDay") === key) return;
     lsSet("farm.lastDay", key);
-    setTimeout(() => {
+    // Wait for a clear stage: the first visit's how-to opens a beat after the farm does (toolbar.ts
+    // marks farm.helpSeen as it opens), and the banner would play unseen underneath it.
+    let waited = 0;
+    const show = () => {
+      const blocked = !lsGet("farm.helpSeen") || isDialogOpen() || document.querySelector(".farm-gate");
+      if (blocked && (waited += 400) < 10 * 60 * 1000) {
+        setTimeout(show, 400);
+        return;
+      }
       const date = `${clockDateLabel(now)} — Year ${farmYear(s.foundedAt, now)}`;
       // Sometimes Thursday is just Thursday. Sometimes it's THURSDAY!!!!! (Decided per date, so the
       // banner agrees with the sheep, and with the other phone.)
@@ -340,7 +348,8 @@ function initDayBanner(g: Game): void {
       );
       uiRoot.appendChild(banner);
       setTimeout(() => banner.remove(), 4800);
-    }, 700);
+    };
+    setTimeout(show, 700);
   });
 }
 
