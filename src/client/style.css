@@ -118,7 +118,8 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #5a8f3c;
+  /* Follows the season (main.ts sets --season-bg): the color around the farm and behind the status bar. */
+  background: var(--season-bg, #5a8f3c);
   overscroll-behavior: none;
 }
 
@@ -176,7 +177,7 @@ a {
   inset: 0;
   display: grid;
   place-items: center;
-  background: #5a8f3c;
+  background: var(--season-bg, #5a8f3c);
   color: #fff7e3;
   font-size: 1.4em;
   text-shadow: 2px 2px 0 #2f5320;
@@ -186,4 +187,14 @@ a {
 #boot.is-done {
   opacity: 0;
   pointer-events: none;
+}
+
+/* No scrollbars anywhere (scrolling still works by touch, wheel and keys). */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }

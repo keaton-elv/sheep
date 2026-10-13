@@ -34,6 +34,20 @@ async function boot(): Promise<void> {
 
   const canvas = document.getElementById("farm") as HTMLCanvasElement;
   const g = new Game(canvas);
+
+  // The page color around the farm (and the phone's status bar) follows the season's grass.
+  const SEASON_BG = { spring: "#64a33f", summer: "#4c8c2e", fall: "#cf8f3e", winter: "#d9e6ee" } as const;
+  let bgSeason = "";
+  const applySeasonBg = () => {
+    const season = g.env.season;
+    if (season === bgSeason) return;
+    bgSeason = season;
+    const color = SEASON_BG[season] ?? SEASON_BG.spring;
+    document.documentElement.style.setProperty("--season-bg", color);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
+  };
+  applySeasonBg();
+  g.on("tick", applySeasonBg);
   // Expose for poking around in devtools: __farm.tool, __farm.env, ...
   (window as unknown as { __farm: Game }).__farm = g;
 

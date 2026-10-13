@@ -147,7 +147,7 @@ export interface DialogOptions {
   /** Backdrop click / Escape / ✕ closes it (backdrop and Escape not once a text field is edited). Default true. */
   dismissable?: boolean;
   onClose?: () => void;
-  /** Play the menu open/close sounds. Default true. */
+  /** Play the menu open/close sounds. Default false (they got repetitive). */
   sounds?: boolean;
 }
 
@@ -244,7 +244,8 @@ export function openDialog(rawOpts: DialogOptions): DialogHandle {
   // them (the API keeps the fields), but they're intentionally never rendered.
   const opts: DialogOptions = { ...rawOpts, portrait: undefined, speaker: undefined };
   const dismissable = opts.dismissable ?? true;
-  const sounds = opts.sounds ?? true;
+  // Opening/closing every dialog with a sound got repetitive, so dialogs are quiet unless asked.
+  const sounds = opts.sounds ?? false;
   const body = el("div", { class: "sv-dialog__body" });
   append(body, ...(Array.isArray(opts.body) ? opts.body : [opts.body]));
   const errorLine = el("p", { class: "sv-dialog__error", role: "alert", hidden: true });
