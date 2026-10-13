@@ -69,9 +69,11 @@ and desktop works great too.
   from "the farm". The witch easter egg becomes a shooting star.
 - **No dice / random-idea button** when adding a sheep.
 - **No Junimos.** More birds, ladybugs and bumblebees instead.
-- **Real Stardew sounds:** 28 effects plus ambience loops (seasonal days, crickets at night, rain,
-  wind, campfire crackle), compressed to ~2.8 MB. Baa, meow, fox yip and the pet sound are synthesized because
-  they aren't in the pack.
+- **Real Stardew sounds:** effects plus ambience loops (seasonal days, crickets at night, rain, wind, campfire
+  crackle), and real animal voices: the Stardew sheep (a goat bleat for lambs), bird tweets, seagulls, a bunny,
+  a slug squelch for the banana slug, and a small bark pitched up for Otto. Snickers' voice is a random mix:
+  "mow" (cut from a Stardew meow, ~60%), a real meow (~32%) and a funny meow (~8%). Only the pet and lick
+  sounds are synthesized.
 - **Real sprite sheets** replace hand-drawn stand-ins wherever they exist: emotes, craftables (loom, chest,
   scarecrows, rarecrows, lampposts...), tools (shears), objects (wool, cloth, stardrop, forage),
   seasonal tilesets, clock box, billboard, mail paper, title-screen sky and clouds, critters, hats,
@@ -117,6 +119,9 @@ and desktop works great too.
 - **Washington roots:** Sumner (Rhubarb Pie Capital of the World) and Bonney Lake. Lavender. Coffee.
 - **Snickers:** says "Mow", loves string, Fancy Feast and Whisker Lickins, would eat salmon for every meal; his
   brother **KitKat** lives in Arizona (sends the occasional postcard).
+- **Things she loves:** 1 hour of loafing, 3 hours in the black hole, salmon sashimi (also the ranch's joke
+  prices, never "hugs"), garlic ice cream (vampire-proof), Tilden Little Farm (our sheep's celery-eating
+  cousins), ginkgo trees (a golden ginkgo on the farm in fall), Christopher Alexander, dolphins.
 - **Couple jokes:** he's secretly a hundred raccoons / a hundred hedgehogs / ten thousand mosquitoes in a trench
   coat (the Trench Coat easter egg); she goes to sketching meetups all the time; nobody wants to go to karaoke;
   Wine Wednesday; sometimes Thursday is THURSDAY!!!!!; they always end up on the ORIGINAL PLAN.
