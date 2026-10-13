@@ -9,3 +9,10 @@
   `src/client/world/world-nature.ts` (the loom/chest/mailbox keep-clear boxes there are what stop it sitting lower); the ginkgo is
   chosen in `pickGinkgo()`. Idea: remember each tree's home spot, and after picking the ginkgo nudge it (~+8 y, ~-6 x) when its
   crown is clipped, reset to home whenever kinds are reassigned.
+- **Desktop first open:** coming from the title screen, the farm flickers/jumps as the fence moves into place. Likely cause:
+  `initHud()`/`initToolbar()` only run after `showPasswordGate()` resolves in `src/client/main.ts`, so the farm is laid out without
+  the toolbar inset under the gate and relayouts once they mount. Lay out (and draw) the final farm before the gate fades.
+- **Toolbar hover flashes (desktop):** hovering slot 8 (…) makes its frame vanish for a moment; hovering the selected tool (1 or 2)
+  makes its red frame flash. Hover only lifts the icon in `toolbar.css`, so something on mouseenter is probably re-adding
+  `.is-selected` / re-inserting the slot (restarting the `tb-select` animation) or reassigning `--tb-img-*` to new images that
+  must decode again. Check `showLabel()` and anything a pointerover triggers in `src/client/ui/toolbar.ts`.
