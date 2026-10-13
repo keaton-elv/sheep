@@ -458,7 +458,7 @@ class Fox implements Entity {
       if (this.tapCount % 3 === 0) void say(pick(FOX_SLEEP_LINES));
       return;
     }
-    sfx("yip");
+    sfx("yip", { volume: 0.8, pitch: rand(0.95, 1.06) });
     this.emote.show(pick<EmoteKind>(["heart", "heart", "happy", "music", "exclaim"]));
     if ((this.state === "lie" || this.state === "sunbathe") && this.atHome && chance(0.5)) this.set("sit", rand(3, 6));
     if (this.tapCount % 3 === 0) {
@@ -490,12 +490,15 @@ interface HogMeta {
   head: number;
   shadow: number;
   hat: [number, number];
+  /** Spring flower, perched on top of the spines. */
   back: [number, number];
+  /** Fall leaf, tucked down on his rear spines (inside the outline, so he stays round). */
+  leaf: [number, number];
 }
 const HOG_META: Record<"stand" | "sleep" | "ball", HogMeta> = {
-  stand: { anchor: 9, head: 13, shadow: 15, hat: [10, -2], back: [4, -3] },
-  sleep: { anchor: 8, head: 12, shadow: 15, hat: [9, -1], back: [3, -3] },
-  ball: { anchor: 8, head: 8, shadow: 14, hat: [4, -4], back: [5, -3] },
+  stand: { anchor: 9, head: 13, shadow: 15, hat: [10, -2], back: [4, -3], leaf: [2, 3] },
+  sleep: { anchor: 8, head: 12, shadow: 15, hat: [9, -1], back: [3, -3], leaf: [2, 3] },
+  ball: { anchor: 8, head: 8, shadow: 14, hat: [4, -4], back: [5, -3], leaf: [2, 3] },
 };
 
 class Hedgehog implements Entity {
@@ -684,7 +687,7 @@ class Hedgehog implements Entity {
 
     const season = g.env.season;
     if (season === "winter") drawPart(ctx, "hedgehog.hat", 8, left, top + breath, d.w, meta.hat[0], meta.hat[1], flip);
-    else if (season === "fall") drawPart(ctx, "hedgehog.leaf", 7, left, top, d.w, meta.back[0], meta.back[1], flip);
+    else if (season === "fall") drawPart(ctx, "hedgehog.leaf", 6, left, top + breath, d.w, meta.leaf[0], meta.leaf[1], flip);
     else if (season === "spring") drawPart(ctx, "hedgehog.flower", 7, left, top, d.w, meta.back[0], meta.back[1] + 1, flip);
 
     this.hx = left;
@@ -1043,6 +1046,8 @@ export class Corner {
     if (!this.fox.asleep) {
       this.fox.set("party", 2.6);
       this.fox.emote.show("music");
+      // One happy yip, after the sheep choir has started (not on top of the first baa).
+      setTimeout(() => sfx("yip", { volume: 0.55, pitch: rand(1, 1.08) }), 900);
     }
     if (this.hog.state !== "sleep") {
       this.hog.set("party", 2.6);

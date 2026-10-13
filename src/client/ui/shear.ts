@@ -71,8 +71,7 @@ async function runShear(id: string): Promise<void> {
   }
 
   const lore = planLore(s, pick);
-  const asked = lore.has("karaoke") ? "(You actually went to karaoke?!)" : "(Only if you did it!)";
-  const yes = await confirmDialog(`Shear ${s.name}?\n${asked}`, { yes: "We did it!", no: "Not yet" });
+  const yes = await confirmDialog(`Shear ${s.name}?`, { yes: "We did it!", no: "Not yet" });
   if (!yes) return;
 
   // The other farmer might have sheared it while we were deciding.

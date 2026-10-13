@@ -204,7 +204,7 @@ class BananaSlug implements Entity {
 
   onTap(): void {
     this.tuck = 2.5;
-    sfx("pop", { volume: 0.3, pitch: 0.7 });
+    sfx("squelch", { volume: 0.6, pitch: rand(0.92, 1.05) });
     if (this.toasted) return;
     this.toasted = true;
     toast("A banana slug! Go Slugs! 🍌", { icon: "critter.slug.0" });

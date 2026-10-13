@@ -138,8 +138,14 @@ function lineMask(text: string, f: Font): { m: Uint8Array; w: number; h: number 
   return { m, w, h };
 }
 
+/** A carved line: its canvas, plus which of its pixels are painted (1 = lettering). */
+interface Carved {
+  canvas: HTMLCanvasElement;
+  solid: Uint8Array;
+}
+
 /** Outline + bevel + extrusion for a line mask, painted onto a new canvas. */
-function carve(mask: { m: Uint8Array; w: number; h: number }, pal: LogoPalette, depth: number): HTMLCanvasElement {
+function carve(mask: { m: Uint8Array; w: number; h: number }, pal: LogoPalette, depth: number): Carved {
   const pad = 2;
   const w = mask.w + pad * 2;
   const h = mask.h + pad + depth + 2;
@@ -183,6 +189,7 @@ function carve(mask: { m: Uint8Array; w: number; h: number }, pal: LogoPalette, 
   c.width = w;
   c.height = h;
   const ctx = c.getContext("2d")!;
+  const painted = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       let shade: Shade | null = null;
@@ -194,34 +201,55 @@ function carve(mask: { m: Uint8Array; w: number; h: number }, pal: LogoPalette, 
       else if (at(ext, x, y)) shade = at(ext, x, y + 1) ? "e" : "E";
       else if (at(outer, x, y)) shade = "k";
       if (!shade) continue;
+      painted[y * w + x] = 1;
       ctx.fillStyle = pal[shade];
       ctx.fillRect(x, y, 1, 1);
     }
   }
-  return c;
+  return { canvas: c, solid: painted };
 }
 
-/** Logo size and its top edge per column (so the sheep can stand on it without overlapping). */
-export const LOGO = { w: 0, h: 0, tops: [] as number[] };
+/**
+ * Logo size, which pixels are lettering (row-major, 1 = painted), and the top edge per column
+ * (so the sheep and Snickers can sit on it without overlapping). Worked out from the glyph masks
+ * rather than read back from the canvas: browsers' anti-fingerprinting can add noise to readbacks.
+ */
+export const LOGO = { w: 0, h: 0, tops: [] as number[], solid: new Uint8Array(0) };
 
 function buildLogo(): void {
   const top = carve(lineMask("Papa Snickers's", CHUNKY_TOP), GOLD, 3);
   const bottom = carve(lineMask("Sheep Farm", CHUNKY), GOLD, 3);
-  const w = Math.max(top.width, bottom.width);
+  const tw = top.canvas.width;
+  const bw = bottom.canvas.width;
+  const w = Math.max(tw, bw);
   // Stack the lines so the top one's outline rests right on the bottom one's (no sky between).
   const overlap = 3;
-  const h = top.height - overlap + bottom.height;
-  const logo = makeCanvas("ui.logo", w, h, (ctx) => {
-    ctx.drawImage(bottom, Math.floor((w - bottom.width) / 2), top.height - overlap);
+  const h = top.canvas.height - overlap + bottom.canvas.height;
+  const bx = Math.floor((w - bw) / 2);
+  const by = top.canvas.height - overlap;
+  const tx = Math.floor((w - tw) / 2);
+  makeCanvas("ui.logo", w, h, (ctx) => {
+    ctx.drawImage(bottom.canvas, bx, by);
     // The top line goes over the bottom one, so the tail of "Papa"'s p stays visible.
-    ctx.drawImage(top, Math.floor((w - top.width) / 2), 0);
+    ctx.drawImage(top.canvas, tx, 0);
   });
-  const data = logo.getContext("2d")!.getImageData(0, 0, w, h).data;
+  const solid = new Uint8Array(w * h);
+  const stamp = (line: Carved, ox: number, oy: number) => {
+    const lw = line.canvas.width;
+    for (let i = 0; i < line.solid.length; i++) {
+      if (!line.solid[i]) continue;
+      const x = ox + (i % lw);
+      const y = oy + Math.floor(i / lw);
+      if (x >= 0 && y >= 0 && x < w && y < h) solid[y * w + x] = 1;
+    }
+  };
+  stamp(bottom, bx, by);
+  stamp(top, tx, 0);
   const tops: number[] = [];
   for (let x = 0; x < w; x++) {
     let t = h;
     for (let y = 0; y < h; y++) {
-      if (data[(y * w + x) * 4 + 3]! > 0) {
+      if (solid[y * w + x]) {
         t = y;
         break;
       }
@@ -231,6 +259,7 @@ function buildLogo(): void {
   LOGO.w = w;
   LOGO.h = h;
   LOGO.tops = tops;
+  LOGO.solid = solid;
 }
 
 const CLOUD_PALETTE = { W: "#ffffff", w: "#eef7ff", s: "#d3e6f5", S: "#b9d3ea" };

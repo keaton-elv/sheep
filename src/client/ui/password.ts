@@ -8,7 +8,7 @@
 
 import { sfx } from "../audio";
 import { size as spriteSize, spriteUrl } from "../engine/sprites";
-import { drawLayers, HEAD_FRONT, type PartName } from "../entities/snickers-art";
+import { drawLayers, HEAD_FRONT, opaqueAt, type Layer, type PartName } from "../entities/snickers-art";
 import { api } from "../net";
 import { el, frameIcon, spriteIcon, uiRoot } from "./dom";
 import { LOGO, registerPasswordArt, TITLE_ART, TITLE_BIRD, TITLE_SHEETS, type Rect } from "./password-art";
@@ -56,7 +56,23 @@ interface Spot {
 }
 
 /** Each column's lowest opaque row (-1 for an empty column), plus the opaque column span. */
-function profile(frame: HTMLCanvasElement): { bottom: number[]; l: number; r: number } | null {
+interface Profile {
+  bottom: number[];
+  l: number;
+  r: number;
+}
+
+/** A bottom profile's opaque span, or null if it's empty. */
+function span(bottom: number[]): Profile | null {
+  const l = bottom.findIndex((b) => b >= 0);
+  if (l < 0) return null;
+  let r = bottom.length - 1;
+  while (bottom[r]! < 0) r--;
+  return { bottom, l, r };
+}
+
+/** A drawn frame's profile (the sheep's sprite), read back from its canvas. */
+function profile(frame: HTMLCanvasElement): Profile | null {
   const w = frame.width;
   const h = frame.height;
   const px = frame.getContext("2d")?.getImageData(0, 0, w, h).data;
@@ -72,11 +88,7 @@ function profile(frame: HTMLCanvasElement): { bottom: number[]; l: number; r: nu
     }
     bottom.push(b);
   }
-  const l = bottom.findIndex((b) => b >= 0);
-  if (l < 0) return null;
-  let r = w - 1;
-  while (bottom[r]! < 0) r--;
-  return { bottom, l, r };
+  return span(bottom);
 }
 
 /**
@@ -84,8 +96,7 @@ function profile(frame: HTMLCanvasElement): { bottom: number[]; l: number; r: nu
  * every left edge from `from` to `to`. Each spot is the frame's left edge (x), the logo row its
  * bottom edge lands on (y), and how much air is left under it (air).
  */
-function dropSpots(frame: HTMLCanvasElement, bottom: number[], from: number, to: number): Spot[] {
-  const h = frame.height;
+function dropSpots(h: number, bottom: number[], from: number, to: number): Spot[] {
   const top = (x: number) => (x >= 0 && x < LOGO.w ? LOGO.tops[x]! : LOGO.h);
   const spots: Spot[] = [];
   for (let fx = from; fx <= to; fx++) {
@@ -119,7 +130,7 @@ function sheepPerch(frame: HTMLCanvasElement): { x: number; y: number } {
   try {
     const p = profile(frame);
     if (!p || !LOGO.w) return fallback;
-    const spots = dropSpots(frame, p.bottom, Math.floor(LOGO.w / 2), LOGO.w - 28);
+    const spots = dropSpots(frame.height, p.bottom, Math.floor(LOGO.w / 2), LOGO.w - 28);
     if (!spots.length) return fallback;
     const pick = bestSpots(spots, 3).pop()!;
     return { x: pick.x, y: pick.y };
@@ -131,20 +142,70 @@ function sheepPerch(frame: HTMLCanvasElement): { x: number; y: number } {
 /**
  * Where Snickers sits: the lowest, flattest spot left of the sheep (he lands on "Papa", which is
  * him). Null if there's no room, in which case he just stays off the title.
+ *
+ * He's dropped as the union of every frame he can show up there (catProfile), so no blink, mlem,
+ * happy squint or tail flick ever dips into a letter. Everything is in logo pixels (--lp), so the
+ * fit is the same at every screen width; the lettering is drawn in front of him anyway.
  */
-function catPerch(cat: HTMLCanvasElement, sheep: HTMLCanvasElement, sheepX: number): { x: number; y: number } | null {
+function catPerch(sheep: HTMLCanvasElement, sheepX: number): { x: number; y: number } | null {
   try {
-    const c = profile(cat);
+    const c = catProfile();
     if (!c || !LOGO.w) return null;
     const sheepLeft = sheepX + (profile(sheep)?.l ?? 0);
     // Keep his whole silhouette on the logo's left edge and a few pixels clear of the sheep.
-    const spots = dropSpots(cat, c.bottom, -c.l, sheepLeft - 4 - c.r - 1);
+    const spots = dropSpots(CAT_H, c.bottom, -c.l, sheepLeft - 4 - c.r - 1);
     if (!spots.length) return null;
     const pick = bestSpots(spots, 0)[0]!;
-    return { x: pick.x, y: pick.y };
+    return clearOfLetters(c, pick.x, pick.y) ? { x: pick.x, y: pick.y } : null;
   } catch {
     return null;
   }
+}
+
+/** Every head he wears on the title: resting, blinking, the mlem's three faces, the happy squint. */
+const CAT_HEADS: readonly PartName[] = ["headFront", "headBlink", "headHappy", "headLickOut", "headLickCurl", "headLickIn"];
+
+/** His sitting pose with a given head, tail flick (0/1) and head bob (0 or up). */
+function catLayers(head: PartName, flick: number, bob: number): Layer[] {
+  return [
+    ["sitTail", flick, -flick],
+    ["sitBody", 0, 0],
+    [head, HEAD_FRONT.dx, HEAD_FRONT.dy + bob],
+  ];
+}
+
+/**
+ * Snickers's lowest pixel in each column of his title canvas, over every head with the tail
+ * flicked or not (head bobs only ever go up). Read from the art itself rather than a canvas
+ * readback, which anti-fingerprinting can add noise to.
+ */
+function catProfile(): Profile | null {
+  const bottom = new Array<number>(CAT_W).fill(-1);
+  for (const head of CAT_HEADS) {
+    for (const flick of [0, 1]) {
+      const layers = catLayers(head, flick, 0);
+      for (let x = 0; x < CAT_W; x++) {
+        for (let y = CAT_H - 1; y > bottom[x]!; y--) {
+          if (opaqueAt(layers, false, x - CAT_LEFT, y)) {
+            bottom[x] = y;
+            break;
+          }
+        }
+      }
+    }
+  }
+  return span(bottom);
+}
+
+/** Belt and braces: with his frame's bottom edge on logo row `y`, is he above every letter? */
+function clearOfLetters(c: Profile, x: number, y: number): boolean {
+  for (let cx = c.l; cx <= c.r; cx++) {
+    const b = c.bottom[cx]!;
+    const lx = x + cx;
+    if (b < 0 || lx < 0 || lx >= LOGO.w) continue;
+    if (y - CAT_H + b >= LOGO.tops[lx]!) return false;
+  }
+  return true;
 }
 
 /** A div showing one rect of a sheet as a CSS background, sized in --cp units (crisp pixels). */
@@ -171,9 +232,11 @@ function phase(): Phase {
   return "day";
 }
 
-/** Snickers's title-screen frame: his 32x32 sit, plus a column either side for the tail flick. */
+/** Snickers's title-screen canvas: his 32x32 sit, plus a column either side for the tail flick. */
 const CAT_W = 34;
 const CAT_H = 32;
+/** Where his 32x32 frame starts inside that canvas. */
+const CAT_LEFT = 1;
 
 /** Paint Snickers sitting (front-facing) with a given head, tail flick (0/1) and head bob. */
 function drawCat(c: HTMLCanvasElement, head: PartName, flick = 0, bob = 0): void {
@@ -181,11 +244,7 @@ function drawCat(c: HTMLCanvasElement, head: PartName, flick = 0, bob = 0): void
     const ctx = c.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, c.width, c.height);
-    drawLayers(ctx, 1, 0, [
-      ["sitTail", flick, -flick],
-      ["sitBody", 0, 0],
-      [head, HEAD_FRONT.dx, HEAD_FRONT.dy + bob],
-    ]);
+    drawLayers(ctx, CAT_LEFT, 0, catLayers(head, flick, bob));
   } catch {
     /* he's decoration: never let him break the gate */
   }
@@ -343,7 +402,7 @@ export function showPasswordGate(): Promise<void> {
     cat.height = CAT_H;
     cat.className = "pw-logo__cat";
     drawCat(cat, "headFront");
-    const catSpot = catPerch(cat, sheepOpen, perch.x);
+    const catSpot = catPerch(sheepOpen, perch.x);
     // Logo px of headroom above the lettering for whoever stands tallest.
     const head = 32 - Math.min(perch.y, catSpot ? catSpot.y : perch.y);
     const artW = Math.max(LOGO.w, perch.x + 32);
@@ -355,7 +414,8 @@ export function showPasswordGate(): Promise<void> {
     if (catSpot) {
       cat.style.left = `calc(var(--lp) * ${catSpot.x})`;
       cat.style.top = `calc(var(--lp) * ${head - (CAT_H - catSpot.y)})`;
-      art.appendChild(cat);
+      // Behind the lettering in the DOM too (password.css stacks the letters in front of him).
+      art.insertBefore(cat, logo);
     }
     art.style.setProperty("--logo-w", String(LOGO.w));
     art.style.setProperty("--logo-h", String(LOGO.h));

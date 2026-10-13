@@ -96,6 +96,13 @@ const OWL_FLY = [96, 128, 160, 192].map((x, i) => cell(`critter.owl.fly.${i}`, x
 
 type Species = keyof typeof SONGBIRDS | "crow";
 
+/** Songbird voices: the real tweets, nudged a little per species (sparrows small and high, jays lower). */
+const TWEET_PITCH: Record<keyof typeof SONGBIRDS, number> = { sparrow: 1.12, bluejay: 0.9, cardinal: 1 };
+function tweet(s: Species, volume: number): void {
+  if (s === "crow") return;
+  sfx("tweet", { volume, pitch: TWEET_PITCH[s] * rand(0.96, 1.04) });
+}
+
 function framesFor(s: Species): Frames {
   if (s === "crow") return isReal(CROW.stand[0]!) ? CROW : CROW_DRAWN;
   return SONGBIRDS[s];
@@ -436,7 +443,10 @@ class Flock {
     }
     if (startled) {
       if (this.species === "crow") sfx("crow", { volume: 0.7 });
-      else sfx("woosh", { volume: 0.25, pitch: 1.7 });
+      else {
+        sfx("woosh", { volume: 0.25, pitch: 1.7 });
+        tweet(this.species, 0.16);
+      }
     }
   }
 
@@ -458,7 +468,7 @@ class Flock {
       this.chirpIn -= dt;
       if (this.chirpIn <= 0) {
         this.chirpIn = rand(15, 40);
-        if (this.landedCount > 0 && chance(0.5)) sfx("chirp", { volume: 0.16, pitch: rand(1.35, 1.75) });
+        if (this.landedCount > 0 && chance(0.5)) tweet(this.species, 0.14);
       }
     }
     if (sheepSpots) {

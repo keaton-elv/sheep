@@ -434,7 +434,8 @@ class Bunny implements Entity {
   }
 
   onTap(): void {
-    sfx("rustle");
+    sfx("bunny", { volume: 0.7, pitch: rand(0.95, 1.08) });
+    sfx("rustle", { volume: 0.35 });
     this.emote.show("exclaim");
     this.state = "bolt";
     this.dir = -1;

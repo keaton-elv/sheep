@@ -458,7 +458,7 @@ class Snickers implements Entity {
         // Sitting by an empty dish, staring at whoever's nearest. Then, pointedly: "Mow."
         if (!this.begMowed && this.t > 1.4) {
           this.begMowed = true;
-          sfx("mow", { volume: 0.7, pitch: rand(0.95, 1.08) });
+          sfx("meow", { volume: 0.7, pitch: rand(0.95, 1.08) });
           this.mow("Mow.");
         }
         if (this.bowl.full && this.t > 0.6) this.startMeal();
@@ -675,7 +675,7 @@ class Snickers implements Entity {
 
   private pet(): void {
     const asleep = this.state === "sleep" || this.state === "nap";
-    sfx("mow", asleep ? { volume: 0.45, pitch: 0.82 } : { pitch: rand(0.94, 1.12) });
+    sfx("meow", asleep ? { volume: 0.45, pitch: 0.82 } : { pitch: rand(0.94, 1.12) });
     this.showEmote("heart");
     buzz(8);
     if (asleep) {
@@ -839,7 +839,7 @@ class Snickers implements Entity {
     this.bowl.empty();
     this.lastMeal = this.g.time;
     this.refillAt = this.g.time + rand(REFILL_MIN, REFILL_MAX);
-    sfx("mow", { volume: 0.55, pitch: rand(0.9, 1) });
+    sfx("meow", { volume: 0.55, pitch: rand(0.9, 1) });
     this.mow("Mow.");
     // Then a wash, as is only proper (sitting up, where he fits).
     if (!this.wet && !this.sleepy && !this.lowHere()) {
@@ -890,7 +890,7 @@ class Snickers implements Entity {
       return;
     }
     this.showEmote("exclaim");
-    sfx("mow", { pitch: rand(1.04, 1.18), volume: 0.8 });
+    sfx("meow", { pitch: rand(1.04, 1.18), volume: 0.8 });
     this.mow("Mow!");
     this.walkTo(eat, true);
   }

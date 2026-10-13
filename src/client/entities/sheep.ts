@@ -61,8 +61,12 @@ const GROW_UP_FRESH_MS = 2 * 60_000;
 /** Lambs: a bit quicker on their feet, and quicker still trotting after a grown-up. */
 const LAMB_SPEED = 1.15;
 const LAMB_TROT = 1.4;
-/** Lambs baa higher. */
-const LAMB_PITCH = 1.3;
+/**
+ * How much of each sheep's own voice (p.pitch, 0.86-1.18) a baa keeps. The baas are real recordings
+ * now (the Stardew sheep, and a little goat bleat for lambs), and pitching those too far sounds
+ * like a tape deck, so each voice is squeezed to about +/-8% around normal.
+ */
+const VOICE_RANGE = 0.5;
 /**
  * Lambs tag along after a grown-up only now and then, and only for a few seconds (otherwise a
  * young flock all chases the same one or two grown-ups into one clump). Seconds.
@@ -1019,8 +1023,11 @@ class SheepEntity implements Entity {
   }
 
   baa(volume: number, pitchUp = 1): void {
-    const lamb = this.lambNow && !this.showSheared() ? LAMB_PITCH : 1;
-    sfx("baa", { volume, pitch: this.p.pitch * pitchUp * lamb * (0.97 + Math.random() * 0.06) });
+    const voice = 1 + (this.p.pitch - 1.02) * VOICE_RANGE;
+    const pitch = voice * pitchUp * (0.97 + Math.random() * 0.06);
+    // Lambs have their own little bleat (not just a squeaky grown-up baa).
+    if (this.lambNow && !this.showSheared()) sfx("baaLamb", { volume, pitch });
+    else sfx("baa", { volume, pitch });
   }
 
   /** Just grew up (crossed a day old). Seen happening: sparkle poof, a toast, a proud baa. */

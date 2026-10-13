@@ -39,18 +39,24 @@
 
 /* Sort chips + search, pinned to the top of the scrolling dialog so they're always in reach
    (and the search box stays put while the phone keyboard is up). The fill is the menu box's
-   own parchment, stretched over the content padding so rows slide cleanly underneath. */
+   own parchment, stretched over the content padding so rows slide cleanly underneath.
+   --pad-t mirrors .sv-dialog__content's top padding (dom.css): sticky top: 0 would park the bar
+   below that strip and let rows peek through it, so the bar sticks to the scrollport's very
+   edge and fills the strip itself (margin/padding cancel out, so the layout doesn't move). */
 .fl-bar {
+  --pad-t: 2px;
   position: sticky;
-  top: 0;
+  top: calc(var(--pad-t) * -1);
   z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin: 0 -4px 8px;
-  padding: 0 4px 8px;
+  margin: calc(var(--pad-t) * -1) -4px 8px;
+  padding: var(--pad-t) 4px 8px;
   background: var(--parchment);
   border-bottom: calc(var(--px) * 1) dashed rgba(107, 74, 51, 0.35);
+  /* Belt and braces against a sub-pixel hairline above the bar. */
+  box-shadow: 0 calc(var(--pad-t) * -1) 0 var(--parchment);
 }
 .fl-bar[hidden] {
   display: none;

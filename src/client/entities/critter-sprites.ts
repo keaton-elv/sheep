@@ -616,16 +616,17 @@ export const SPRITES: Record<string, PixelSprite> = {
       ".oooooo.",
     ],
   },
+  // Fall: a leaf stuck in Milo's spines, lying tilted on his back (tip toward his rear, stem toward
+  // his middle), so it sits inside his round outline instead of crowning him like an acorn.
   "hedgehog.leaf": {
     pal: ACC_PAL,
     rows: [
-      "...o...",
-      "..oLo..",
-      ".oLlLo.",
-      "oLlLLLo",
-      ".oLdLo.",
-      "..odo..",
-      "...d...",
+      "oo....",
+      "olLo..",
+      "oLlLo.",
+      ".oLLdo",
+      "..oddo",
+      ".....d",
     ],
   },
   "hedgehog.flower": {

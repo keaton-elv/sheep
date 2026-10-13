@@ -1,15 +1,19 @@
 // Sound effects.
-// Plays the real Stardew recordings in public/sounds (see FILES) and, for anything without a
-// recording (baa, Snickers's "mow", yip, pet, lick), synthesizes a little Stardew-ish sound with WebAudio
-// (oscillators, noise, filters, envelopes). Only files listed in FILES / AMBIENCE_FILES are ever
-// fetched: nothing probes the server for recordings that might not exist.
+// Plays real recordings from public/sounds (see FILES): the Stardew effects, plus the critter
+// voices (the real Stardew baa, a lamb's bleat, Snickers's "Mow" and meows, birds, seagulls, a
+// bunny, the banana slug's squelch, Otto's yip). A sound can have several takes (each play picks
+// one, optionally weighted). Anything without a recording (pet, lick), or whose file fails to
+// load, is synthesized with WebAudio (oscillators, noise, filters, envelopes): every name has a
+// synth fallback. Only files listed in FILES / AMBIENCE_FILES are ever fetched: nothing probes
+// the server for recordings that might not exist.
 // Also runs a quiet ambience bed (the real Stardew loops in public/sounds/ambience: seasonal days,
 // night insects, rain, wind gusts, a campfire's crackle, the pond's babble) while unmuted.
 
 import type { Season } from "../shared/calendar";
 
 export type Sfx =
-  | "baa" // a sheep baa
+  | "baa" // a sheep baa (the real Stardew sheep)
+  | "baaLamb" // a lamb's little bleat
   | "snip" // shears
   | "pop" // item pickup / wool pops out
   | "purchase" // cash register (buying a sheep / decoration)
@@ -33,8 +37,8 @@ export type Sfx =
   | "woosh"
   | "splash"
   | "chime" // gentle notification (new mail)
-  | "meow" // Snickers (who actually says "Mow": that's how it's synthesized)
-  | "mow" // the same "Mow", by its proper name
+  | "meow" // Snickers: mostly his "Mow", now and then a real meow (never two at once)
+  | "mow" // the same thing, by its proper name
   // Extras that have real Stardew recordings (free for any module to use):
   | "chest" // opening a chest
   | "croak" // a frog
@@ -43,7 +47,12 @@ export type Sfx =
   | "reward" // little "you got something" jingle
   | "secret" // secret found!
   | "thunder"
-  | "lick"; // Snickers licking the air: a tiny wet "mlem" (synthesized, a little different every time)
+  | "lick" // Snickers licking the air: a tiny wet "mlem" (synthesized, a little different every time)
+  // Critter voices (real recordings, several takes each):
+  | "tweet" // a songbird
+  | "seagull"
+  | "bunny"
+  | "squelch"; // the banana slug
 
 export interface SfxOpts {
   /** Multiplier on the sound's own level (default 1). */
@@ -79,9 +88,36 @@ const MAX_VOICES = 8;
 const MUTE_KEY = "farm.muted";
 const BASE = import.meta.env.BASE_URL;
 
-/** Real Stardew recordings in public/sounds. Names not listed here are synthesized. */
-const FILES: Partial<Record<Sfx, string>> = {
+/**
+ * One recording of a sound. A sound can have several takes: each play picks one at random
+ * (weighted by `weight`), so the birds don't sing the same phrase twice in a row.
+ */
+interface Take {
+  file: string;
+  /** Relative odds of this take being picked (default 1). */
+  weight?: number;
+  /** Loudness trim for this take on top of the sound's FILE_GAIN (evens out takes; default 1). */
+  gain?: number;
+  /** Playback rate baked into this take (default 1), multiplied with the caller's pitch. */
+  rate?: number;
+}
+type Recording = string | Take | readonly (string | Take)[];
+
+/** Snickers: mostly his "Mow", sometimes a proper meow, very rarely the silly one. */
+const MEOWS: readonly Take[] = [
+  { file: "mow1.wav", weight: 60 },
+  // A long, steady meow: its loudest moment sits ~3 dB under the "Mow"'s.
+  { file: "meow.wav", weight: 32, gain: 1.3 },
+  // Already level-matched to mow1 by ear.
+  { file: "meow-funny.wav", weight: 8 },
+];
+
+/** Real recordings in public/sounds. Names not listed here are synthesized. */
+const FILES: Partial<Record<Sfx, Recording>> = {
+  baa: "baa.wav", // the real Stardew sheep
+  baaLamb: "baa-lamb.wav", // a goat kid's bleat: reads as a lamb
   blip: "blip.wav",
+  bunny: "bunny.wav",
   cancel: "cancel.wav",
   chest: "chest.wav",
   chime: "chime.wav",
@@ -92,30 +128,55 @@ const FILES: Partial<Record<Sfx, string>> = {
   harvest: "harvest.wav",
   chirp: "junimo.wav", // (the recording's original file name)
   loom: "loom.wav",
+  meow: MEOWS,
   menuClose: "menuClose.wav",
   menuOpen: "menuOpen.wav",
+  mow: MEOWS,
   owl: "owl.m4a",
   pop: "pop.wav",
   purchase: "purchase.wav",
   reward: "reward.m4a",
   rustle: "rustle.wav",
+  // The takes were recorded ~20 dB apart: the gains bring each to the same loudness.
+  seagull: [
+    { file: "seagull1.wav", gain: 4.9 },
+    { file: "seagull2.wav", gain: 1.13 },
+    { file: "seagull3.wav" },
+  ],
   secret: "secret.m4a",
   select: "select.wav",
   snip: "snip.wav",
   sparkle: "sparkle.wav",
   splash: "splash.wav",
   squeak: "squeak.wav",
+  squelch: ["slug1.wav", { file: "slug2.wav", gain: 1.45 }],
   stardrop: "stardrop.m4a",
   thud: "thud.wav",
   thunder: "thunder.m4a",
+  // Six little songs, recorded up to 30 dB apart (tweet1 is a whisper, tweet6 a shout).
+  tweet: [
+    { file: "tweet1.wav", gain: 6.9 },
+    { file: "tweet2.wav" },
+    { file: "tweet3.wav", gain: 1.16 },
+    { file: "tweet4.wav", gain: 0.9 },
+    { file: "tweet5.wav", gain: 2.33 },
+    { file: "tweet6.wav", gain: 0.19 },
+  ],
   woosh: "woosh.wav",
+  // A small dog's bark, sped up a little so it reads as a fox kit's yip.
+  yip: { file: "yip.wav", rate: 1.3 },
 };
 /**
- * Loudness trims for the recordings (they were cut from the game at wildly different levels:
- * the snip peaks at -22 dB, the crow at 0 dB). Roughly evens out their peaks.
+ * Loudness trims for the recordings (they were cut at wildly different levels: the snip peaks at
+ * -22 dB, the crow at 0 dB). Roughly evens out their peaks. The critter voices were set by
+ * short-term (200 ms, K-weighted) loudness instead, to sit with the croak and the chirp
+ * (about -20 LUFS after the trim): the sheep a touch louder, small things (bunny, slug) softer.
  */
 const FILE_GAIN: Partial<Record<Sfx, number>> = {
+  baa: 0.9,
+  baaLamb: 1.8,
   blip: 1.2,
+  bunny: 15,
   cancel: 2.4,
   chest: 0.9,
   chime: 1.8,
@@ -124,23 +185,41 @@ const FILE_GAIN: Partial<Record<Sfx, number>> = {
   door: 5,
   chirp: 0.65,
   loom: 0.8,
+  meow: 0.3,
   menuClose: 0.9,
   menuOpen: 0.9,
+  mow: 0.3,
   pop: 3,
   purchase: 4,
   reward: 1.3,
   rustle: 2.2,
+  seagull: 1.75,
   secret: 1.4,
   select: 1.3,
   snip: 4,
   sparkle: 4,
   splash: 1.6,
   squeak: 5,
+  squelch: 2.3,
   thud: 0.8,
+  tweet: 2.8,
   woosh: 3,
+  yip: 0.4,
 };
 /** Little UI sounds worth having decoded before the first tap. */
 const PRELOAD: Sfx[] = ["select", "cancel", "reward", "menuOpen", "menuClose", "blip", "pop", "snip", "purchase", "rustle", "thud", "woosh", "sparkle", "chime", "door"];
+/** Then, a little later, the small critter voices you get by tapping things (every take). */
+const PRELOAD_LATER: Sfx[] = ["baa", "baaLamb", "meow", "yip", "tweet", "bunny", "squelch"];
+/** Sounds that never overlap themselves (or each other, within a group): a cat has one mouth. */
+const SOLO: Partial<Record<Sfx, string>> = { meow: "cat", mow: "cat" };
+
+/** Every sound's takes, normalized once. */
+const TAKES = new Map<Sfx, readonly Take[]>();
+for (const [name, rec] of Object.entries(FILES) as [Sfx, Recording][]) {
+  const list = (Array.isArray(rec) ? rec : [rec]) as readonly (string | Take)[];
+  const takes = list.map((t) => (typeof t === "string" ? { file: t } : t)).filter((t) => t.file && (t.weight ?? 1) > 0);
+  if (takes.length) TAKES.set(name, takes);
+}
 
 // ---------- state ----------
 
@@ -222,8 +301,10 @@ export function unlockAudio(): void {
   if (!c) return;
   if (!unlocked) {
     unlocked = true;
-    // Decode the little UI sounds now, so the very first click already sounds like Stardew.
-    setTimeout(preloadFiles, 60);
+    // Decode the little UI sounds now, so the very first click already sounds like Stardew,
+    // then the critter voices once the farm has had a moment to load.
+    setTimeout(() => preloadFiles(PRELOAD), 60);
+    setTimeout(() => preloadFiles(PRELOAD_LATER), 2500);
   }
   if (muted) {
     if (c.state === "running") void c.suspend().catch(() => {});
@@ -520,6 +601,11 @@ const SYNTHS: Record<Sfx, Synth> = {
     return dur;
   },
 
+  baaLamb(d, t, p) {
+    // (Fallback for baa-lamb.wav) The same bleat, smaller and higher.
+    return SYNTHS.baa(d, t, p * 1.35);
+  },
+
   snip(d, t, p) {
     for (let i = 0; i < 2; i++) {
       const ti = t + i * 0.085;
@@ -744,8 +830,8 @@ const SYNTHS: Record<Sfx, Synth> = {
   },
 
   meow(d, t, p) {
-    // Snickers doesn't meow. He says "Mow": short, low and round. A hummed "m" with the mouth
-    // shut, opening into an "o" that rounds off into a "w" (both formants and the lowpass fall).
+    // (Fallback for the real recordings.) Snickers mostly says "Mow": short, low and round. A
+    // hummed "m" with the mouth shut, opening into an "o" that rounds off into a "w".
     const c = ctx!;
     const dur = 0.34;
     const f0 = rand(285, 315) * p;
@@ -873,17 +959,109 @@ const SYNTHS: Record<Sfx, Synth> = {
     noise(d, t + 0.088, { dur: 0.016, vol: rand(0.08, 0.13), attack: 0.001, type: "bandpass", f: 3800 * r, q: 9 });
     return 0.11;
   },
+
+  // ---- critter voices (normally played from their real recordings) ----
+
+  tweet(d, t, p) {
+    // A quick little song: two to four bright, up-swept chirps.
+    const notes = 2 + Math.floor(Math.random() * 3);
+    const base = rand(2600, 3400) * p;
+    let at = 0;
+    for (let i = 0; i < notes; i++) {
+      const f = base * rand(0.9, 1.15);
+      const dur = rand(0.05, 0.08);
+      tone(d, t + at, { f, f2: f * rand(1.2, 1.5), dur, vol: 0.13, vibRate: 35, vibDepth: 0.03 });
+      at += dur + rand(0.03, 0.07);
+    }
+    return at + 0.05;
+  },
+
+  seagull(d, t, p) {
+    // "Kyow-kyow": a harsh, falling cry, two or three times, each a little lower.
+    const calls = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < calls; i++) {
+      const ti = t + i * 0.24;
+      const f = (1250 - i * 70) * p;
+      const path: [number, number][] = [
+        [0.03, f * 1.25],
+        [0.17, f * 0.62],
+      ];
+      const low = path.map(([dt, x]): [number, number] => [dt, x * 0.5]);
+      tone(d, ti, { type: "sawtooth", f, path, dur: 0.18, vol: 0.13, attack: 0.01, filter: { type: "bandpass", f: 1900, q: 1.6 } });
+      tone(d, ti, { type: "square", f: f * 0.5, path: low, dur: 0.18, vol: 0.04, filter: { type: "lowpass", f: 1800 } });
+    }
+    return calls * 0.24;
+  },
+
+  bunny(d, t, p) {
+    // A soft little thump of a hop, then a twitchy sniff-sniff.
+    tone(d, t, { f: 170 * p, f2: 80 * p, dur: 0.09, vol: 0.28, attack: 0.003 });
+    noise(d, t, { dur: 0.05, vol: 0.12, type: "lowpass", f: 600 });
+    for (let i = 0; i < 2; i++) noise(d, t + 0.14 + i * 0.07, { dur: 0.04, vol: 0.07, type: "bandpass", f: 4200 * p, q: 2.5 });
+    return 0.3;
+  },
+
+  squelch(d, t, p) {
+    // Wet and slow: a squishy gush that opens and closes, plus a gloopy little bubble.
+    noise(d, t, {
+      dur: 0.32,
+      vol: 0.32,
+      attack: 0.02,
+      type: "bandpass",
+      f: 380 * p,
+      path: [
+        [0.1, 1500 * p],
+        [0.32, 260 * p],
+      ],
+      q: 5,
+    });
+    tone(d, t + 0.05, {
+      f: 180 * p,
+      path: [
+        [0.08, 420 * p],
+        [0.2, 150 * p],
+      ],
+      dur: 0.22,
+      vol: 0.16,
+      attack: 0.01,
+      vibRate: 28,
+      vibDepth: 0.08,
+    });
+    return 0.34;
+  },
 };
 
 // Some sounds would be annoying if they stacked up (typing blips, menu clicks).
-const MIN_GAP: Partial<Record<Sfx, number>> = { blip: 0.04, select: 0.03, menuOpen: 0.06, menuClose: 0.06, baa: 0.12, pop: 0.03, lick: 0.05, meow: 0.2, mow: 0.2 };
+const MIN_GAP: Partial<Record<Sfx, number>> = {
+  blip: 0.04,
+  select: 0.03,
+  menuOpen: 0.06,
+  menuClose: 0.06,
+  baa: 0.12,
+  baaLamb: 0.12,
+  pop: 0.03,
+  lick: 0.05,
+  meow: 0.2,
+  mow: 0.2,
+  tweet: 0.05,
+  seagull: 0.15,
+  bunny: 0.1,
+  squelch: 0.12,
+  yip: 0.1,
+};
 const lastPlayed = new Map<Sfx, number>();
+/** SOLO group -> audio-clock time its current sound finishes. */
+const soloUntil = new Map<string, number>();
+/** The take each sound played last (evenly weighted takes don't repeat back to back). */
+const lastTake = new Map<Sfx, Take>();
+
+const clampRate = (r: number) => Math.max(0.25, Math.min(4, r));
 
 // ---------- real sound files ----------
 
-/** Settled lookups: a decoded recording, or null = no recording (synthesize). */
-const fileBuf = new Map<Sfx, AudioBuffer | null>();
-const fileLoad = new Map<Sfx, Promise<AudioBuffer | null>>();
+/** Settled lookups by file name: a decoded recording, or null = it failed (synthesize). */
+const fileBuf = new Map<string, AudioBuffer | null>();
+const fileLoad = new Map<string, Promise<AudioBuffer | null>>();
 
 async function fetchBuffer(url: string): Promise<AudioBuffer | null> {
   try {
@@ -901,42 +1079,83 @@ async function fetchBuffer(url: string): Promise<AudioBuffer | null> {
   }
 }
 
-/** Load (once) the recording for a sound listed in FILES. Anything else resolves to null. */
-function requestFile(name: Sfx): Promise<AudioBuffer | null> {
-  const done = fileBuf.get(name);
+/** Load (once) one recording. Only ever called with files listed in FILES. */
+function requestFile(file: string): Promise<AudioBuffer | null> {
+  const done = fileBuf.get(file);
   if (done !== undefined) return Promise.resolve(done);
-  let p = fileLoad.get(name);
+  let p = fileLoad.get(file);
   if (p) return p;
-  const known = FILES[name];
-  // Only fetch recordings we know exist (listed in FILES); everything else is synthesized.
-  p = (known ? fetchBuffer(`${BASE}sounds/${known}`) : Promise.resolve(null)).then((b) => {
-    fileBuf.set(name, b);
-    fileLoad.delete(name);
+  p = fetchBuffer(`${BASE}sounds/${file}`).then((b) => {
+    fileBuf.set(file, b);
+    fileLoad.delete(file);
     return b;
   });
-  fileLoad.set(name, p);
+  fileLoad.set(file, p);
   return p;
 }
 
-function preloadFiles(): void {
-  if (!ctx) return;
-  // A few at a time, so we don't hog a phone's connection while the farm loads.
-  const queue = PRELOAD.filter((n) => FILES[n]);
-  const next = (): void => {
-    const name = queue.shift();
-    if (name) void requestFile(name).then(next);
-  };
-  for (let i = 0; i < 3; i++) next();
+/** Start loading every take of a sound (they're small), so later plays can pick any of them. */
+function warm(name: Sfx): void {
+  for (const t of TAKES.get(name) ?? []) if (!fileBuf.has(t.file) && !fileLoad.has(t.file)) void requestFile(t.file);
 }
 
-function playBuffer(buf: AudioBuffer, volume: number, pitch: number): void {
-  const v = startVoice(volume * 0.8, buf.duration / pitch);
-  if (!v || !ctx) return;
+function preloadFiles(names: readonly Sfx[]): void {
+  try {
+    if (!ctx) return;
+    // A few at a time, so we don't hog a phone's connection while the farm loads.
+    const queue = [...new Set(names.flatMap((n) => (TAKES.get(n) ?? []).map((t) => t.file)))];
+    const next = (): void => {
+      const file = queue.shift();
+      if (file) void requestFile(file).then(next);
+    };
+    for (let i = 0; i < 3; i++) next();
+  } catch (err) {
+    console.warn("[audio] preload", err);
+  }
+}
+
+/** A weighted random take. Evenly weighted pools of 3+ (birdsong) never repeat back to back. */
+function pickTake(name: Sfx, takes: readonly Take[]): Take {
+  if (takes.length === 1) return takes[0]!;
+  const prev = lastTake.get(name);
+  const w0 = takes[0]!.weight ?? 1;
+  const even = takes.every((t) => (t.weight ?? 1) === w0);
+  const pool = even && prev && takes.length >= 3 ? takes.filter((t) => t !== prev) : takes;
+  let r = Math.random() * pool.reduce((sum, t) => sum + (t.weight ?? 1), 0);
+  let pick = pool[pool.length - 1]!;
+  for (const t of pool) {
+    r -= t.weight ?? 1;
+    if (r < 0) {
+      pick = t;
+      break;
+    }
+  }
+  lastTake.set(name, pick);
+  return pick;
+}
+
+/** Mark a SOLO sound's group busy until it finishes. */
+function hold(name: Sfx, dur: number): void {
+  const solo = SOLO[name];
+  if (solo && ctx && dur > 0) soloUntil.set(solo, ctx.currentTime + dur);
+}
+
+/** Play a buffer on its own voice. Returns how long it lasts (0 if it couldn't start). */
+function playBuffer(buf: AudioBuffer, volume: number, rate: number): number {
+  const dur = buf.duration / rate;
+  const v = startVoice(volume * 0.8, dur);
+  if (!v || !ctx) return 0;
   const src = ctx.createBufferSource();
   src.buffer = buf;
-  src.playbackRate.value = pitch;
+  src.playbackRate.value = rate;
   src.connect(v.out);
   src.start();
+  return dur;
+}
+
+function playTake(name: Sfx, take: Take, buf: AudioBuffer, volume: number, pitch: number): void {
+  const gain = (FILE_GAIN[name] ?? 1) * (take.gain ?? 1);
+  hold(name, playBuffer(buf, volume * gain, clampRate(pitch * (take.rate ?? 1))));
 }
 
 function playSynth(name: Sfx, volume: number, pitch: number): void {
@@ -944,7 +1163,9 @@ function playSynth(name: Sfx, volume: number, pitch: number): void {
   const v = startVoice(volume, 2);
   if (!v) return;
   try {
-    endVoiceAfter(v, SYNTHS[name](v.out, ctx.currentTime + 0.005, pitch));
+    const dur = SYNTHS[name](v.out, ctx.currentTime + 0.005, pitch);
+    endVoiceAfter(v, dur);
+    hold(name, dur);
   } catch (err) {
     console.warn("[audio]", name, err);
   }
@@ -965,26 +1186,40 @@ function play(name: Sfx, opts: SfxOpts): void {
   const gap = MIN_GAP[name] ?? 0.02;
   const last = lastPlayed.get(name);
   if (last !== undefined && now - last < gap) return;
+  const solo = SOLO[name];
+  if (solo && now < (soloUntil.get(solo) ?? 0)) return; // e.g. Snickers is mid-meow
   lastPlayed.set(name, now);
   const volume = Math.max(0, opts.volume ?? 1);
-  const pitch = Math.max(0.25, Math.min(4, opts.pitch ?? 1));
+  const pitch = clampRate(opts.pitch ?? 1);
 
-  const trim = FILES[name] ? (FILE_GAIN[name] ?? 1) : 1;
-  const buf = fileBuf.get(name);
-  if (buf) return playBuffer(buf, volume * trim, pitch);
-  if (buf === null) return playSynth(name, volume, pitch);
-  if (!FILES[name]) {
+  const takes = TAKES.get(name);
+  if (!takes) {
     // No recording for this one: it's synthesized.
     playSynth(name, volume, pitch);
     return;
   }
+  warm(name);
+  const take = pickTake(name, takes);
+  const buf = fileBuf.get(take.file);
+  if (buf) return playTake(name, take, buf, volume, pitch);
+  // That take failed or hasn't arrived yet: another take that's ready will do...
+  const ready = takes.filter((t) => t !== take && fileBuf.get(t.file));
+  if (ready.length) {
+    const alt = ready[Math.floor(Math.random() * ready.length)]!;
+    return playTake(name, alt, fileBuf.get(alt.file)!, volume, pitch);
+  }
+  // ...and if it failed outright, the synth stands in.
+  if (buf === null) return playSynth(name, volume, pitch);
   // The recording is still on its way: play it if it shows up quickly, otherwise skip this one
   // (a click that sounds half a second late feels worse than no click).
+  const pending = now + 0.4;
+  if (solo) soloUntil.set(solo, pending);
   const asked = performance.now();
-  void requestFile(name).then((b) => {
-    if (muted || !running() || performance.now() - asked > 350) return;
+  void requestFile(take.file).then((b) => {
     try {
-      if (b) playBuffer(b, volume * trim, pitch);
+      if (solo && soloUntil.get(solo) === pending) soloUntil.delete(solo);
+      if (muted || !running() || performance.now() - asked > 350) return;
+      if (b) playTake(name, take, b, volume, pitch);
       else playSynth(name, volume, pitch);
     } catch (err) {
       console.warn("[audio]", name, err);
@@ -1276,7 +1511,7 @@ function ambienceTick(): void {
       lastOwl = now;
       if (!ambFile("owl", 0.14)) owl(t + 0.4);
     }
-    if (amb.morning && !amb.rain && layerFailed(layers.day) && Math.random() < 0.22) bird(t + rand(0, 0.5));
+    if (amb.morning && !amb.rain && layerFailed(layers.day) && Math.random() < 0.22 && !ambFile("tweet", 0.3)) bird(t + rand(0, 0.5));
     if (amb.windy && Math.random() < 0.08 && now - lastGust > 9_000) {
       lastGust = now;
       void loadAmb("wind").then((b) => b && playAmbOneShot(b, rand(0.6, 0.9), rand(0.85, 1.1)));
@@ -1293,10 +1528,14 @@ function ambienceTick(): void {
 
 /** Play a real recording on the ambience bus. Returns false if it isn't available (yet). */
 function ambFile(name: Sfx, volume: number): boolean {
-  const b = fileBuf.get(name);
-  if (b === undefined) void requestFile(name);
-  if (!b) return false;
-  playAmbOneShot(b, volume, rand(0.94, 1.04));
+  const takes = TAKES.get(name);
+  if (!takes) return false;
+  warm(name);
+  const ready = takes.filter((t) => fileBuf.get(t.file));
+  if (!ready.length) return false;
+  const t = ready[Math.floor(Math.random() * ready.length)]!;
+  const gain = (FILE_GAIN[name] ?? 1) * (t.gain ?? 1);
+  playAmbOneShot(fileBuf.get(t.file)!, volume * gain, clampRate((t.rate ?? 1) * rand(0.94, 1.04)));
   return true;
 }
 

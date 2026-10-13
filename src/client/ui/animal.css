@@ -536,18 +536,24 @@
   --hpx: calc(var(--ipx, 1.5px) * 2);
 }
 /* The fitting room stays pinned while you scroll the hat rack, so you always see the sheep
-   wearing what you just tapped. Filled with the menu box's parchment so tiles slide under it. */
+   wearing what you just tapped. Filled with the menu box's parchment so tiles slide under it.
+   --pad-t mirrors .sv-dialog__content's top padding (dom.css): sticky top: 0 would park it
+   below that strip and let tiles peek through, so it sticks to the scrollport's very edge and
+   fills the strip itself (margin/padding cancel out, so the layout doesn't move). */
 .an-hat__top {
+  --pad-t: 2px;
   position: sticky;
-  top: 0;
+  top: calc(var(--pad-t) * -1);
   z-index: 2;
   display: flex;
   align-items: center;
   gap: 14px;
-  margin: 0 -4px;
-  padding: 0 4px 8px;
+  margin: calc(var(--pad-t) * -1) -4px 0;
+  padding: var(--pad-t) 4px 8px;
   background: var(--parchment);
   border-bottom: calc(var(--px) * 1) dashed rgba(107, 74, 51, 0.35);
+  /* Belt and braces against a sub-pixel hairline above the header. */
+  box-shadow: 0 calc(var(--pad-t) * -1) 0 var(--parchment);
 }
 .an-frame--fitting {
   flex: none;

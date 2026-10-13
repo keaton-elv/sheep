@@ -220,9 +220,9 @@ class ParrotFlock {
     this.squawks(3);
   }
 
-  /** A burst of parrot chatter (a chirp, pitched way up, a few times over). */
+  /** A burst of parrot chatter (a bird tweet, pitched up into a squawk, a few times over). */
   squawks(n: number): void {
-    for (let i = 0; i < n; i++) setTimeout(() => sfx("chirp", { volume: 0.2, pitch: rand(1.9, 2.4) }), i * rand(120, 220));
+    for (let i = 0; i < n; i++) setTimeout(() => sfx("tweet", { volume: 0.18, pitch: rand(1.3, 1.55) }), i * rand(150, 260));
   }
 
   tick(dt: number, ok: boolean): void {
@@ -239,7 +239,8 @@ class ParrotFlock {
       const p = perched[Math.floor(Math.random() * perched.length)];
       if (p) {
         p.chatter();
-        if (chance(0.6)) sfx("chirp", { volume: 0.14, pitch: rand(1.9, 2.4) });
+        // Not every beak-open gets a sound (a perched flock would never stop otherwise).
+        if (chance(0.35)) sfx("tweet", { volume: 0.12, pitch: rand(1.3, 1.55) });
       }
     }
   }
@@ -337,7 +338,8 @@ function spawnGulls(g: Game): Gull[] {
   const line = l.pasture.y + rand(0, l.pasture.h * 0.4);
   const out: Gull[] = [];
   for (let i = 0; i < n; i++) out.push(addSafe(g, new Gull(g, fromLeft, line + i * rand(8, 14), i * rand(0.6, 1.2)), "gull"));
-  if (chance(0.5)) setTimeout(() => sfx("crow", { volume: 0.22, pitch: 1.75 }), 1400);
+  // Now and then one of them cries on the way over (gulls are loud, but this is the farm, not the pier).
+  if (chance(0.4)) setTimeout(() => sfx("seagull", { volume: 0.22, pitch: rand(0.96, 1.04) }), 1400);
   return out;
 }
 
@@ -394,7 +396,7 @@ export function initFlyers(g: Game): void {
     for (const b of gulls) {
       if (b.toasted || !b.near(x, y)) continue;
       b.toasted = true;
-      sfx("crow", { volume: 0.35, pitch: 1.75 });
+      sfx("seagull", { volume: 0.35, pitch: rand(0.96, 1.04) });
       // The pizza line is a rare one: the first gull you tap, then only now and then.
       if (gullToasts > 0 && !chance(0.25)) continue;
       gullToasts++;
