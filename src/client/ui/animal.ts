@@ -1,20 +1,22 @@
 // The animal card: Stardew's animal query menu, for one sheep (= one plan).
 // Big sprite (with its hat), name, hearts, a mood line, the plan's details, and
-// Shear / Hat / Edit / Sell.
+// Shear / Hat / Edit / Sell. Remembers the ORIGINAL PLAN, too.
 
 import "./animal.css";
 import { sfx } from "../audio";
-import { hasPettedToday, markPetted, sheepEmote } from "../entities/sheep";
+import { hasPettedToday, markPetted, sheepEmote, unmarkPetted } from "../entities/sheep";
 import { hatName } from "../entities/sheep-hats";
 import { api, isLamb, isRetired, serverNow, store } from "../net";
 import { dayKey, daysBetween, parseDayKey, stardewDate } from "../../shared/calendar";
 import { CATEGORY_LABELS, LIMITS, MAX_PETS, RETIRE_AFTER_MS, type Sheep } from "../../shared/types";
-import { crispPx, farmMoment, friendlyError, hostLabel, lambGrowsUp, realDateLabel, safeLink } from "./animal-common";
+import { crispPx, farmMoment, friendlyError, hostLabel, lambGrowsUp, originalStamps, realDateLabel, renamedFrom, safeLink } from "./animal-common";
 import { openHatPicker } from "./animal-hats";
 import { moodLine } from "./animal-mood";
 import { SheepSprite, hatTileIcon, lookOf } from "./animal-sprite";
 import { confirmDialog, el, heartsEl, openDialog, openMenu, plural, promptDialog, registerMenu, relativeDays, spriteIcon, toast, type DialogHandle } from "./dom";
 import { categoryIcon } from "./marnie-art";
+// Importing stamp.ts also self-registers the ORIGINAL PLAN stamp on farm events (own or remote).
+import { originalPlanBadge, showOriginalPlanStamp } from "./stamp";
 
 export function initAnimal(): void {
   registerMenu("sheep", (id: string) => openAnimalCard(id));
@@ -28,6 +30,15 @@ function recordPet(id: string): void {
     markPetted(id);
   } catch {
     // Private mode etc.: the in-memory set below still stops double pets this session.
+  }
+}
+
+/** The pet didn't reach the farm: forget it, so it can be tried again (here or in the field). */
+function forgetPet(id: string): void {
+  try {
+    unmarkPetted(id);
+  } catch {
+    // nothing remembered, nothing to forget
   }
 }
 
@@ -53,7 +64,7 @@ const openCards = new Set<string>();
 function openAnimalCard(id: string): void {
   const first = store.sheep(id);
   if (!first) {
-    toast("That sheep wandered off.");
+    toast("That sheep wandered off...");
     return;
   }
   if (openCards.has(id)) return;
@@ -64,6 +75,7 @@ function openAnimalCard(id: string): void {
   let leaving = false; // we sold it ourselves; don't announce it wandered off
   let pokes = 0;
   let lastSig = "";
+  let lastBadge = "";
 
   const sprite = new SheepSprite(() => {
     const s = store.sheep(id);
@@ -77,7 +89,9 @@ function openAnimalCard(id: string): void {
   // The sprite's frame stays put across re-renders (moving it would restart its animations);
   // only the header text and the details below get rebuilt.
   let head = el("div", { class: "an-head" });
-  const top = el("div", { class: "an-top" }, el("div", { class: "an-frame" }, sprite.scene), head);
+  // ORIGINAL PLAN badge, stamped on the corner of the portrait.
+  const badgeSlot = el("div", { class: "an-badgeslot" });
+  const top = el("div", { class: "an-top" }, el("div", { class: "an-framewrap" }, el("div", { class: "an-frame" }, sprite.scene), badgeSlot), head);
   const details = el("div", { class: "an-details" });
   const body = el("div", { class: "an-card", style: `--ipx: ${crispPx(1.5, 2.25)}; --ipx-sm: ${crispPx(1.25, 2)}` }, top, details);
 
@@ -96,7 +110,7 @@ function openAnimalCard(id: string): void {
   const unsubscribe = store.changed.on(() => {
     const s = store.sheep(id);
     if (!s) {
-      if (!leaving) toast(`${name} trotted off to a new home.`, { icon: "ui.sheep" });
+      if (!leaving) toast(`${name} went to a nice farm upstate...`, { icon: "ui.sheep" });
       dialog.close();
       return;
     }
@@ -160,7 +174,7 @@ function openAnimalCard(id: string): void {
       el("h2", { class: "an-name" }, s.name),
       el(
         "div",
-        { class: "an-heartsrow", title: "Hearts = how excited you two are. Each of you can pet it once a day for half a heart." },
+        { class: "an-heartsrow", title: "Pet once a day: half a heart" },
         heartsEl(s.pets, { scale: 2 }),
         label ? el("span", { class: "an-heartcount" }, label) : null,
       ),
@@ -168,6 +182,13 @@ function openAnimalCard(id: string): void {
     );
     head.replaceWith(newHead);
     head = newHead;
+
+    const stamps = originalStamps(s);
+    const badgeKey = String(stamps);
+    if (badgeKey !== lastBadge) {
+      lastBadge = badgeKey;
+      badgeSlot.replaceChildren(...(stamps > 0 ? [originalPlanBadge(stamps)] : []));
+    }
 
     // --- details ---
     const rows = el("dl", { class: "an-rows" });
@@ -186,16 +207,16 @@ function openAnimalCard(id: string): void {
         el("span", { class: "an-sub" }, `${stardewDate(planned, founded)} · ${relativeDays(days)}${days === 0 ? "!" : ""}`),
       );
     } else if (!sheared) {
-      const pickDate = el("button", { class: "an-linkbtn", type: "button", dataset: { focus: "date" } }, "No date yet. Pick one?");
+      const pickDate = el("button", { class: "an-linkbtn", type: "button", dataset: { focus: "date" } }, "Pick a date?");
       pickDate.addEventListener("click", () => openMenu("editSheep", { id, focus: "date" }));
       row("When", pickDate);
     }
 
     const ageDays = daysBetween(new Date(s.createdAt), moment.now);
     if (lamb) {
-      row("Age", el("span", { class: "an-chip an-chip--lamb" }, `Still a lamb! Grows up ${lambGrowsUp(s, moment.now)}.`));
+      row("Age", el("span", { class: "an-chip an-chip--lamb" }, `Lamb! Grows up ${lambGrowsUp(s, moment.now)}.`));
     } else {
-      row("Age", ageDays <= 0 ? "Brought home today" : ageDays === 1 ? "Brought home yesterday" : `Brought home ${plural(ageDays, "day")} ago`);
+      row("Age", ageDays <= 0 ? "New today" : `${plural(ageDays, "day")} old`);
     }
 
     if (s.hat !== null) {
@@ -203,18 +224,14 @@ function openAnimalCard(id: string): void {
     }
 
     if (s.golden) {
-      row("Wool", el("span", { class: "an-chip an-chip--gold" }, spriteIcon("ui.star"), sheared ? "Golden! Gave 2 wool." : "Golden! Shearing gives 2 wool."));
+      row("Wool", el("span", { class: "an-chip an-chip--gold" }, spriteIcon("ui.star"), sheared ? "Golden! Gave 2 wool." : "Golden! 2 wool."));
     }
 
     if (sheared && s.shearedAt !== null) {
       const shearDate = new Date(s.shearedAt);
       const ago = daysBetween(shearDate, moment.now);
       const moveIn = daysBetween(new Date(nowMs), new Date(s.shearedAt + RETIRE_AFTER_MS));
-      const where = retired
-        ? "Living in the barn now."
-        : moveIn <= 0
-          ? "Moves into the barn later today."
-          : `Moves into the barn ${relativeDays(moveIn)}.`;
+      const where = retired ? "In the barn now." : moveIn <= 0 ? "Off to the barn later today." : `Off to the barn ${relativeDays(moveIn)}.`;
       row("Sheared", el("span", { class: "an-date" }, `${stardewDate(shearDate, founded)} (${relativeDays(-ago)})`), el("span", { class: "an-sub" }, where));
     }
 
@@ -229,11 +246,34 @@ function openAnimalCard(id: string): void {
       if (s.memory) {
         row("Memory", el("blockquote", { class: "an-memory" }, s.memory));
       } else {
-        const write = el("button", { class: "an-linkbtn", type: "button", dataset: { focus: "memory" } }, "Write a little memory?");
+        const write = el("button", { class: "an-linkbtn", type: "button", dataset: { focus: "memory" } }, "Write a memory?");
         write.addEventListener("click", () => void writeMemory(s));
         row("Memory", write);
       }
     }
+
+    // --- the ORIGINAL PLAN ---
+    const original = renamedFrom(s);
+    const orig = original
+      ? el(
+          "div",
+          { class: "an-orig" },
+          el("p", { class: "an-orig__was" }, "Original plan: ", el("b", null, original)),
+          el(
+            "button",
+            {
+              class: "an-linkbtn an-orig__go",
+              type: "button",
+              disabled: busy,
+              dataset: { focus: "original" },
+              on: { click: () => void backToOriginal(s, original) },
+            },
+            "Go back to the ",
+            el("span", { class: "an-orig__caps" }, "ORIGINAL PLAN"),
+            "?",
+          ),
+        )
+      : null;
 
     // --- actions ---
     // Phones: Shear gets its own full-width row on top (un-shear at the bottom); the rest share a row.
@@ -261,8 +301,9 @@ function openAnimalCard(id: string): void {
 
     // Re-rendering swaps the nodes; keep keyboard focus on "the same" button if it had it.
     const focused = document.activeElement instanceof HTMLElement && body.contains(document.activeElement) ? document.activeElement.dataset.focus : undefined;
-    details.replaceChildren(rows, actions);
-    if (focused) body.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focused)}"]`)?.focus();
+    details.replaceChildren(...(orig ? [rows, orig, actions] : [rows, actions]));
+    // (The ORIGINAL PLAN button vanishes once it's used: keep focus inside the card, not on <body>.)
+    if (focused) (body.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focused)}"]`) ?? dialog.box).focus();
   }
 
   function pet(s: Sheep): void {
@@ -281,13 +322,23 @@ function openAnimalCard(id: string): void {
       .catch(() => {
         // Not the end of the world: let them try again.
         pettedHere.delete(key);
+        forgetPet(id);
         if (store.sheep(id)) render(true);
       });
   }
 
+  /** Rename it back to its first name. The server logs "original"; the stamp dedupes event + response. */
+  async function backToOriginal(s: Sheep, original: string): Promise<void> {
+    const before = s.originalReturns || 0;
+    await action(async () => {
+      const updated = await api.updateSheep(id, { name: original });
+      if ((updated.originalReturns || 0) > before) showOriginalPlanStamp(updated.name);
+    });
+  }
+
   async function sell(s: Sheep): Promise<void> {
-    const extra = s.shearedAt !== null && s.memory ? " (This deletes the plan and its memory.)" : " (This deletes the plan.)";
-    const yes = await confirmDialog(`Sell ${s.name}? A nice farm over the hill will give it a cozy new home.${extra}`, {
+    const extra = s.shearedAt !== null && s.memory ? " (Deletes the plan and its memory.)" : " (Deletes the plan.)";
+    const yes = await confirmDialog(`Sell ${s.name}? It's going to a nice farm upstate...${extra}`, {
       yes: "Sell",
       no: "Keep",
       danger: true,
@@ -302,14 +353,13 @@ function openAnimalCard(id: string): void {
         throw err;
       }
       sfx("coin");
-      toast(`${s.name} trotted off to a cozy new home.`, { icon: "ui.sheep" });
+      toast(`Bye, ${s.name}... baa.`, { icon: "ui.sheep" });
       dialog.close();
     });
   }
 
   async function unshear(s: Sheep): Promise<void> {
-    const wool = s.golden ? "2 wool go" : "the wool goes";
-    const yes = await confirmDialog(`Un-shear ${s.name}? The plan goes back on the to-do list and ${wool} back on the sheep.`, {
+    const yes = await confirmDialog(`Un-shear ${s.name}? Back on the to-do list, wool and all.`, {
       yes: "Un-shear",
       no: "Keep it sheared",
     });
@@ -323,8 +373,8 @@ function openAnimalCard(id: string): void {
 
   async function writeMemory(s: Sheep): Promise<void> {
     const text = await promptDialog({
-      title: "A little memory?",
-      label: `What do you want to remember about ${s.name}?`,
+      title: "A little memory...",
+      label: s.name,
       placeholder: "The best part was…",
       multiline: true,
       maxLength: LIMITS.memory,

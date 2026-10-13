@@ -10,6 +10,7 @@ import { draw, has, REGIONS, SHEETS, size } from "../engine/sprites";
 import { say } from "../ui/dom";
 import type { Layout } from "../world/layout";
 import type { EmoteKind } from "./emotes";
+import { NameTag } from "./critter-tag";
 import { addSafe, chance, dotPuff, drawAnchored, drawPart, drawShadow, Emote, heartFloat, inBox, onTick, params, rand } from "./critter-util";
 
 // The raccoons live in the real Stardew raccoon sheet (512x256, 16x8 frames of 32x32).
@@ -55,72 +56,59 @@ const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.len
 // ---------- lines ----------
 
 const FOX_LINES = [
-  "Otto looks at you, then at Milo. He seems very content.",
-  'Otto swishes his tail. That\'s fox for "hello, farmers."',
-  "Otto yawns a big fox yawn. You can see all his tiny teeth.",
-  "Otto would like you to know this is HIS blanket. (He shares it with Milo.)",
-  "Otto sniffs your hand politely. You smell like sheep.",
-  "His fur is the exact color of a Fall maple leaf.",
+  'Otto swishes his tail. That\'s fox for "hello..."',
+  "Otto yawns a big fox yawn. So many tiny teeth...",
+  "Otto would like you to know this is HIS blanket. (Milo may borrow it.)",
+  "Otto sniffs your hand. You smell like sheep...",
   "Otto makes a noise like a squeaky gate. Foxes are weird.",
   "Otto is watching the sheep. Not hungrily. Just... supervising.",
-  "Otto has heard your sheep are the best in the valley. He agrees.",
-  "Otto tilts his head. One ear flops. Unbearably cute.",
-  "Otto seems to think Milo hung the moon.",
-  "Otto went foraging this morning. He found one (1) acorn and is very proud.",
-  "Otto wraps his tail around his paws like a scarf he brought from home.",
+  "Otto tilts his head. One ear flops.",
+  "Otto went foraging this morning. He found one (1) acorn.",
   'Otto blinks at you slowly. In fox, that means "I trust you."',
-  "Otto pretends he didn't just pounce on a leaf.",
-  "You found: 1 fox. Not for sale. Priceless.",
-  "Otto would like to remind you both to drink some water.",
+  "Otto pretends he didn't just pounce on a leaf...",
+  "You found: 1 fox. Not for sale.",
   "Otto's favorite season is whichever one has Milo in it.",
-  "Otto's ears perk up. Somewhere, a bumblebee is bumbling.",
   "Otto swears he saw a ladybug knight riding a bumblebee. Milo believes him.",
-  "He's very fluffy. That's the whole message. Very, very fluffy.",
-  "Otto rolls onto his back for a second, then remembers he's dignified.",
+  "Otto rolls onto his back... then remembers he's dignified.",
 ];
 const FOX_SLEEP_LINES = [
-  "Otto and Milo are fast asleep, curled up together. Shhh...",
-  "Zzz... Otto's paw twitches. He's dreaming about chasing butterflies.",
-  "Milo snores very softly. Otto doesn't mind one bit.",
-  "They're sleeping. Maybe you two should head to bed soon, too?",
+  "Otto and Milo are fast asleep. Shhh...",
+  "Zzz... Otto's paw twitches. He's dreaming about butterflies.",
+  "Milo snores very softly. Otto doesn't mind one bit... Zzz...",
+  "Zzz... Maybe you two should head to bed, too?",
 ];
 const HOG_LINES = [
-  "Milo curls into a spiky little ball. Then he peeks at you.",
-  "Milo snuffles. It sounds like a tiny teakettle.",
-  "He's very round. Spherical, even. A perfect circle of hedgehog.",
+  "Milo curls into a spiky little ball... then peeks at you.",
+  "Milo snuffles like a tiny teakettle.",
   "Milo would like you to know he is NOT a chestnut.",
   "Milo waddles in a small, determined circle.",
-  "His tiny nose wiggles. He smells... friendship. And maybe a beetle.",
-  "Milo and Otto have been friends since before the farm was a farm.",
-  "Milo is small, but he has big plans.",
+  "Milo's nose wiggles. He smells... a beetle.",
+  "Milo and Otto were friends before the farm was a farm.",
   "You try not to boop Milo. You fail. Boop.",
-  "Milo squeaks like a squeaky toy. His spines bristle with joy.",
-  "Milo doesn't like being picked up, but he loves being admired.",
-  "Milo found a blueberry earlier. Happiest hedgehog in Stardew Valley.",
-  "Milo is guarding the stump. The raccoon inside owes him a favor.",
+  "Milo found a blueberry. Happiest hedgehog in the valley.",
+  "Milo is guarding the stump. The raccoon owes him a favor.",
   "Milo unrolls with great dignity, as if nothing happened.",
-  "Hedgehog fact: they snore. Milo snores adorably.",
 ];
 const HOG_SLEEP_LINES = [
-  "Milo curls up tighter without waking up. A sleepy little pincushion.",
-  "Shhh. Milo is dreaming about beetles. Big ones.",
-  "Milo snuffles in his sleep and scoots closer to Otto.",
+  "Milo curls up tighter without waking up. Zzz...",
+  "Shhh... Milo is dreaming about beetles. Big ones.",
+  "Milo scoots closer to Otto in his sleep. Zzz...",
 ];
 const STUMP_LINES = [
-  "It's a hollow stump. It smells faintly of berries. And trash.",
-  "You knock on the stump. Something inside knocks back.",
-  'A tiny sign on the stump says: "RACCOON RESIDENCE. NO SOLICITING."',
-  "You peek into the stump. Two little eyes peek back. Then they're gone.",
-  'Someone carved tiny letters into the bark: "knock five times, quickly." Huh.',
+  "A hollow stump. It smells like berries... and trash.",
+  "You knock. Something inside knocks back...",
+  'A tiny sign: "RACCOON RESIDENCE. NO SOLICITING."',
+  "Two little eyes peek out of the stump... then they're gone.",
+  'Tiny letters in the bark: "knock five times, quickly." Hmm...',
 ];
 const RACCOON_LINES: string[][] = [
-  ["A raccoon pops out of the stump!", "It looks at your sheep, nods approvingly, and ducks back inside before you can ask what it's doing in there."],
-  ["A raccoon peeks out and eyes the wool chest hopefully.", "...Then it thinks better of it and waves a tiny paw instead."],
-  ["A second, rounder raccoon peeks out of the stump.", "It looks very cozy in there. You hear tiny furniture being rearranged."],
-  ["The raccoon is redecorating. Something inside goes clunk.", "It peeks out to see if you noticed. You did."],
+  ["A raccoon pops out of the stump!", "It nods at your sheep approvingly... and ducks back inside."],
+  ["A raccoon eyes the wool chest hopefully...", "...then waves a tiny paw instead."],
+  ["A second, rounder raccoon peeks out.", "You hear tiny furniture being rearranged..."],
+  ["Something inside the stump goes clunk.", "The raccoon peeks out to see if you noticed. You did."],
 ];
 /** What five quick knocks gets you (the raccoon always answers those). */
-const SECRET_KNOCK_LINES = ["Knock-knock-knock-knock-knock!", "A raccoon pops out, delighted. Nobody ever knocks properly anymore."];
+const SECRET_KNOCK_LINES = ["Knock-knock-knock-knock-knock!", "A raccoon pops out, delighted. Nobody knocks properly anymore..."];
 
 // ---------- fox ----------
 
@@ -160,6 +148,7 @@ class Fox implements Entity {
   t = 0;
   dur = rand(8, 16);
   emote = new Emote();
+  tag = new NameTag("Otto");
   pose: FoxPose = "lie";
   key = "fox.lie.0";
   hop = 0;
@@ -437,7 +426,10 @@ class Fox implements Entity {
     this.hw = d.w;
     this.hh = d.h;
     const headX = flip ? left + (d.w - 1 - meta.head) : left + meta.head;
-    this.emote.draw(ctx, headX, top + (this.pose === "lie" ? 1 : 0));
+    const headY = top + (this.pose === "lie" ? 1 : 0);
+    this.emote.draw(ctx, headX, headY);
+    // Above the emote bubble (16px tall).
+    this.tag.follow(g, headX, headY - 17);
   }
 
   hit(wx: number, wy: number): boolean {
@@ -446,6 +438,7 @@ class Fox implements Entity {
 
   onTap(g: Game): void {
     this.corner.tapped("fox", g);
+    this.tag.show();
     this.tapCount++;
     if (this.asleep) {
       this.emote.show("sleep");
@@ -458,8 +451,8 @@ class Fox implements Entity {
     if (this.tapCount % 3 === 0) {
       const season = g.env.season;
       let line = pick(FOX_LINES);
-      if (this.state === "sunbathe") line = "Otto is sunbathing. He looks extremely cool in those shades.";
-      else if (season === "winter" && chance(0.3)) line = "Otto is very proud of his little red scarf. It was a gift from Milo.";
+      if (this.state === "sunbathe") line = "Otto is sunbathing. Very cool shades.";
+      else if (season === "winter" && chance(0.3)) line = "Otto's little red scarf was a gift from Milo.";
       void say(line);
     }
   }
@@ -502,6 +495,7 @@ class Hedgehog implements Entity {
   t = 0;
   dur = rand(2, 5);
   emote = new Emote();
+  tag = new NameTag("Milo");
   key = "hedgehog.idle.0";
   form: "stand" | "sleep" | "ball" = "stand";
   hop = 0;
@@ -684,7 +678,9 @@ class Hedgehog implements Entity {
     this.hw = d.w;
     this.hh = d.h;
     const hx = flip ? left + (d.w - 1 - meta.head) : left + meta.head;
-    this.emote.draw(ctx, hx, top - (season === "winter" ? 3 : 1));
+    const hy = top - (season === "winter" ? 3 : 1);
+    this.emote.draw(ctx, hx, hy);
+    this.tag.follow(g, hx, hy - 17);
   }
 
   hit(wx: number, wy: number): boolean {
@@ -693,6 +689,7 @@ class Hedgehog implements Entity {
 
   onTap(g: Game): void {
     this.corner.tapped("hog", g);
+    this.tag.show();
     this.tapCount++;
     sfx("squeak");
     if (this.state !== "ball" && this.state !== "peek") this.ballFrom = this.state === "sleep" ? "sleep" : "idle";
@@ -704,8 +701,8 @@ class Hedgehog implements Entity {
       if (this.ballFrom === "sleep") line = pick(HOG_SLEEP_LINES);
       else if (chance(0.35)) {
         if (season === "winter") line = "Milo's knit hat is slightly too big. It's perfect.";
-        else if (season === "fall") line = "There's a leaf stuck on Milo's spines. He's wearing it on purpose.";
-        else if (season === "spring") line = "Milo found a flower and put it on. Very fashionable.";
+        else if (season === "fall") line = "A leaf is stuck on Milo's spines. On purpose.";
+        else if (season === "spring") line = "Milo is wearing a flower. Very fashionable.";
       }
       void say(line);
     }
@@ -902,7 +899,7 @@ export class Corner {
       g,
       new Prop((g) => (g.env.season === "winter" ? "critter.snowman" : null), 55, 31, () => {
         sfx("pop");
-        void say("A tiny snowman. It's wearing a little red scarf, just like Otto's.");
+        void say("A tiny snowman in a red scarf... just like Otto's.");
       }),
       "snowman",
     );

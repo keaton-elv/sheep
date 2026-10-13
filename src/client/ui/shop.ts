@@ -1,6 +1,6 @@
 // The Carpenter's Shop: spend cloth on decorations for the pasture, and the little menu that
-// opens when you tap a decoration you already placed. No shopkeeper: just a sign, a price
-// list and a narrator.
+// opens when you tap a decoration you already placed. No shopkeeper: the shop talks for itself,
+// in signs and chalkboard notes.
 
 import "./shop.css";
 import { sfx } from "../audio";
@@ -62,18 +62,17 @@ export function decorFullName(kind: DecorKind, variant: number): string {
   return kind === "rarecrow" ? `${base}: ${look}` : look;
 }
 
-/** A line from the shop's narrator (no shopkeeper here, just a cozy shop). */
+/** What the chalkboard by the door says today (the shop speaks for itself: no shopkeeper). */
 function shopLine(cloth: number, owned: number): string {
   const hour = farmNow().getHours();
-  if (cloth === 0) return "Your cloth pouch is empty. Shear some sheep, run the loom, and come back!";
-  if (owned === 0) return "Your very first decoration! A scarecrow is a classic... but nobody here will judge a gnome.";
-  if (hour >= 20 || hour < 6) return "The shop lights are still on. Night owls welcome.";
+  if (cloth === 0) return "CLOTH ONLY. No credit...";
+  if (owned === 0) return "First visit? Scarecrows are a classic. Gnomes are a lifestyle.";
+  if (hour >= 20 || hour < 6) return "OPEN LATE. Night owls welcome...";
   const lines = [
-    "Sawdust, fresh pine, and a little bell over the door. Everything here is paid for in cloth.",
-    "Something nice for the pasture? The sheep have opinions, but they're mostly “baa”.",
     "Built while you wait. (Valley magic.)",
     "Decorations improve sheep morale. That's just science.",
-    "A chalkboard by the counter reads: “Will build for cloth. Hats? Ask a sheep.”",
+    "Full refunds. Even on gnomes.",
+    "Will build for cloth.",
   ];
   return lines[Math.floor(Math.random() * lines.length)]!;
 }
@@ -83,7 +82,7 @@ function shopLine(cloth: number, owned: number): string {
 function openShop(): void {
   const st = store.state;
   if (!st) {
-    toast("The shop is still opening up... try again in a sec!");
+    toast("Still opening up...");
     return;
   }
   const variants = new Map<DecorKind, number>();
@@ -156,7 +155,7 @@ function openShop(): void {
         el("span", { class: "fm-shop__name" }, info.name),
         el("span", { class: "fm-shop__desc" }, info.desc),
         picker,
-        afford ? null : el("span", { class: "fm-shop__need" }, `Needs ${plural(cost - cloth, "more cloth", "more cloth")}`),
+        afford ? null : el("span", { class: "fm-shop__need" }, `Needs ${cost - cloth} more`),
       ),
       el(
         "div",
@@ -200,12 +199,7 @@ function hatNote(): HTMLElement {
     "p",
     { class: "fm-shop__hats" },
     icon ? el("span", { class: "fm-shop__hatpic" }, icon) : null,
-    el(
-      "span",
-      null,
-      el("b", null, "Hats?"),
-      ` Tap any sheep and pick one from its card. (${plural(HAT_COST, "cloth", "cloth")} each.)`,
-    ),
+    el("span", null, el("b", null, "Hats?"), ` On each sheep's card. (${plural(HAT_COST, "cloth", "cloth")})`),
   );
 }
 
@@ -232,7 +226,7 @@ function openDecor(id: string): void {
   const st = store.state;
   const decor = st?.decorations.find((x) => x.id === id);
   if (!st || !decor) {
-    toast("Hmm, that decoration isn't here anymore.");
+    toast("Hmm... it's not here anymore.");
     return;
   }
   const info = DECOR_INFO[decor.kind];
@@ -251,7 +245,6 @@ function openDecor(id: string): void {
         { class: "fm-decor__text" },
         el("p", { class: "fm-decor__desc" }, info.desc),
         el("p", { class: "fm-decor__when" }, `Placed ${stardewDate(new Date(decor.createdAt), st.foundedAt)}`),
-        el("p", { class: "fm-decor__hint" }, `Move it somewhere new, or put it away for a full refund (${plural(cost, "cloth", "cloth")}).`),
       ),
     ),
     buttons: [
@@ -259,7 +252,7 @@ function openDecor(id: string): void {
         label: "Put away",
         kind: "danger",
         onClick: async () => {
-          const ok = await confirmDialog(`Put the ${name} away? You'll get ${plural(cost, "cloth", "cloth")} back.`, {
+          const ok = await confirmDialog(`Put the ${name} away? Full refund: ${plural(cost, "cloth", "cloth")}.`, {
             yes: "Put away",
             no: "Keep it",
           });

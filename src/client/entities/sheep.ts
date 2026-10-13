@@ -240,7 +240,7 @@ function recordPet(day: string, id: string): void {
 }
 
 /** The pet request failed (offline?): let them try again later. */
-function unmarkPetted(day: string, id: string): void {
+function forgetPet(day: string, id: string): void {
   const set = pettedSet(day);
   set.delete(id);
   try {
@@ -272,6 +272,11 @@ export function hasPettedToday(sheepId: string): boolean {
  */
 export function markPetted(sheepId: string): void {
   recordPet(dayKey(new Date()), sheepId);
+}
+
+/** Undo markPetted for today (the card's pet request failed), so it can be petted again. */
+export function unmarkPetted(sheepId: string): void {
+  forgetPet(dayKey(new Date()), sheepId);
 }
 
 // ---------- the sheep ----------
@@ -839,7 +844,7 @@ class SheepEntity implements Entity {
     const n = reducedMotion ? 3 : 9;
     for (let i = 0; i < n; i++) spawnSparkle(Math.round(this.x + (Math.random() - 0.5) * 26), Math.round(this.y - 4 - Math.random() * 24), 0.45 + Math.random() * 0.45);
     sfx("reward");
-    toast(`${this.data.name} grew up!`, { icon: this.data.golden ? "sheep.portrait.golden" : "sheep.portrait" });
+    toast(`${this.data.name} is all grown up...`, { icon: this.data.golden ? "sheep.portrait.golden" : "sheep.portrait" });
     if (this.mode !== "shear") {
       this.payAttention();
       this.hop(2, 5);
@@ -904,6 +909,23 @@ class SheepEntity implements Entity {
     if (Math.random() < 0.4) this.hop(1, 2);
   }
 
+  /** Back to the ORIGINAL PLAN: a proud double hop, "!", a little sparkle and a pleased baa. */
+  proud(): void {
+    if (this.dead || this.mode === "wait" || this.alpha < 0.3) return;
+    this.emote("exclaim");
+    if (this.mode === "shear" || this.shearing || this.mode === "exit") return;
+    if (this.mode === "sleep" || this.mode === "graze") {
+      // Worth waking up (or looking up from the grass) for. Back to bed once the fuss is over.
+      this.startIdle(2.6);
+      this.dir = DOWN;
+    } else this.payAttention();
+    this.hop(2, 6);
+    const headY = this.y - (this.lambNow ? 14 : 20);
+    for (let i = 0; i < (reducedMotion ? 1 : 5); i++) spawnSparkle(Math.round(this.x + (Math.random() - 0.5) * 24), Math.round(headY - Math.random() * 10), 0.4 + Math.random() * 0.35);
+    // After the stamp's thud, not on top of it.
+    window.setTimeout(() => !this.dead && this.baa(0.4, 1.08), 520);
+  }
+
   remotePet(): void {
     this.emote("heart");
     if (this.mode !== "sleep" && this.mode !== "wait") this.hop(1, 4);
@@ -946,7 +968,7 @@ class SheepEntity implements Entity {
         // Didn't stick (offline, hiccup): this device can try again. A 404 means the sheep is
         // gone anyway, and a 401 brings up the password gate on its own.
         console.warn("[sheep] pet failed", err);
-        unmarkPetted(day, id);
+        forgetPet(day, id);
       });
       this.petReaction();
       window.setTimeout(() => {
@@ -1307,8 +1329,13 @@ export function initSheep(g: Game): void {
     }
 
     // Name tags follow their sheep (just under the hooves), then get laid out together so they
-    // stay on screen, out from under the HUD, and off each other. Hidden tags need no work.
-    if (!labelsOn) return;
+    // stay on screen, out from under the HUD, and off each other. Hidden tags still keep their
+    // text and stickers current (a cheap no-op unless something changed; no layout), so switching
+    // them back on never replays an ORIGINAL PLAN stamp from earlier.
+    if (!labelsOn) {
+      for (const e of list) e.tag.update(e.data, e.showSheared(), e.lambNow, today);
+      return;
+    }
     const s = g.cssScale;
     const dark = g.env.darkness > 0.5;
     tagScratch.length = 0;
@@ -1358,8 +1385,10 @@ export function initSheep(g: Game): void {
   );
   store.events.on(({ event, own }) =>
     guard(() => {
-      if (own || !event.sheepId) return;
-      if (event.kind === "sheared") void animateShear(event.sheepId, false);
+      if (!event.sheepId) return;
+      // ORIGINAL PLAN (renamed right back), from either farmer: the sheep is very proud.
+      if (event.kind === "original") flock.get(event.sheepId)?.proud();
+      else if (event.kind === "sheared" && !own) void animateShear(event.sheepId, false);
     }),
   );
   if (store.state) guard(() => sync(store.state!));

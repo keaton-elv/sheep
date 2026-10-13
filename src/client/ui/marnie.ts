@@ -1,5 +1,5 @@
-// "Buy a Sheep" (the ranch): buying a sheep = adding a plan. Also the "Edit sheep" form.
-// No shopkeeper here: the lamb for sale does the talking (well, the baa-ing), plus a narrator.
+// "Buy a Sheep" (the ranch): buying a sheep = adding a plan. Also the Edit form.
+// No shopkeeper here: the lamb for sale does the talking (well, the baa-ing).
 
 import "./marnie.css";
 import { sfx } from "../audio";
@@ -11,29 +11,25 @@ import { checkLink, crispPx, farmMoment, friendlyError, realDateLabel } from "./
 import { SheepSprite } from "./animal-sprite";
 import { el, openDialog, registerMenu, relativeDays, spriteIcon, toast, typewriter, type DialogHandle } from "./dom";
 import { categoryIcon } from "./marnie-art";
+import { showOriginalPlanStamp } from "./stamp";
 
 export function initMarnie(): void {
   registerMenu("ranch", (arg?: { date?: string }) => openBuySheep(arg));
-  // arg: a sheep id, or { id, focus: "date" } to jump straight to the date ("No date yet. Pick one?").
+  // arg: a sheep id, or { id, focus: "date" } to jump straight to the date (the card's "Pick a date?").
   registerMenu("editSheep", (arg?: string | { id: string; focus?: "date" }) => {
     if (typeof arg === "string") openEditSheep(arg);
     else if (arg?.id) openEditSheep(arg.id, arg.focus);
   });
 }
 
-// ---------- the narrator (and the lamb) ----------
+// ---------- the lamb's line ----------
 
 const GREETINGS = [
-  "A fluffy new friend is waiting for a plan!",
-  "Every good plan starts with a sheep.",
-  "Baa! (This lamb would like a plan, please.)",
-  "One lamb, freshly fluffed, ready for an adventure.",
-  "Name it after something you two want to do!",
-  "This little one has been practicing its baa all morning.",
-  "Fluffy, friendly, slightly judgmental. Perfect for a plan.",
-  "The flock is ready to grow!",
-  "Psst. The lamb is already excited. No pressure.",
-  "A new plan? The pasture has room for one more.",
+  "Baa... (This lamb would like a plan, please.)",
+  "Freshly fluffed. Ready for an adventure.",
+  "Fluffy, friendly, slightly judgmental.",
+  "Baa? Baa!",
+  "This lamb practiced its baa all morning...",
 ];
 
 function greetingFor(date: string | null): string {
@@ -44,17 +40,15 @@ function greetingFor(date: string | null): string {
   const special: string[] = [];
   if (date) {
     const d = parseDayKey(date);
-    if (d) special.push(`A plan for ${realDateLabel(d)}? This lamb loves a date on the calendar.`);
+    if (d) special.push(`${realDateLabel(d)}? Baa! A date!`);
   }
-  if (h >= 22 || h < 5) special.push("Shh... the flock is asleep. This lamb stayed up just for you two.");
-  if (h >= 5 && h < 9) special.push("Good morning! The lambs are up early today, just like you.");
-  if (m.weather === "rain" || m.weather === "storm") special.push("The lambs are huddled up out of the rain. This one is peeking out at you.");
+  if (h >= 22 || h < 5) special.push("Shh... everyone's asleep. This one stayed up for you.");
+  if (h >= 5 && h < 9) special.push("Up early? So is this lamb...");
+  if (m.weather === "rain" || m.weather === "storm") special.push("Baa... (peeking out of the rain at you)");
   if (m.weather === "snow" || m.season === "winter") special.push("Brr! Good thing sheep come with built-in sweaters.");
   if (m.season === "spring") special.push("Spring lambs are the bounciest lambs.");
-  if (m.season === "summer") special.push("Summer's here! Big skies, big plans.");
-  if (m.season === "fall") special.push("Fall's here! Perfect weather for a cozy plan.");
-  if (flock === 0) special.push("Your pasture's looking awfully empty! Let's fix that.");
-  if (flock >= 12) special.push("That's a lot of sheep... you two are BUSY! One more can't hurt.");
+  if (flock === 0) special.push("The pasture's awfully empty...");
+  if (flock >= 12) special.push("That's a lot of sheep... one more can't hurt.");
   // A date from the calendar always gets its line; other specials show up about half the time.
   if (date && special.length) return special[0]!;
   return special.length && Math.random() < 0.55 ? pick(special) : pick(GREETINGS);
@@ -127,7 +121,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
   const nameField = el(
     "div",
     { class: "sv-field" },
-    el("label", { class: "sv-field__label", for: `${id}-name` }, "Name your sheep ", el("span", { class: "mr-soft" }, "(that's the plan!)")),
+    el("label", { class: "sv-field__label", for: `${id}-name` }, "Name your sheep ", el("span", { class: "mr-soft" }, "(that's the plan)")),
     nameInput,
     errs.name,
   );
@@ -146,7 +140,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     });
     chips.append(el("label", { class: "mr-chip" }, input, el("span", { class: "mr-chip__face" }, spriteIcon(categoryIcon(c)), el("span", null, CATEGORY_LABELS[c]))));
   }
-  const catField = el("fieldset", { class: "sv-field mr-fieldset" }, el("legend", { class: "sv-field__label" }, "What kind of plan?"), chips);
+  const catField = el("fieldset", { class: "sv-field mr-fieldset" }, el("legend", { class: "sv-field__label" }, "Kind"), chips);
 
   // Date
   const dateInput = el("input", { class: "sv-input mr-date", id: `${id}-date`, type: "date" });
@@ -157,14 +151,14 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     const d = parseDayKey(dateInput.value);
     clearDate.hidden = !dateInput.value;
     if (!d) {
-      dateHint.textContent = "No date? That's okay. Sheep are patient.";
+      dateHint.textContent = "No date? Sheep are patient...";
       return;
     }
     const days = daysBetween(farmMoment().now, d);
     const founded = store.state?.foundedAt ?? Date.now();
     const when = stardewDate(d, founded);
     dateHint.textContent =
-      days < 0 ? `${when} · that's in the past! (Unless you two have a time machine.)` : `${when} · ${relativeDays(days)}${days === 0 ? "!" : ""}`;
+      days < 0 ? `${when} · in the past... time machine?` : `${when} · ${relativeDays(days)}${days === 0 ? "!" : ""}`;
   };
   dateInput.addEventListener("input", updateDateHint);
   dateInput.addEventListener("change", updateDateHint);
@@ -177,7 +171,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
   const dateField = el(
     "div",
     { class: "sv-field" },
-    el("label", { class: "sv-field__label", for: `${id}-date` }, "When? ", el("span", { class: "mr-soft" }, "(optional)")),
+    el("label", { class: "sv-field__label", for: `${id}-date` }, "When?"),
     el("div", { class: "mr-daterow" }, dateInput, clearDate),
     dateHint,
     errs.date,
@@ -206,7 +200,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
   const linkField = el(
     "div",
     { class: "sv-field" },
-    el("label", { class: "sv-field__label", for: `${id}-link` }, "Link ", el("span", { class: "mr-soft" }, "(tickets, menu, map…)")),
+    el("label", { class: "sv-field__label", for: `${id}-link` }, "Link"),
     linkInput,
     errs.link,
   );
@@ -217,13 +211,13 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     id: `${id}-notes`,
     rows: 3,
     maxLength: LIMITS.notes,
-    placeholder: pick(["Addresses, times, who brings snacks…", "Bring a jacket. And snacks.", "Ideas, prices, little details…"]),
+    placeholder: pick(["Who brings snacks...", "Bring a jacket. And snacks.", "Times, places, little details..."]),
   });
   notesInput.value = initial.notes ?? "";
   const notesField = el(
     "div",
     { class: "sv-field" },
-    el("label", { class: "sv-field__label", for: `${id}-notes` }, "Notes ", el("span", { class: "mr-soft" }, "(optional)")),
+    el("label", { class: "sv-field__label", for: `${id}-notes` }, "Notes"),
     notesInput,
   );
 
@@ -240,7 +234,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     ? el(
         "div",
         { class: "sv-field" },
-        el("label", { class: "sv-field__label", for: `${id}-memory` }, "Memory ", el("span", { class: "mr-soft" }, "(kept in the barn)")),
+        el("label", { class: "sv-field__label", for: `${id}-memory` }, "Memory"),
         memoryInput,
       )
     : null;
@@ -262,7 +256,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
       setErr("date", null);
       setErr("link", null);
       if (!nameInput.value.trim()) {
-        const msg = "Every sheep needs a name. (The name is the plan!)";
+        const msg = "Every sheep needs a name...";
         setErr("name", msg);
         nameInput.focus();
         return msg;
@@ -336,7 +330,7 @@ function openBuySheep(arg?: { date?: string }): void {
     el("span", { class: "mr-price__label" }, "Price:"),
     spriteIcon("ranch.coin", { class: "mr-coin" }),
     el("s", null, "8,000g"),
-    el("span", null, ` just kidding. ${pick(PRICES)}`),
+    el("span", null, pick(PRICES)),
   );
 
   dialog = openDialog({
@@ -363,11 +357,11 @@ function openBuySheep(arg?: { date?: string }): void {
             return showError(dialog, err);
           }
           sfx("purchase");
-          toast(`${sheep.name} joined the flock!`, { icon: "ui.sheep" });
+          toast(`${sheep.name} hopped into the pasture!`, { icon: "ui.sheep" });
           if (sheep.golden) {
             setTimeout(() => {
               sfx("sparkle");
-              toast("A golden lamb?! It's shimmering. Legendary.", { icon: "ui.star", ms: 4500 });
+              toast("A golden lamb?! Legendary...", { icon: "ui.star", ms: 4500 });
             }, 700);
           }
         },
@@ -384,25 +378,26 @@ function openBuySheep(arg?: { date?: string }): void {
 function openEditSheep(id: string, focus?: "date"): void {
   const s = store.sheep(id);
   if (!s) {
-    toast("That sheep wandered off.");
+    toast("That sheep wandered off...");
     return;
   }
   let dialog: DialogHandle | undefined;
   const sheared = s.shearedAt !== null;
   const form = buildForm(s, { memory: sheared, onSubmit: submitVia(() => dialog) });
-  const intro = el("p", { class: "mr-intro" }, sheared ? "Fix up the details, or the memory, for the barn." : "Changing plans? No problem. The sheep won't mind.");
+  // Sometimes (1 in 3) the form reminds you the sheep are keeping score.
+  const tease = Math.random() < 1 / 3 ? el("p", { class: "mr-intro mr-tease" }, "Changing the plan? Bold... (The sheep remember the original.)") : null;
 
   // Sold on the other phone while we were editing? Don't leave a form for a sheep that's gone.
   const unsubscribe = store.changed.on(() => {
     if (store.sheep(id) || !dialog) return;
-    toast(`${s.name} trotted off to a cozy new home.`, { icon: "ui.sheep" });
+    toast(`${s.name} went to a nice farm upstate...`, { icon: "ui.sheep" });
     dialog.close();
   });
 
   dialog = openDialog({
-    title: "Edit sheep",
+    title: "Edit",
     className: "mr-dialog mr-dialog--edit",
-    body: [intro, form.root],
+    body: tease ? [tease, form.root] : form.root,
     onClose: () => unsubscribe(),
     buttons: [
       { label: "Cancel", kind: "plain" },
@@ -425,13 +420,20 @@ function openEditSheep(id: string, focus?: "date"): void {
           if (v.link !== s.link) patch.link = v.link;
           if (sheared && v.memory !== s.memory) patch.memory = v.memory;
           if (Object.keys(patch).length === 0) return;
+          const returnsBefore = store.sheep(id)?.originalReturns ?? s.originalReturns ?? 0;
+          let updated: Sheep;
           try {
-            await api.updateSheep(id, patch);
+            updated = await api.updateSheep(id, patch);
           } catch (err) {
             return showError(dialog, err);
           }
+          // Renamed right back to its first name: ORIGINAL PLAN! (stamp.ts dedupes this against the matching event.)
+          if ((updated.originalReturns ?? 0) > returnsBefore) {
+            showOriginalPlanStamp(updated.name);
+            return;
+          }
           sfx("select");
-          toast(patch.name ? `${v.name} has a new name!` : `${v.name} is all spruced up.`, { icon: categoryIcon(v.category) });
+          toast(patch.name ? `${v.name}? New name, same sheep.` : `${v.name} is all spruced up.`, { icon: categoryIcon(v.category) });
         },
       },
     ],

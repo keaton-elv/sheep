@@ -1,6 +1,10 @@
-// "Who goes there?" A Stardew-style title screen over the (already running) farm, built from
-// the game's real title pieces (sky, the big cloud bank, drifting clouds, corner bushes, birds),
-// with a dialogue box asking for the secret word. Remembered afterwards by the server's cookie.
+// "Hold it!" A Stardew-style title screen over the (already running) farm, built from the game's
+// real title pieces (sky, the big cloud bank, drifting clouds, corner bushes, birds), with a
+// dialogue box asking for the password. Remembered afterwards by the server's cookie.
+//
+// The password box is deliberately a plain text field outside any <form> (no type="password", no
+// "pass" in its name or id, password-manager opt-outs), so phones and password managers never
+// offer to save it: it's a riddle for sheep fans, not an account.
 
 import { sfx } from "../audio";
 import { size as spriteSize, spriteUrl } from "../engine/sprites";
@@ -9,20 +13,19 @@ import { el, frameIcon, spriteIcon, uiRoot } from "./dom";
 import { LOGO, registerPasswordArt, TITLE_ART, TITLE_BIRD, TITLE_SHEETS, type Rect } from "./password-art";
 import "./password.css";
 
-const GREETING = "Hold it! Only this farm's farmers get past the gate. What's the secret word?";
+const GREETING = "Hold it! Only true sheep fans behind this gate. What's the password?";
 
 // Wrong answers get a little reaction from the farm. (No hints, ever.)
 const TEASES = [
-  "Baa? That's not it.",
-  "The sheep look at you suspiciously.",
-  "Nope! Even Milo knows that's wrong. And he's a hedgehog.",
+  "Baa...? That's not it.",
+  "The sheep stare at you suspiciously...",
+  "Nope! Even Milo knows that one. He's a hedgehog.",
   "A crow caws. Judgmentally.",
   "Ba-nope.",
   "Otto yips. That's fox for \"nice try\".",
-  "The gate doesn't budge. A sheep chews thoughtfully.",
-  "Snickers looks up from his nap, licks the air, and goes back to sleep.",
-  "The scarecrow pretends it didn't hear that.",
-  "A ladybug lands on the gate, looks at you, and flies away.",
+  "The gate doesn't budge. A sheep chews thoughtfully...",
+  "Snickers opens one eye. Mlem. Back to sleep...",
+  "A ladybug lands on the gate, looks at you, and leaves...",
   "Close! (It wasn't close.)",
 ];
 
@@ -268,45 +271,32 @@ export function showPasswordGate(): Promise<void> {
     art.style.setProperty("--art-w", String(artW));
     art.style.setProperty("--head", String(head));
     const title = el("h1", { class: "pw-logo", id: "pw-title" }, el("span", { class: "visually-hidden" }, "Papa Snickers's Sheep Farm"), art);
-    const tagline = el("p", { class: "pw-tagline" }, "a tiny farm for two");
 
     // ---------- the dialogue box ----------
 
     const say = el("p", { class: "sv-say pw-say", "aria-live": "polite" });
-    const user = el("input", {
-      class: "visually-hidden",
-      type: "text",
-      name: "username",
-      autocomplete: "username",
-      value: "farmer",
-      tabindex: "-1",
-      "aria-hidden": "true",
-      readonly: true,
-    });
+    // A plain text field, NOT in a <form>, so nothing offers to save it (see the top of the file).
     const input = el("input", {
       class: "sv-input pw-input",
-      id: "farm-password",
-      type: "password",
-      name: "password",
-      autocomplete: "current-password",
-      autocapitalize: "none",
+      id: "farm-gate-word",
+      type: "text",
+      name: "gate-word",
+      placeholder: "password",
+      autocomplete: "off",
       autocorrect: "off",
+      autocapitalize: "none",
       spellcheck: "false",
+      inputmode: "text",
       enterkeyhint: "go",
-      required: true,
-      placeholder: "secret word",
-      "aria-label": "Secret word",
+      "data-1p-ignore": "",
+      "data-lpignore": "true",
+      "data-form-type": "other",
+      "aria-label": "Password",
     });
-    const ok = el("button", { class: "sv-btn sv-btn--primary pw-ok", type: "submit" }, "OK");
-    const form = el(
-      "form",
-      { class: "sv-box pw-box", method: "post", action: "#", autocomplete: "on", novalidate: true },
-      say,
-      user,
-      el("div", { class: "pw-row" }, input, ok),
-    );
+    const ok = el("button", { class: "sv-btn sv-btn--primary pw-ok", type: "button" }, "OK");
+    const box = el("div", { class: "sv-box pw-box" }, say, el("div", { class: "pw-row" }, input, ok));
 
-    const main = el("div", { class: "pw-main" }, title, tagline, form);
+    const main = el("div", { class: "pw-main" }, title, box);
     const gate = el(
       "div",
       { class: `pw-gate is-${ph}`, role: "dialog", "aria-modal": "true", "aria-labelledby": "pw-title" },
@@ -377,21 +367,20 @@ export function showPasswordGate(): Promise<void> {
 
     let busy = false;
     const shake = () => {
-      form.classList.remove("is-shaking");
+      box.classList.remove("is-shaking");
       sheepWrap.classList.remove("is-shaking");
-      void form.offsetWidth;
-      form.classList.add("is-shaking");
+      void box.offsetWidth;
+      box.classList.add("is-shaking");
       sheepWrap.classList.add("is-shaking");
     };
 
-    form.addEventListener("submit", async (ev) => {
-      ev.preventDefault();
-      if (busy) return;
+    const submit = async () => {
+      if (busy || closed) return;
       const word = input.value;
       if (!word.trim()) {
         shake();
         sfx("cancel");
-        type("The gate waits. It wants a word, not a shrug.", "is-tease");
+        type("Hmm...? The gate wants a word.", "is-tease");
         input.focus();
         return;
       }
@@ -407,7 +396,7 @@ export function showPasswordGate(): Promise<void> {
         gate.classList.remove("is-busy");
         shake();
         sfx("cancel");
-        type("The gate's stuck! (Can't reach the farm. Check your connection?)", "is-tease");
+        type("The gate's stuck... Offline?", "is-tease");
         return;
       }
       if (!right) {
@@ -430,14 +419,20 @@ export function showPasswordGate(): Promise<void> {
       input.blur();
       type("Welcome home!", "is-welcome");
       sheepWrap.classList.add("is-hopping");
-      // Removing the form tells password managers the login worked.
-      later(() => form.classList.add("is-done"), 500);
+      later(() => box.classList.add("is-done"), 500);
       later(() => gate.classList.add("is-leaving"), 1050);
       later(() => {
         finish();
         resolve();
       }, 1750);
+    };
+
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" || ev.isComposing) return;
+      ev.preventDefault();
+      void submit();
     });
+    ok.addEventListener("click", () => void submit());
 
     const finish = () => {
       closed = true;

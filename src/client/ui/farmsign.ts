@@ -18,7 +18,7 @@ export function initFarmSign(): void {
 function openFarmSign(): void {
   const st = store.state;
   if (!st) {
-    toast("The paint is still drying... try again in a sec!");
+    toast("The paint is still drying...");
     return;
   }
   const plank = el("span", null, st.farmName);
@@ -43,7 +43,7 @@ function openFarmSign(): void {
     const current = store.state?.farmName ?? st.farmName;
     if (!name) throw new Error("Every farm needs a name! Even a silly one.");
     if (name === current) {
-      toast(`${name} it stays! A fine name.`);
+      toast("Still a fine name...");
       return true;
     }
     await friendly(api.renameFarm(name));
@@ -64,7 +64,6 @@ function openFarmSign(): void {
         has("ui.menu.woodsign") ? spriteIcon("ui.menu.woodsign", { scale: 2, class: "fm-sign__post" }) : null,
         el("div", { class: "fm-sign__plank" }, plank),
       ),
-      el("p", { class: "fm-sign__say" }, "A fresh coat of paint for the sign out front. What should it say?"),
       el("label", { class: "sv-field" }, el("span", { class: "sv-field__label" }, "Farm name"), input),
       el("p", { class: "fm-sign__founded" }, `Founded ${stardewDate(new Date(st.foundedAt), st.foundedAt)}`),
     ),

@@ -38,6 +38,17 @@ const SHOW_COVERED = 0.4;
 /** Stickers are rotated a few degrees: allow this much extra overhang (CSS px). */
 const STICKER_SLACK = 2;
 
+/** Same plan as the very first one (the server's rule: trimmed, case-insensitive). */
+function sameName(a: unknown, b: unknown): boolean {
+  return typeof a === "string" && typeof b === "string" && a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/** Went back to its ORIGINAL PLAN (at least once) and is still on it. Safe on old server state. */
+export function onOriginalPlan(s: Sheep): boolean {
+  const returns: unknown = s.originalReturns;
+  return typeof returns === "number" && returns > 0 && sameName(s.name, s.originalName);
+}
+
 let layer: HTMLDivElement | null = null;
 const allTags = new Set<SheepTag>();
 let layerW = 0;
@@ -161,6 +172,7 @@ export class SheepTag {
   private readonly name: HTMLSpanElement;
   private readonly done: HTMLSpanElement;
   private readonly lamb: HTMLSpanElement;
+  private readonly og: HTMLSpanElement;
   private sig = "";
   private lastSheep: Sheep | null = null;
   private lastSheared = false;
@@ -171,7 +183,7 @@ export class SheepTag {
   sizeDirty = true;
   private w = 0;
   private h = 0;
-  /** How far a corner sticker ("lamb" / "done!") pokes out left and right of the plate. */
+  /** How far a corner sticker ("lamb" / "done!" / "ORIGINAL") pokes out left and right of the plate. */
   private overL = 0;
   private overR = 0;
 
@@ -204,6 +216,8 @@ export class SheepTag {
     this.name = el("span", { class: "sheep-tag__name" });
     this.done = el("span", { class: "sheep-tag__sticker sheep-tag__done" }, "done!");
     this.lamb = el("span", { class: "sheep-tag__sticker sheep-tag__lamb" }, "lamb");
+    this.og = el("span", { class: "sheep-tag__sticker sheep-tag__og" }, "ORIGINAL");
+    this.og.addEventListener("animationend", () => this.og.classList.remove("is-fresh"));
     this.el = el("div", { class: "sheep-tag" }, this.icon, this.name);
     // Invisible until the first layout so it never flashes in the corner.
     this.el.style.opacity = "0";
@@ -220,8 +234,10 @@ export class SheepTag {
     this.lastToday = today;
     const isToday = !!s.date && s.date === today;
     const isLamb = lamb && !sheared;
-    const sig = `${s.name}|${s.category}|${sheared}|${s.golden}|${isToday}|${isLamb}`;
+    const isOg = onOriginalPlan(s);
+    const sig = `${s.name}|${s.category}|${sheared}|${s.golden}|${isToday}|${isLamb}|${isOg}`;
     if (sig === this.sig) return;
+    const firstTime = this.sig === "";
     this.sig = sig;
     this.name.textContent = s.name;
     this.el.title = s.name;
@@ -230,12 +246,28 @@ export class SheepTag {
     this.el.classList.toggle("is-golden", s.golden);
     this.el.classList.toggle("is-today", isToday);
     this.el.classList.toggle("is-lamb", isLamb);
+    this.el.classList.toggle("is-og", isOg);
     this.icon.className = sheared || s.golden ? "sheep-tag__icon" : "sheep-tag__dot";
     this.icon.textContent = sheared ? "✂" : s.golden ? "★" : "";
     if (sheared) this.el.appendChild(this.done);
     else this.done.remove();
     if (isLamb) this.el.appendChild(this.lamb);
     else this.lamb.remove();
+    // The ORIGINAL PLAN stamp takes whichever top corner is free ("done!" sits top-right, "lamb"
+    // top-left, and a sheep is never both; a short plate with two stickers widens, see the CSS).
+    // Stamped on live (not on load): it thunks down.
+    if (isOg) {
+      if (!firstTime && this.og.parentNode !== this.el) {
+        this.og.classList.add("is-fresh");
+        // Backstop for animationend (it never fires while the tags are hidden or motion is reduced).
+        window.setTimeout(() => this.og.classList.remove("is-fresh"), 2400);
+      }
+      this.og.classList.toggle("is-left", sheared);
+      this.el.appendChild(this.og);
+    } else {
+      this.og.classList.remove("is-fresh");
+      this.og.remove();
+    }
     this.sizeDirty = true;
   }
 
@@ -275,7 +307,7 @@ export class SheepTag {
     // Stickers hang off the plate's corners; keep them on screen too.
     this.overL = 0;
     this.overR = 0;
-    for (const s of [this.lamb, this.done]) {
+    for (const s of [this.lamb, this.done, this.og]) {
       if (s.parentNode !== this.el) continue;
       const left = s.offsetLeft;
       const right = left + s.offsetWidth;

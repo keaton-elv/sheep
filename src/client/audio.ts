@@ -21,7 +21,6 @@ export type Sfx =
   | "loom" // loom clacking
   | "coin"
   | "chirp" // a little three-note chirp (real recording)
-  | "junimo" // deprecated alias of "chirp" (the recording's file name); kept so old callers still work
   | "yip" // fox
   | "squeak" // hedgehog
   | "rustle" // grass/bush
@@ -90,8 +89,7 @@ const FILES: Partial<Record<Sfx, string>> = {
   crow: "crow.wav",
   door: "door.wav",
   harvest: "harvest.wav",
-  chirp: "junimo.wav",
-  junimo: "junimo.wav",
+  chirp: "junimo.wav", // (the recording's original file name)
   loom: "loom.wav",
   menuClose: "menuClose.wav",
   menuOpen: "menuOpen.wav",
@@ -124,7 +122,6 @@ const FILE_GAIN: Partial<Record<Sfx, number>> = {
   crow: 0.6,
   door: 5,
   chirp: 0.65,
-  junimo: 0.65,
   loom: 0.8,
   menuClose: 0.9,
   menuOpen: 0.9,
@@ -603,10 +600,6 @@ const SYNTHS: Record<Sfx, Synth> = {
     });
     tone(d, t + 0.29, { type: "triangle", f: 1300 * p, path: [[0.05, 1750 * p], [0.14, 1100 * p]], dur: 0.15, vol: 0.13 });
     return 0.45;
-  },
-
-  junimo(d, t, p) {
-    return SYNTHS.chirp(d, t, p);
   },
 
   yip(d, t, p) {

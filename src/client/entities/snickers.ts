@@ -2,10 +2,11 @@
 // paws and a huge plume of a tail, round blue eyes, and his signature tiny pink tongue that is
 // ALWAYS sticking out (blep), even when he's asleep.
 //
-// He lives in the yard by the barn (never in the pasture): wanders slowly between the doorstep,
-// the gaps between the farm things and a seat by the fence where he watches the sheep; sits and
-// bleps, loafs, grooms, naps on the barn doorstep, sleeps curled up there at night, and shelters
-// by the barn when it rains.
+// He lives in the yard by the barn (never in the pasture, never hidden behind anything): wanders
+// slowly between the doorstep, the barn wall, the gaps between the farm things and seats over the
+// fence where he watches the sheep; sits and bleps, loafs, grooms, basks in his sunny spot on sunny
+// days, naps on the barn doorstep, sleeps curled up there at night, and shelters by the barn wall
+// when it rains.
 //
 // Tap his head (front half): a pet. Heart, happy squint, a meow and his name tag.
 // Tap THE SPOT (his lower back / tail end): LICK FRENZY. Tongue flicking, head bobbing, mlems
@@ -44,7 +45,7 @@ import { nameTagVisible, positionTag, showNameTag, spawnMlem } from "./snickers-
 const FOUND_KEY = "farm.snickers.found";
 /** Exactly this, the first time ever. */
 export const LICK_BUTTON_LINE = "You found his lick button.";
-const FRENZY_TOAST = "Snickers licks the air uncontrollably.";
+const FRENZY_TOAST = "Snickers licks the air uncontrollably...";
 
 type State = "sit" | "side" | "loaf" | "groom" | "nap" | "sleep" | "walk" | "pet" | "frenzy" | "watch";
 
@@ -59,7 +60,7 @@ const MAX_LEVEL = 5;
 const SLEEP_AT = 0.6;
 const WAKE_AT = 0.45;
 
-const MLEMS = ["mlem", "mlem", "mlem!", "blep", "mlem mlem", "mlem"];
+const MLEMS = ["mlem", "mlem", "mlem!", "blep", "mlem mlem", "mlem..."];
 const BIG_MLEMS = ["MLEM", "mlem!!", "mlem mlem mlem", "blep!", "MLEM MLEM"];
 
 const SHADOW_W: Record<PoseKind, number> = { front: 20, side: 22, walk: 22, loaf: 24, sleep: 24 };
@@ -167,6 +168,8 @@ class Snickers implements Entity {
 
   private sleepy = false;
   private wet = false;
+  /** A sunny day (and still daytime): his sunny spot is calling. */
+  private sunny = false;
 
   private emote: { kind: EmoteKind; t: number } | null = null;
   private blinkIn = rand(2, 5);
@@ -176,6 +179,10 @@ class Snickers implements Entity {
   private zzzIn = 3;
   private walkT = 0;
 
+  /** Petted mid-loaf (or where sitting up won't fit): he stays loafed and just squints. */
+  private petLoaf = false;
+  /** A lick frenzy where sitting up won't fit: he licks away lying down. */
+  private frenzyLoaf = false;
   /** Where to pick up after a pet or a frenzy. */
   private resumeState: "sleep" | "nap" | null = null;
   private resumeWalk: string | null = null;
@@ -194,8 +201,11 @@ class Snickers implements Entity {
       const yard = computeYard(l);
       this.yard = yard;
       this.yardOf = l;
-      if (this.spot) this.spot = findSpot(yard, this.spot.id) ?? yard.door;
-      else if (this.placed && this.offYard(l)) {
+      if (this.spot) {
+        this.spot = findSpot(yard, this.spot.id) ?? yard.door;
+        // Resized so that only loafing fits here now: settle down rather than cover the farm things.
+        if (this.spot.low && (this.state === "sit" || this.state === "side" || this.state === "watch" || this.state === "groom")) this.set("loaf", rand(6, 12));
+      } else if (this.placed && this.offYard(l)) {
         // Rotated mid-walk (or mid-fuss): don't stroll across the flock, just be where he was going.
         const s = findSpot(yard, this.state === "walk" ? this.targetId : this.resumeWalk) ?? yard.door;
         this.x = s.x;
@@ -257,6 +267,18 @@ class Snickers implements Entity {
     this.emote = { kind, t: 0 };
   }
 
+  /** Only his low poses fit where he is: a low spot, or (mid-walk) under the farm things. */
+  private lowHere(): boolean {
+    if (this.spot) return !!this.spot.low;
+    return !!this.yard && !this.yard.sitsUp(this.x, this.y);
+  }
+
+  /** Sit up, or loaf where sitting up won't fit. */
+  private settle(dur: number): void {
+    if (this.lowHere()) this.set("loaf", dur);
+    else this.setSit(dur);
+  }
+
   private atDoor(): boolean {
     return !!this.spot && !!this.yard && this.spot.id === this.yard.door.id;
   }
@@ -283,10 +305,12 @@ class Snickers implements Entity {
     const dark = g.env.darkness;
     if (this.sleepy ? dark < WAKE_AT : dark > SLEEP_AT) this.sleepy = !this.sleepy;
     this.wet = g.env.weather === "rain" || g.env.weather === "storm";
+    this.sunny = g.env.weather === "sunny" && dark < 0.3;
 
     if (!this.placed) {
       this.placed = true;
-      this.spot = this.wet && !this.sleepy ? yard.shelter : yard.door;
+      const basking = this.sunny && !this.sleepy && yard.sun && chance(0.5);
+      this.spot = this.sleepy ? yard.door : this.wet ? yard.shelter : basking && yard.sun ? yard.sun : yard.door;
       this.x = this.spot.x;
       this.y = this.spot.y;
       this.facing = chance(0.5) ? 1 : -1;
@@ -336,7 +360,7 @@ class Snickers implements Entity {
         if (this.state === "sleep") {
           if (!this.sleepy && this.t > 2) {
             this.showEmote("happy");
-            this.setSit(rand(3, 6));
+            this.settle(rand(3, 6));
           }
         } else if (this.t > this.dur) {
           if (this.sleepy && this.atDoor()) this.set("sleep");
@@ -380,7 +404,8 @@ class Snickers implements Entity {
         return;
       }
       const r = Math.random();
-      if (r < 0.45) this.set("loaf", rand(10, 20));
+      if (this.spot?.low) this.set(r < 0.6 ? "loaf" : "nap", rand(10, 25));
+      else if (r < 0.45) this.set("loaf", rand(10, 20));
       else if (r < 0.7) this.set("groom", rand(2.5, 4));
       else if (r < 0.85) this.set("nap", rand(15, 30));
       else this.setSit(rand(4, 8));
@@ -392,6 +417,12 @@ class Snickers implements Entity {
       this.walkTo(yard.door);
       return;
     }
+    // Sunny days: he keeps drifting back to the warm spot.
+    const sun = this.sunny ? yard.sun : null;
+    if (sun && here.id !== sun.id && r < 0.18) {
+      this.walkTo(sun);
+      return;
+    }
     if (r < 0.3) {
       const s = this.otherSpot(yard);
       if (s) {
@@ -399,10 +430,16 @@ class Snickers implements Entity {
         return;
       }
     }
-    if (l.portrait && here.kind === "fence") {
-      // Behind the top rails only his tall poses show (no loafing out of sight).
-      if (r < 0.66) this.setWatch(here, l);
-      else if (r < 0.82) this.set("groom", rand(2.5, 4.5));
+    if (here.low) {
+      // Only his low poses fit here (sitting up, he'd cover the farm things behind him).
+      if (r < 0.75) this.set("loaf", rand(8, 16));
+      else this.set("nap", rand(12, 25));
+      return;
+    }
+    if (sun && here.id === sun.id) {
+      // Basking.
+      if (r < 0.6) this.set("loaf", rand(10, 20));
+      else if (r < 0.85) this.set("nap", rand(15, 30));
       else this.setSit(rand(4, 8));
       return;
     }
@@ -426,6 +463,11 @@ class Snickers implements Entity {
     }
     if (this.wet) {
       this.set("loaf", rand(10, 20));
+      return;
+    }
+    if (spot.low || (this.sunny && spot.id === yard.sun?.id)) {
+      if (chance(0.65)) this.set("loaf", rand(8, 18));
+      else this.set("nap", rand(12, 25));
       return;
     }
     if (spot.kind === "fence") this.setWatch(spot, l);
@@ -500,6 +542,11 @@ class Snickers implements Entity {
       this.zzzIn = 2.5;
       return;
     }
+    if (this.petLoaf || this.spot.low) {
+      this.petLoaf = false;
+      this.set("loaf", rand(6, 12));
+      return;
+    }
     if (this.spot.kind === "fence" && chance(0.5)) this.setWatch(this.spot, l);
     else this.setSit(rand(3, 6));
   }
@@ -513,10 +560,14 @@ class Snickers implements Entity {
     if (asleep) {
       // Still asleep, just purring a little louder.
       this.zzzIn = 2.2;
+      const a = this.headAnchor();
+      spawnMlem(this.g, a.x + (this.isFlipped() ? -13 : 13), a.y + 3, "purr...");
       return;
     }
     if (this.state === "frenzy") return; // he's busy (licking)
+    const loafing = this.state === "loaf" || (this.state === "pet" && this.petLoaf) || this.lowHere();
     this.interrupt();
+    this.petLoaf = loafing;
     this.set("pet", PET_TIME);
   }
 
@@ -530,7 +581,9 @@ class Snickers implements Entity {
       this.mlem(g, f.level >= 3);
       return;
     }
+    this.frenzyLoaf = this.lowHere();
     this.interrupt();
+    this.petLoaf = false;
     this.set("frenzy");
     f.left = FRENZY_START;
     f.level = 1;
@@ -569,7 +622,7 @@ class Snickers implements Entity {
     f.side = -f.side;
     const flip = this.isFlipped() ? -1 : 1;
     const x = this.x + 0.5 + f.side * flip * rand(8, 13);
-    const y = this.y - 15 - rand(0, 7) - (big ? 3 : 0);
+    const y = this.y - (this.frenzyLoaf ? 12 : 15) - rand(0, 7) - (big ? 3 : 0);
     const list = big ? BIG_MLEMS : MLEMS;
     spawnMlem(g, x, y, list[Math.floor(Math.random() * list.length)] ?? "mlem", big);
   }
@@ -593,8 +646,13 @@ class Snickers implements Entity {
     }
     if (f.left <= 0) {
       // All licked out: a blissful squint, then back to whatever he was doing.
+      this.petLoaf = this.frenzyLoaf;
       this.set("pet", 0.9);
-      if (f.level >= 3) this.showEmote("happy");
+      if (f.level >= 3) {
+        this.showEmote("happy");
+        const a = this.headAnchor();
+        spawnMlem(g, a.x + (this.isFlipped() ? -12 : 12), a.y + 6, "blep...");
+      }
     }
   }
 
@@ -607,8 +665,9 @@ class Snickers implements Entity {
     if (this.state === "frenzy" || this.state === "pet" || this.state === "walk") return;
     this.showEmote("exclaim");
     if (this.state === "sleep" || this.state === "nap") {
-      // Woken up. He sits and stares at the sheep, then goes back to sleep.
-      this.setSit(rand(3, 5));
+      // Woken up. He sits and stares at the sheep (or loafs, where sitting up won't fit), then dozes off again.
+      if (this.spot?.low) this.set("loaf", rand(3, 5));
+      else this.setSit(rand(3, 5));
       return;
     }
     if (!this.sleepy && !this.wet && chance(0.6)) {
@@ -624,7 +683,9 @@ class Snickers implements Entity {
       this.showEmote("music");
       return;
     }
+    this.frenzyLoaf = this.lowHere();
     this.interrupt();
+    this.petLoaf = false;
     this.set("frenzy");
     const f = this.frenzy;
     f.left = 2;
@@ -639,9 +700,11 @@ class Snickers implements Entity {
 
   private poseKind(): PoseKind {
     switch (this.state) {
-      case "sit":
       case "pet":
+        return this.petLoaf ? "loaf" : "front";
       case "frenzy":
+        return this.frenzyLoaf ? "loaf" : "front";
+      case "sit":
       case "groom":
         return "front";
       case "watch":
@@ -699,11 +762,28 @@ class Snickers implements Entity {
       case "watch":
         return this.watchSide ? this.side(blink) : this.front(blink ? "headBlink" : "headFront");
       case "pet":
+        if (this.petLoaf) {
+          return [
+            ["loafBody", 0, 0],
+            ["headHappy", HEAD_LOAF.dx, HEAD_LOAF.dy],
+            ["loafTail", this.tailT > 0 ? 1 : 0, 0],
+          ];
+        }
         return this.front("headHappy");
       case "frenzy": {
         const f = this.frenzy;
         const ph = clamp(f.flickT / this.flickDur(), 0, 1);
         const head: PartName = ph < 0.38 ? "headLickOut" : ph < 0.62 ? "headLickCurl" : "headLickIn";
+        if (this.frenzyLoaf) {
+          // No room to sit up here: he licks away loafed, nodding into his fluff (never up, so he
+          // stays clear of the farm things) and swishing his tail.
+          const nod = f.level >= 2 && ph > 0.3 && ph < 0.7 ? 1 : 0;
+          return [
+            ["loafBody", 0, 0],
+            [head, HEAD_LOAF.dx, HEAD_LOAF.dy + nod],
+            ["loafTail", Math.floor(this.t / 0.22) % 2, 0],
+          ];
+        }
         const amp = Math.min(3, 1 + (f.level - 1) * 0.5);
         const bob = -1 - Math.round(Math.sin(ph * Math.PI) * amp);
         const tilt = f.level >= 2 ? (f.flick % 2 ? -1 : 1) : 0;

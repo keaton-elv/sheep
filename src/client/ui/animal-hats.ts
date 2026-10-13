@@ -56,7 +56,7 @@ function availableHats(current: number | null): number[] {
 export function openHatPicker(id: string): void {
   const first = store.sheep(id);
   if (!first) {
-    toast("That sheep wandered off.");
+    toast("That sheep wandered off...");
     return;
   }
   if (openPickers.has(id)) return;
@@ -103,12 +103,12 @@ export function openHatPicker(id: string): void {
   addTile(null);
   hats.forEach(addTile);
 
-  const empty = hats.length === 0 ? el("p", { class: "an-hat__note" }, "The hat rack is still being unpacked. Check back soon!") : null;
+  const empty = hats.length === 0 ? el("p", { class: "an-hat__note" }, "No hats yet...") : null;
   const note = el("p", { class: "an-hat__note", hidden: true });
 
   let dialog: DialogHandle | undefined;
   dialog = openDialog({
-    title: "Pick a Hat",
+    title: "Hats",
     className: "an-dialog an-hatdialog",
     body: el("div", { class: "an-card an-hat", style: `--ipx: ${crispPx(1.5, 2.25)}; --ipx-sm: ${crispPx(1.25, 2)}` }, top, grid, empty, note),
     onClose: () => {
@@ -142,7 +142,7 @@ export function openHatPicker(id: string): void {
           }
           if (want === null) {
             sfx("woosh");
-            toast(`${s.name}'s hat is off. Breezy!`, { icon: "ui.sheep" });
+            toast("Hat off. Breezy...", { icon: "ui.sheep" });
           } else {
             sfx("purchase");
             toast(`${s.name} looks fabulous!`, { icon: hatToastIcon(want) });
@@ -168,7 +168,7 @@ export function openHatPicker(id: string): void {
   update();
 
   function shortOfClothText(): string {
-    return `A hat costs ${plural(HAT_COST, "cloth", "cloth")}. Weave ${LOOM_WOOL_COST} wool into cloth at the loom, then come back!`;
+    return `Need ${plural(HAT_COST, "cloth", "cloth")}. (${LOOM_WOOL_COST} wool → loom → cloth)`;
   }
 
   function update(): void {
@@ -187,12 +187,13 @@ export function openHatPicker(id: string): void {
     const wearing = selected === current;
     priceLine.replaceChildren(
       wearing
-        ? el("span", { class: "an-hat__tag an-hat__tag--on" }, selected === null ? "Bare-headed" : "Wearing it now")
+        ? el("span", { class: "an-hat__tag an-hat__tag--on" }, selected === null ? "Bare-headed" : "Wearing it")
         : selected === null
-          ? el("span", { class: "an-hat__tag" }, "Free to take off")
+          ? el("span", { class: "an-hat__tag" }, "Free")
           : el("span", { class: `an-hat__tag ${short ? "an-hat__tag--short" : ""}` }, spriteIcon("item.cloth"), plural(HAT_COST, "cloth", "cloth")),
     );
-    wallet.replaceChildren("You have ", spriteIcon("item.cloth"), el("b", null, String(cloth)), " cloth");
+    wallet.replaceChildren(spriteIcon("item.cloth"), el("b", null, String(cloth)), el("span", { class: "visually-hidden" }, " cloth"));
+    wallet.title = "Your cloth";
 
     // Tiles
     for (const [hat, tile] of tiles) {

@@ -62,6 +62,8 @@ function isTyping(target: EventTarget | null): boolean {
 function party(g: Game, message: string): void {
   sheepParty();
   critterParty();
+  // A beat after the sheep start dancing. (Snickers also hears typed parties himself; joining twice is harmless.)
+  setTimeout(snickersParty, 350);
   sfx("secret");
   const l = g.layout;
   sparkleBurst(l.pasture.x + l.pasture.w / 2, l.pasture.y + l.pasture.h / 2, 10, 30);
@@ -83,7 +85,7 @@ function initKeys(g: Game): void {
     if (keys.length === KONAMI.length && keys.every((v, i) => v === KONAMI[i])) {
       lastParty = now;
       keys.length = 0;
-      party(g, "Konami code! The whole farm is dancing.");
+      party(g, "Konami code! The whole farm is dancing...");
     } else if (/ba{4,}h$/.test(typed)) {
       lastParty = now;
       typed = "";
@@ -138,9 +140,8 @@ class Clover implements Entity {
     this.dead = true;
     sfx("harvest");
     sparkleBurst(this.x, this.y - 4, 6, 12);
-    toast("A four-leaf clover! You two are lucky.", { icon: "item.clover" });
+    toast("A four-leaf clover! Lucky you two...", { icon: "item.clover" });
     // Luck is contagious: the whole farm does a little happy dance (the phone way to a sheep party).
-    // (Snickers hears typed parties on his own; this one he has to be told about.)
     setTimeout(() => {
       sheepParty();
       critterParty();
@@ -181,7 +182,7 @@ function initExhausted(g: Game): void {
     lsSet("farm.exhausted", key);
     queue(async () => {
       await whenNoDialog();
-      await say(["It's past 2 AM...", "You're exhausted... You pass out on the couch. (Go to bed, farmers!)"]);
+      await say(["It's past 2 AM...", "You're exhausted... you pass out on the couch. (Go to bed, farmers!)"]);
     }, 3800);
   });
 }
@@ -268,21 +269,20 @@ function dayFlavor(now: Date, season: Season, hour: number): string {
   if (now.getDay() === 5 && hour >= 15 && chance(0.5)) return "The Stardrop Saloon is lively tonight.";
   const hello = hour < 12 ? "good morning" : hour < 18 ? "hello" : "good evening";
   const lines = [
-    `The sheep say ${hello}!`,
+    `Baa... (The sheep say ${hello}.)`,
     "The sheep look extra fluffy today.",
     "The spirits are in good humor today.",
-    "A perfect day to make plans.",
     `Otto and Milo say ${hello}.`,
-    hour < 11 ? "Snickers is up early. Tongue out, as usual." : "Snickers says hi. Tongue out, as usual.",
+    hour < 11 ? "Snickers is up early. Tongue out, as usual..." : "Snickers says hi. Tongue out, as usual...",
     ...SEASON_LINES[season],
   ];
   return lines[Math.floor(Math.random() * lines.length)]!;
 }
 
 const SEASON_LINES: Record<Season, string[]> = {
-  spring: ["The bees are busy today.", "Somewhere, a bird is singing.", "A lucky day for ladybugs."],
-  summer: ["The bees are busy today.", "A good day for a nap in the sun."],
-  fall: ["The squirrels are hiding acorns everywhere.", "The leaves are turning."],
+  spring: ["The bees are busy today.", "Somewhere, a bird is singing...", "A lucky day for ladybugs."],
+  summer: ["The bees are busy today.", "A good day for a nap in the sun... Zzz..."],
+  fall: ["The squirrels are hiding acorns everywhere.", "The leaves are turning..."],
   winter: ["The cardinals are out today.", "Bundle up, farmers!"],
 };
 
@@ -388,25 +388,22 @@ class HolidayThing implements Entity {
     if (this.hidden) return;
     if (this.kind === "spirits") {
       sfx("thud");
-      void say("Happy Spirit's Eve! The jack-o'-lantern grins at you both. Somewhere in town, a skeleton is dancing.");
+      void say("Happy Spirit's Eve! Somewhere in town, a skeleton is dancing...");
     } else if (this.kind === "winterstar") {
       this.hidden = true;
       lsSet("farm.winterStarGift", String(this.g.env.now.getFullYear()));
       sfx("pop");
       sparkleBurst(this.x, this.y - 6, 8, 16);
       queue(async () => {
-        await say(["Feast of the Winter Star! Someone left you two a gift.", "It's a tiny knitted sheep. It looks exactly like one of yours."]);
+        // The Secret Friend reference, but the friend is an animal: the card is signed with a lick.
+        await say(["Feast of the Winter Star! Your secret friend left you a gift...", 'A tiny knitted sheep. The card just says "mlem."']);
         sfx("reward");
         toast("You received: Tiny Knitted Sheep", { icon: "item.gift" });
       });
     } else {
       sfx("sparkle");
       heartFloat(this.x, this.y - 12, 3);
-      void say([
-        "Someone left a bouquet by the mailbox!",
-        "In Pelican Town, giving someone a bouquet means you're officially sweethearts.",
-        "...You two already knew that.",
-      ]);
+      void say(["A bouquet by the mailbox!", "In Pelican Town, a bouquet means you're sweethearts.", "...You two already knew that."]);
     }
   }
 }

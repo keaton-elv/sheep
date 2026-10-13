@@ -59,6 +59,10 @@
   margin: 0 0 4px;
   color: var(--ink-soft);
 }
+/* "Changing the plan? Bold." */
+.mr-tease {
+  color: #a0332a;
+}
 .mr-soft {
   font-weight: 400;
   color: var(--ink-soft);

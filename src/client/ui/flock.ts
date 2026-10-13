@@ -8,10 +8,11 @@ import { sheepEmote } from "../entities/sheep";
 import { barnSheep, doneSheep, isLamb, pastureSheep, serverNow, store } from "../net";
 import { dayKey, daysBetween, parseDayKey } from "../../shared/calendar";
 import { CATEGORY_LABELS, RETIRE_AFTER_MS, type Sheep } from "../../shared/types";
-import { crispPx, farmMoment, realDateLabel } from "./animal-common";
+import { crispPx, farmMoment, originalStamps, realDateLabel } from "./animal-common";
 import { SheepSprite, sheepPortraitIcon } from "./animal-sprite";
 import { el, heartsEl, openDialog, openMenu, plural, registerMenu, relativeDays, spriteIcon, type DialogHandle } from "./dom";
 import { categoryIcon } from "./marnie-art";
+import { originalPlanBadge } from "./stamp";
 
 export function initFlock(): void {
   registerMenu("flock", () => openFlock());
@@ -98,7 +99,7 @@ function openFlock(): void {
   const counts = el("p", { class: "fl-counts", "aria-live": "polite" });
 
   // Sort chips: real radio buttons (arrow keys + screen readers just work).
-  const sortGroup = el("div", { class: "fl-sorts", role: "radiogroup", "aria-label": "Sort the flock" });
+  const sortGroup = el("div", { class: "fl-sorts", role: "radiogroup", "aria-label": "Sort" });
   for (const { key, label, short } of SORTS) {
     const input = el("input", { type: "radio", name: "fl-sort", value: key, class: "visually-hidden", "aria-label": label });
     input.checked = key === sort;
@@ -152,7 +153,7 @@ function openFlock(): void {
   const footer = el("div", { class: "fl-footer" });
 
   const dialog = openDialog({
-    title: "Your Flock",
+    title: "Flock",
     className: "fl-dialog",
     body: el("div", { class: "fl", style: `--ipx: ${crispPx(1.5, 2)}` }, counts, bar, list, footer),
     onClose: () => {
@@ -216,12 +217,12 @@ function openFlock(): void {
       const w = sortWoolly(woolly.filter((s) => matches(s, query)), sort);
       const r = sortResting(resting.filter((s) => matches(s, query)), sort);
       if (!w.length && !r.length) {
-        rows.push(el("p", { class: "fl-empty fl-empty--search" }, `No sheep match “${searchInput.value.trim()}”.`));
+        rows.push(el("p", { class: "fl-empty fl-empty--search" }, `No “${searchInput.value.trim()}”... baa?`));
       }
-      if (w.length && r.length) rows.push(el("h3", { class: "fl-group" }, "Still to do"));
+      if (w.length && r.length) rows.push(el("h3", { class: "fl-group" }, "To do"));
       for (const s of w) rows.push(row(s, nowMs, moment.now));
       if (r.length) {
-        rows.push(el("h3", { class: "fl-group" }, "Done! Resting before the barn"));
+        rows.push(el("h3", { class: "fl-group" }, "Done!"));
         for (const s of r) rows.push(row(s, nowMs, moment.now));
       }
     }
@@ -253,10 +254,7 @@ function openFlock(): void {
       emptyLamb = new SheepSprite(() => {});
       emptyLamb.set({ look: "lamb", golden: false, asleep: false, hat: null, label: "A lonely lamb says baa" });
     }
-    const text =
-      kind === "none"
-        ? "No sheep yet! Tap the + sheep to buy your first one."
-        : "Every plan is done and tucked away in the barn. Tap the + sheep to buy a new one!";
+    const text = kind === "none" ? "No sheep yet... baa?" : "All done! Everyone's in the barn...";
     return el("div", { class: "fl-empty" }, el("div", { class: "fl-empty__lamb" }, emptyLamb.button), el("p", { class: "fl-empty__text" }, text));
   }
 
@@ -264,7 +262,8 @@ function openFlock(): void {
     const sheared = s.shearedAt !== null;
     const lamb = !sheared && isLamb(s, nowMs);
     const moveInDays = s.shearedAt !== null ? daysBetween(new Date(nowMs), new Date(s.shearedAt + RETIRE_AFTER_MS)) : 0;
-    const sig = [s.name, s.category, s.date, s.pets, s.golden, s.hat, s.shearedAt, lamb, moveInDays, dayKey(now)].join("|");
+    const stamps = originalStamps(s);
+    const sig = [s.name, s.category, s.date, s.pets, s.golden, s.hat, s.shearedAt, lamb, moveInDays, stamps, dayKey(now)].join("|");
     const cached = rowCache.get(s.id);
     if (cached && cached.sig === sig) return cached.el;
     const cat = CATEGORY_LABELS[s.category] ?? "Other";
@@ -288,15 +287,17 @@ function openFlock(): void {
         if (days === 0) badges.push(el("span", { class: "fl-badge fl-badge--today" }, "Today!"));
         else if (days < 0) badges.push(el("span", { class: "fl-badge fl-badge--late" }, "Did it happen?"));
       } else {
-        meta.push(el("span", { class: "fl-when fl-when--none" }, "No date yet"));
+        meta.push(el("span", { class: "fl-when fl-when--none" }, "No date"));
         spoken.push("no date yet");
       }
     }
     if (lamb) badges.push(el("span", { class: "fl-badge fl-badge--lamb" }, "Lamb"));
     if (s.golden) badges.push(el("span", { class: "fl-badge fl-badge--gold" }, spriteIcon("ui.star"), "Golden"));
+    if (stamps > 0) badges.push(originalPlanBadge(stamps, { inline: true }));
     spoken.push(`${s.pets / 2} of 5 hearts`);
     if (lamb) spoken.push("a lamb");
     if (s.golden) spoken.push("golden");
+    if (stamps > 0) spoken.push("ORIGINAL PLAN");
 
     const b = el(
       "button",

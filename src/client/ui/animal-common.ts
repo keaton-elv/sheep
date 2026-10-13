@@ -30,13 +30,30 @@ export function farmMoment(): FarmMoment {
 /** Turn any thrown thing into a short, kind sentence for the farmers. */
 export function friendlyError(err: unknown): string {
   if (err instanceof ApiError) {
-    if (err.status === 401) return "The farm forgot who you are. Enter the password again?";
-    if (err.status >= 500) return "Something went wonky at the farmhouse. Try again in a moment?";
+    if (err.status === 401) return "Hmm... who goes there? Password again?";
+    if (err.status >= 500) return "Something went wonky... try again in a moment?";
     return err.message;
   }
-  if (err instanceof TypeError) return "Couldn't reach the farm. Is the internet napping? Try again in a sec.";
+  if (err instanceof TypeError) return "No signal... is the internet napping?";
   if (err instanceof Error && err.message) return err.message;
-  return "Something went wrong. Even the sheep aren't sure what.";
+  return "Something went wrong. Even the sheep aren't sure what...";
+}
+
+/** Same plan name, the way the server compares them for ORIGINAL PLAN (trimmed, any case). */
+export function samePlanName(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
+}
+
+/** The plan's first name, if it has been renamed away from it since (else null). */
+export function renamedFrom(s: Pick<Sheep, "name" | "originalName">): string | null {
+  const original = (s.originalName ?? "").trim();
+  return original && !samePlanName(s.name, original) ? original : null;
+}
+
+/** How many times it went back to its ORIGINAL PLAN, when that's the plan it's on now (else 0). */
+export function originalStamps(s: Pick<Sheep, "name" | "originalName" | "originalReturns">): number {
+  const n = Number(s.originalReturns) || 0;
+  return n > 0 && samePlanName(s.name, s.originalName) ? n : 0;
 }
 
 /** "Sat, Oct 18" — the real calendar date, so nobody has to decode Stardew seasons. */

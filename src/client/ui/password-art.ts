@@ -57,15 +57,15 @@ export const TITLE_BIRD = { x: 296, y: 230, w: 26, h: 18, frames: 4 } as const;
 
 // ---------- the logo ----------
 //
-// "Papa Snickers's" over "Sheep Farm", built from glyph masks at runtime: each line gets a
-// bevel (white top edges, warm shadowed bottom edges, a two-tone fill), a dark outline, a 3D
-// extrusion below, and an outer outline, so the lettering looks carved like Stardew's sign.
+// "Papa Snickers's" over "Sheep Farm", both lines in the same chunky letters, built from glyph
+// masks at runtime: each line gets a bevel (white top edges, warm shadowed bottom edges, a
+// two-tone fill), a dark outline, a 3D extrusion below, and an outer outline, so the lettering
+// looks carved like Stardew's sign.
 
 type Shade = "H" | "C" | "c" | "b" | "o" | "E" | "e" | "k";
 type LogoPalette = Record<Shade, string>;
 
 const GOLD: LogoPalette = { H: "#ffffff", C: "#fff3c4", c: "#ffe08a", b: "#f5b94a", o: "#7a3410", E: "#a8501c", e: "#6b2a0c", k: "#3b1505" };
-const PINK: LogoPalette = { H: "#ffffff", C: "#ffe6ef", c: "#ffc2d6", b: "#f590b2", o: "#7a2440", E: "#a8406a", e: "#5e1a33", k: "#33101e" };
 
 interface Font {
   glyphs: Record<string, string[]>;
@@ -76,47 +76,39 @@ interface Font {
   space: number;
 }
 
-/** Big chunky letters: 3px strokes, cap height 10, x-height 7. */
-const BIG: Font = {
+/**
+ * Big chunky letters: 3px strokes, cap height 10, x-height 7. Every glyph was rendered and
+ * checked for stray pixels: no lone dots inside a counter or at a stem/shoulder join (the old "h"
+ * had one between its stem and its arch).
+ */
+const CHUNKY: Font = {
   cap: 10,
   xHeight: 7,
   descender: 3,
   gap: 2,
   space: 5,
   glyphs: {
+    P: ["#######.", "########", "###..###", "###..###", "########", "#######.", "###.....", "###.....", "###.....", "###....."],
     S: [".######.", "########", "###..###", "###.....", "#######.", ".#######", ".....###", "###..###", "########", ".######."],
-    h: ["###.....", "###.....", "###.....", "###.###.", "########", "####.###", "###..###", "###..###", "###..###", "###..###"],
-    e: [".######.", "###..###", "########", "###.....", "###..###", "########", ".######."],
-    p: ["#######.", "########", "###..###", "###..###", "###..###", "########", "#######.", "###.....", "###.....", "###....."],
     F: ["#######", "#######", "###....", "###....", "######.", "######.", "###....", "###....", "###....", "###...."],
+    h: ["###.....", "###.....", "###.....", "#######.", "########", "###..###", "###..###", "###..###", "###..###", "###..###"],
+    k: ["###.....", "###.....", "###.....", "###..###", "###.###.", "######..", "######..", "###.###.", "###..###", "###..###"],
+    i: ["###", "###", "...", "###", "###", "###", "###", "###", "###", "###"],
     a: [".######.", ".....###", ".#######", "########", "###..###", "########", ".#######"],
-    r: ["###.###", "#######", "####...", "###....", "###....", "###....", "###...."],
+    c: [".######", "#######", "###....", "###....", "###....", "#######", ".######"],
+    e: [".######.", "###..###", "########", "###.....", "###..###", "########", ".######."],
     m: ["##########.", "###########", "###.###.###", "###.###.###", "###.###.###", "###.###.###", "###.###.###"],
+    n: ["#######.", "########", "###..###", "###..###", "###..###", "###..###", "###..###"],
+    r: ["######.", "#######", "###..##", "###....", "###....", "###....", "###...."],
+    s: [".######.", "########", "###.....", ".######.", ".....###", "########", ".######."],
+    p: ["#######.", "########", "###..###", "###..###", "###..###", "########", "#######.", "###.....", "###.....", "###....."],
+    "'": ["###", "###", ".##", ".#."],
   },
 };
 
-/** Smaller letters for the top line: 2px strokes, cap height 7, x-height 5. */
-const SMALL: Font = {
-  cap: 7,
-  xHeight: 5,
-  descender: 2,
-  gap: 2,
-  space: 4,
-  glyphs: {
-    P: ["####.", "#####", "##.##", "#####", "####.", "##...", "##..."],
-    a: [".###.", "...##", ".####", "##.##", ".####"],
-    p: ["####.", "##.##", "##.##", "##.##", "####.", "##...", "##..."],
-    S: [".####", "##...", "##...", ".###.", "...##", "...##", "####."],
-    n: ["####.", "##.##", "##.##", "##.##", "##.##"],
-    i: ["##", "..", "##", "##", "##", "##", "##"],
-    c: [".###", "##..", "##..", "##..", ".###"],
-    k: ["##...", "##...", "##.##", "####.", "###..", "####.", "##.##"],
-    e: [".###.", "##.##", "#####", "##...", ".####"],
-    r: ["##.##", "####.", "##...", "##...", "##..."],
-    s: [".###", "##..", ".##.", "..##", "###."],
-    "'": ["##", "##", ".#"],
-  },
-};
+/** The top line: same letters, but the "p" of "Papa" has a shorter tail, so it just rests on the
+ *  "S" of "Sheep" below instead of poking into it. */
+const CHUNKY_TOP: Font = { ...CHUNKY, descender: 2, glyphs: { ...CHUNKY.glyphs, p: CHUNKY.glyphs.p!.slice(0, 9) } };
 
 const DESCENDERS = new Set(["p"]);
 
@@ -165,9 +157,13 @@ function carve(mask: { m: Uint8Array; w: number; h: number }, pal: LogoPalette, 
       ring[y * w + x] = near;
     }
   }
+  // The extrusion only hangs below each column's lowest letter pixel (fill or outline): inside a
+  // counter or a notch (the mouth of a "c", the crook of a "k") it would read as stray pixels.
+  const low = new Int16Array(w).fill(-1);
+  for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) if (at(fill, x, y) || at(ring, x, y)) low[x] = y;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      if (at(fill, x, y) || at(ring, x, y)) continue;
+      if (y < low[x]! || at(fill, x, y) || at(ring, x, y)) continue;
       for (let d = 1; d <= depth; d++) {
         if (at(fill, x, y - d) || at(ring, x, y - d)) {
           ext[y * w + x] = 1;
@@ -209,14 +205,15 @@ function carve(mask: { m: Uint8Array; w: number; h: number }, pal: LogoPalette, 
 export const LOGO = { w: 0, h: 0, tops: [] as number[] };
 
 function buildLogo(): void {
-  const top = carve(lineMask("Papa Snickers's", SMALL), PINK, 2);
-  const bottom = carve(lineMask("Sheep Farm", BIG), GOLD, 3);
+  const top = carve(lineMask("Papa Snickers's", CHUNKY_TOP), GOLD, 3);
+  const bottom = carve(lineMask("Sheep Farm", CHUNKY), GOLD, 3);
   const w = Math.max(top.width, bottom.width);
-  const overlap = 2; // the top line's outline tucks into the bottom line's
+  // Stack the lines so the top one's outline rests right on the bottom one's (no sky between).
+  const overlap = 3;
   const h = top.height - overlap + bottom.height;
   const logo = makeCanvas("ui.logo", w, h, (ctx) => {
     ctx.drawImage(bottom, Math.floor((w - bottom.width) / 2), top.height - overlap);
-    // The top line goes over the bottom one, so the descenders of "Papa" stay visible.
+    // The top line goes over the bottom one, so the tail of "Papa"'s p stays visible.
     ctx.drawImage(top, Math.floor((w - top.width) / 2), 0);
   });
   const data = logo.getContext("2d")!.getImageData(0, 0, w, h).data;
@@ -235,6 +232,7 @@ function buildLogo(): void {
   LOGO.h = h;
   LOGO.tops = tops;
 }
+
 const CLOUD_PALETTE = { W: "#ffffff", w: "#eef7ff", s: "#d3e6f5", S: "#b9d3ea" };
 const BIRD_PALETTE = { o: "#3b2a4a", w: "#6a587a" };
 

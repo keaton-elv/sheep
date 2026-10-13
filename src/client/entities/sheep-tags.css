@@ -102,7 +102,7 @@
 .sheep-tag.is-done .sheep-tag__icon {
   color: #3f7a26;
 }
-/* Little stickers slapped on the corner of the name plate: "done!" and "lamb". */
+/* Little stickers slapped on the corner of the name plate: "done!", "lamb" and "ORIGINAL". */
 .sheep-tag__sticker {
   position: absolute;
   top: -0.85em;
@@ -125,6 +125,53 @@
   color: #6e2440;
   transform: rotate(-8deg);
   box-shadow: 0 max(1px, calc(var(--px) * 0.4)) 0 rgba(110, 36, 64, 0.35);
+}
+
+/* Renamed away and then right back: stamped ORIGINAL PLAN, in red rubber-stamp ink. Takes the
+   free top corner (right, or left when "done!" is there). */
+.sheep-tag__og {
+  --og-rot: -7deg;
+  right: -0.6em;
+  padding: 0.06em 0.3em 0.08em;
+  border: max(1px, calc(var(--px) * 0.4)) solid #c4302b;
+  border-radius: 0.18em;
+  background: rgba(255, 246, 228, 0.94);
+  color: #c4302b;
+  font-size: 0.62em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  transform: rotate(var(--og-rot));
+  box-shadow: inset 0 0 0 max(1px, calc(var(--px) * 0.3)) rgba(196, 48, 43, 0.22);
+}
+.sheep-tag__og.is-left {
+  --og-rot: 6deg;
+  right: auto;
+  left: -0.6em;
+}
+/* Two stickers on one plate (a lamb, or a done sheep, that's also ORIGINAL): a short name's plate
+   widens so they don't pile on top of each other. */
+.sheep-tag.is-og.is-lamb,
+.sheep-tag.is-og.is-done {
+  min-width: 5.2em;
+  justify-content: center;
+}
+/* Freshly stamped: it thunks down just as the big screen stamp lifts. */
+.sheep-tag__og.is-fresh {
+  animation: sheep-tag-stamp 380ms cubic-bezier(0.3, 0, 0.6, 1.4) 1.5s both;
+}
+@keyframes sheep-tag-stamp {
+  0% {
+    opacity: 0;
+    transform: scale(2.6) rotate(calc(var(--og-rot) * 2.5));
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.9) rotate(var(--og-rot));
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(var(--og-rot));
+  }
 }
 
 /* Golden sheep get a golden name plate. */
@@ -164,6 +211,9 @@
 @media (prefers-reduced-motion: reduce) {
   .sheep-tag {
     transition: none;
+  }
+  .sheep-tag__og.is-fresh {
+    animation: none;
   }
   .sheep-tag.is-today:not(.is-done) {
     animation: none;

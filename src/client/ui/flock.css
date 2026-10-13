@@ -272,6 +272,11 @@
   background: rgba(255, 216, 74, 0.45);
 }
 
+/* ORIGINAL PLAN (stamp.css draws it). */
+.fl-meta .st-badge {
+  margin: 1px 2px;
+}
+
 /* Done and resting: a little quieter than the plans still to do. */
 .fl-row.is-sheared .fl-name {
   color: var(--ink-soft);

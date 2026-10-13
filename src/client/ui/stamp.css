@@ -1,0 +1,298 @@
+/* ORIGINAL PLAN: the big red rubber stamp, plus the little stamp badge on a sheep's card. */
+
+/* Tiny5's chunky capitals (style.css only borrows its digits). Same file, so it's one download.
+   Every Tiny5 glyph carries one font pixel (0.125em) of space on its right, so each line below gets a
+   matching text-indent (that pixel + its letter-spacing) to sit dead centre inside the border. */
+@font-face {
+  font-family: "Stamp Tiny5";
+  src:
+    url("@fontsource/tiny5/files/tiny5-latin-400-normal.woff2") format("woff2"),
+    url("@fontsource/tiny5/files/tiny5-latin-400-normal.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --st-ink: #d42a30;
+}
+
+/* ---------- the big stamp ---------- */
+
+.st-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity var(--st-fade, 450ms) ease-in;
+}
+.st-layer.is-leaving {
+  opacity: 0;
+  pointer-events: none !important;
+}
+
+.st-tilt {
+  transform: translateY(-4vh) rotate(-8deg);
+}
+
+.st-stamp {
+  position: relative;
+  /* One stamp "pixel" is 0.125em: Tiny5 is drawn on an 8-per-em grid. */
+  font-size: clamp(36px, min(13.5vw, 20vh), 88px);
+  color: var(--st-ink);
+  line-height: 1;
+  transform-origin: 50% 55%;
+  animation: st-slam 300ms both;
+}
+
+.st-ink {
+  position: relative;
+  display: block;
+  padding: 0.2em 0.26em 0.18em;
+  border: 0.1em solid currentColor;
+  border-radius: 0.09em;
+  font-family: "Stamp Tiny5", "Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  font-weight: 400;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0.92;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+/* The inner ring of the double border. */
+.st-ink::before {
+  content: "";
+  position: absolute;
+  inset: 0.07em;
+  border: 0.045em solid currentColor;
+  border-radius: 0.05em;
+  pointer-events: none;
+}
+
+.st-word {
+  display: block;
+  line-height: 0.8;
+  white-space: nowrap;
+}
+.st-word--top {
+  letter-spacing: 0.03em;
+  text-indent: 0.155em;
+}
+.st-word--bottom {
+  font-size: 1.62em;
+  letter-spacing: 0.02em;
+  text-indent: 0.145em;
+}
+
+/* The date, between two rules. */
+.st-band {
+  display: flex;
+  align-items: center;
+  gap: 0.12em;
+  margin: 0.12em 0 0.1em;
+}
+.st-band__rule {
+  flex: 1;
+  min-width: 0;
+  height: 0.05em;
+  background: currentColor;
+}
+.st-band__text {
+  font-size: 0.3em;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-indent: 0.205em;
+  white-space: nowrap;
+}
+
+/* The plan's name along the bottom; never makes the stamp wider than ORIGINAL. */
+.st-name {
+  display: block;
+  width: 0;
+  min-width: 100%;
+  margin-top: 0.12em;
+  font-size: 0.34em;
+  line-height: 1.1;
+  letter-spacing: 0.1em;
+  text-indent: 0.225em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ink flicked off the rim on impact. */
+.st-splat {
+  position: absolute;
+  width: calc(var(--sz, 1) * 0.06em);
+  height: calc(var(--sz, 1) * 0.06em);
+  margin: calc(var(--sz, 1) * -0.03em) 0 0 calc(var(--sz, 1) * -0.03em);
+  background: currentColor;
+  opacity: 0.85;
+  pointer-events: none;
+  animation: st-splat 160ms ease-out both;
+  animation-delay: calc(170ms + var(--d, 0ms));
+}
+
+@keyframes st-slam {
+  0% {
+    opacity: 0;
+    transform: scale(1.6);
+    animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.45);
+  }
+  30% {
+    opacity: 1;
+  }
+  57% {
+    transform: scale(0.97);
+    animation-timing-function: ease-out;
+  }
+  78% {
+    transform: scale(1.012);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes st-splat {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* The impact rattles the farm and the menus a little (class added for a moment by stamp.ts). */
+#ui.st-shake,
+#farm.st-shake {
+  animation: st-shake 280ms linear;
+}
+@keyframes st-shake {
+  0% {
+    transform: translate(0, 0);
+  }
+  15% {
+    transform: translate(-4px, 3px);
+  }
+  32% {
+    transform: translate(3px, -2px);
+  }
+  50% {
+    transform: translate(-2px, 2px);
+  }
+  68% {
+    transform: translate(2px, -1px);
+  }
+  85% {
+    transform: translate(-1px, 0);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* Reduced motion: the stamp just appears (no slam, no shake, no splatter). */
+.st-layer.is-calm .st-stamp {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-stamp,
+  .st-splat,
+  #ui.st-shake,
+  #farm.st-shake {
+    animation: none !important;
+  }
+}
+
+/* ---------- the little badge ---------- */
+
+.st-badge {
+  display: inline-block;
+  color: var(--st-ink);
+  line-height: 1;
+  vertical-align: middle;
+  transform: rotate(-10deg);
+  pointer-events: none;
+  animation: st-badge-in 240ms both;
+}
+.st-badge__ink {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 5px 3px;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+  background: rgba(255, 247, 232, 0.82);
+  font: 400 12px/1 "Stamp Tiny5", "Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+.st-badge__ink::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border: 1px solid currentColor;
+  border-radius: 1px;
+  opacity: 0.8;
+}
+.st-badge__l {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.st-badge__n {
+  font-size: 1.15em;
+}
+
+.st-badge--inline {
+  transform: rotate(-4deg);
+}
+.st-badge--inline .st-badge__ink {
+  flex-direction: row;
+  gap: 4px;
+  padding: 3px 4px 2px;
+  font-size: 10px;
+}
+
+@keyframes st-badge-in {
+  0% {
+    opacity: 0;
+    transform: rotate(-10deg) scale(1.8);
+    animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.45);
+  }
+  60% {
+    opacity: 1;
+    transform: rotate(-10deg) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-10deg) scale(1);
+  }
+}
+.st-badge--inline {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-badge {
+    animation: none;
+  }
+}

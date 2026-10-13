@@ -4,7 +4,7 @@
 import { rng } from "../engine/game";
 import { dayKey, daysBetween, parseDayKey } from "../../shared/calendar";
 import type { Category, Sheep } from "../../shared/types";
-import type { FarmMoment } from "./animal-common";
+import { originalStamps, renamedFrom, type FarmMoment } from "./animal-common";
 
 /** What each kind of sheep daydreams about. */
 const DREAMS: Record<Category, string[]> = {
@@ -57,12 +57,12 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
   // The poke easter egg wins over everything.
   const pokes = ctx.pokes ?? 0;
   if (pokes >= 12) return `${n} would like a little personal space, please.`;
-  if (pokes >= 6) return lamb ? `${n} is getting a little wobbly.` : `${n} is getting a little dizzy.`;
+  if (pokes >= 6) return lamb ? `${n} is getting a little wobbly...` : `${n} is getting a little dizzy...`;
 
   if (ctx.retired) {
     return (
       choose([
-        `${n} is cozy in the barn, remembering the good times.`,
+        `${n} is cozy in the barn, remembering the good times...`,
         `${n} is happily retired. What a sheep.`,
         `${n} tells the other sheep about that day. Constantly.`,
       ]) + golden
@@ -70,14 +70,14 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
   }
 
   if (s.shearedAt !== null) {
-    if (moment.isNight) return `${n} is sleeping soundly, light as a feather.${golden}`;
+    if (moment.isNight) return `Zzz... ${n} is sleeping, light as a feather.${golden}`;
     return (
       choose([
         `${n} feels light as a feather!`,
-        `${n} is enjoying the breeze.`,
+        `${n} is enjoying the breeze...`,
         `${n} looks very proud of you two.`,
         `${n} is strutting around the pasture.`,
-        s.memory ? `${n} is remembering a lovely day.` : `${n} wonders if you'll write down a memory.`,
+        s.memory ? `${n} is remembering a lovely day...` : `${n} wonders if you'll write a memory...`,
       ]) + golden
     );
   }
@@ -86,18 +86,18 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
   const days = planned ? daysBetween(moment.now, planned) : null;
 
   if (moment.isNight) {
-    if (days === 0) return `${n} is sleeping... Did it happen today? Shear ${n} if it did!${golden}`;
-    if (days === 1) return `${n} is sleeping. Big day tomorrow!${golden}`;
-    if (lamb) return choose([`${n} is curled up, dreaming tiny lamb dreams.`, `${n} fell asleep mid-baa.`]) + golden;
-    return `${n} is sleeping and dreaming about ${dream}.${golden}`;
+    if (days === 0) return `Zzz... did it happen today?${golden}`;
+    if (days === 1) return `Zzz... big day tomorrow!${golden}`;
+    if (lamb) return choose(["Zzz... tiny lamb dreams...", `${n} fell asleep mid-baa...`]) + golden;
+    return `Zzz... ${n} is dreaming about ${dream}...${golden}`;
   }
 
   if (days !== null) {
     if (days === 0) return `Today's the day!! ${n} is bouncing off the fence.${golden}`;
     if (days === 1) return `${n} can't wait! It's tomorrow!${golden}`;
     if (days > 1 && days <= 7) return `${n} can't wait! Only ${days} days to go!${golden}`;
-    if (days === -1) return `Yesterday was the big day! Did it happen? Shear ${n} if it did!${golden}`;
-    if (days < -1) return `${n} is wondering how it went... (Shear it if you did it!)${golden}`;
+    if (days === -1) return `Yesterday was the big day... did it happen?${golden}`;
+    if (days < -1) return `${n} is wondering how it went...${golden}`;
   }
 
   const petToday = s.lastPetAt !== null && daysBetween(new Date(s.lastPetAt), moment.now) === 0;
@@ -109,7 +109,7 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
     return (
       choose([
         `${n} is a wobbly little lamb.`,
-        `${n} is practicing its baa.`,
+        `${n} is practicing its baa... baa?`,
         `${n} is bouncing around the pasture!`,
         `${n} is following the big sheep around.`,
         `${n} just discovered grass. It's a big day.`,
@@ -117,8 +117,8 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
     );
   }
 
-  if (moment.weather === "storm") return `${n} is hiding from the thunder.${golden}`;
-  if (moment.weather === "rain") return `${n} doesn't like the rain.${golden}`;
+  if (moment.weather === "storm") return `${n} is hiding from the thunder...${golden}`;
+  if (moment.weather === "rain") return `${n} doesn't like the rain...${golden}`;
   if (moment.weather === "snow") return `${n}'s wool is keeping it toasty in the snow.${golden}`;
   if (moment.weather === "windy" && r() < 0.5) return `${n}'s wool is blowing in the wind. Majestic.${golden}`;
 
@@ -127,10 +127,16 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
   const lastLove = s.lastPetAt ?? s.createdAt;
 
   if (petToday) return pettedLine(n, s.pets, choose) + golden;
-  if (ctx.nowMs - lastLove > 3 * DAY) return `${n} hasn't been pet in a while.${golden}`;
-  if (createdToday) return `${n} is still getting used to the farm.${golden}`;
+
+  // ORIGINAL PLAN: sheep remember their first name.
+  const first = renamedFrom(s);
+  if (first && r() < 0.35) return `${n} still answers to “${first}”...${golden}`;
+  if (originalStamps(s) > 0 && r() < 0.35) return `${n} is sticking to the ORIGINAL PLAN.${golden}`;
+
+  if (ctx.nowMs - lastLove > 3 * DAY) return `${n} hasn't been pet in a while...${golden}`;
+  if (createdToday) return `${n} is still getting used to the pasture.${golden}`;
   if (s.pets >= 8) return `${n} looks really happy today!${golden}`;
   if (s.pets >= 4 && r() < 0.5) return `${n} seems very content.${golden}`;
   if (s.golden) return `${n} is shimmering. Legendary.`;
-  return choose([`${n} is daydreaming about ${dream}.`, `${n} is thinking about ${dream}.`, `${n} is munching grass and dreaming of ${dream}.`]);
+  return choose([`${n} is daydreaming about ${dream}...`, `${n} is thinking about ${dream}.`, `${n} is munching grass. Hmm... ${dream}...`]);
 }

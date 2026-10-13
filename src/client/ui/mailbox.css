@@ -56,8 +56,18 @@
   opacity: 0.8;
   filter: sepia(0.25);
 }
-.fm-letter.is-new {
+.fm-letter.is-arriving {
   animation: fm-letter-in 260ms cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+/* An ORIGINAL PLAN stamp attached to a letter thumps down once, when the letter arrives. */
+.fm-letter__foot .st-badge {
+  flex: none;
+  align-self: center;
+  margin: 2px 4px;
+  animation: none;
+}
+.fm-letter.is-arriving .fm-letter__foot .st-badge {
+  animation: st-badge-in 240ms 220ms both;
 }
 @keyframes fm-letter-in {
   from {
@@ -201,7 +211,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fm-letter.is-new {
+  .fm-letter.is-arriving,
+  .fm-letter.is-arriving .fm-letter__foot .st-badge {
     animation: none;
   }
 }

@@ -57,7 +57,7 @@ export function festivalOn(d: Date, foundedAt?: number): Festival | null {
     if (years > 0 && f.getMonth() === d.getMonth() && f.getDate() === d.getDate()) {
       return { name: "Farm Anniversary", note: `${years} ${years === 1 ? "year" : "years"} of sheep! Time for cake.`, star: true };
     }
-    if (daysBetween(f, d) === 0) return { name: "Farm Founding Day", note: "The very first day on the farm. Where it all began.", star: true };
+    if (daysBetween(f, d) === 0) return { name: "Farm Founding Day", note: "Where it all began...", star: true };
   }
   const e = easter(d.getFullYear());
   if (e.month === d.getMonth() && e.day === d.getDate()) {

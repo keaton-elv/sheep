@@ -11,14 +11,14 @@
 // ?bumblesteed=1
 
 import { sfx } from "../audio";
-import type { Entity, Game } from "../engine/game";
+import { currentGame, type Entity, type Game } from "../engine/game";
 import { draw } from "../engine/sprites";
 import type { Layout } from "../world/layout";
 import { dayKey } from "../../shared/calendar";
 import { toast } from "../ui/dom";
 import { hangout } from "./critter-fox";
 import { decorPoints, freePosts, onLayoutChange, openGrass, pastureSpot, wildflowers } from "./critter-place";
-import { addSafe, chance, drawShadow, inBox, lsGet, lsSet, onAnyTap, onTick, params, rand, sparkleBurst } from "./critter-util";
+import { addSafe, chance, drawShadow, inBox, lsGet, lsSet, onAnyTap, onTick, params, rand, report, sparkleBurst } from "./critter-util";
 
 const LUCKY_KEY = "farm.ladybugDay";
 /** The day a golden ladybug was found (tapped) on this device. */
@@ -402,6 +402,18 @@ const STEED_W = 15;
 const STEED_H = 10;
 /** How high above the grass it rides (its shadow follows along on the ground). */
 const STEED_ALT = 12;
+/** When the farm last saw one (Otto writes in about it: see the mailbox). */
+const STEED_SEEN_KEY = "farm.bumblesteed.lastSeen";
+
+/** A Bumblesteed was seen (or hailed): note the day and tell the farm. */
+function bumblesteedSighted(g: Game): void {
+  lsSet(STEED_SEEN_KEY, String(Date.now())); // (try/catch inside: private mode just forgets)
+  try {
+    (currentGame ?? g).emit("bumblesteed");
+  } catch (err) {
+    report("bumblesteed.emit", err);
+  }
+}
 
 /** A ladybug knight on a bumblebee, galloping through the air from one side of the farm to the other. */
 class Bumblesteed implements Entity {
@@ -418,6 +430,8 @@ class Bumblesteed implements Entity {
   private t = Math.random() * 3;
   private alpha = 0;
   private hailed = false;
+  /** Has it crossed into view yet? (That's the sighting.) */
+  private seen = false;
   /** A proud little rear-up after being hailed. */
   private rear = 0;
 
@@ -446,6 +460,10 @@ class Bumblesteed implements Entity {
     const rear = this.rear > 0 ? Math.sin((this.rear / 0.7) * Math.PI) * 4 : 0;
     this.py = this.ground - STEED_ALT + Math.sin(this.t * 0.8) * 3 - stride - rear;
     this.alpha = Math.min(1, this.alpha + dt * 2);
+    if (!this.seen && this.px > 0 && this.px < l.w) {
+      this.seen = true;
+      bumblesteedSighted(this.g);
+    }
     if ((this.dir > 0 && this.px > l.w + STEED_W + 4) || (this.dir < 0 && this.px < -STEED_W - 4)) this.dead = true;
     this.x = this.px;
     this.y = this.ground;
@@ -469,7 +487,8 @@ class Bumblesteed implements Entity {
     this.speed = 22; // and off it gallops, triumphant
     sfx("secret");
     sparkleBurst(this.px, this.py - 3, 8, 14);
-    toast("A ladybug knight on the mighty Bumblesteed!", { icon: "critter.bumblesteed.icon" });
+    toast("A Bumblesteed! A ladybug knight on her trusty bee.", { icon: "critter.bumblesteed.icon" });
+    bumblesteedSighted(this.g);
   }
 }
 

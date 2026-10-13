@@ -1,4 +1,4 @@
-// Little icons for the "How the farm works" journal that nobody else draws.
+// Little icons for the "How it works" journal that nobody else draws.
 
 import { pixelArt } from "../engine/pixelart";
 import { SHEETS } from "../engine/sprites";
@@ -34,4 +34,24 @@ export function registerHelpArt(): void {
     "......oooo......",
     "................",
   ], { o: "#3f3440", C: "#f6eddd", c: "#d8c6a8", D: "#6e6977", d: "#46424e", b: "#6fa8e8", k: "#25212b", p: "#34303b", t: "#f2869d" });
+
+  // A little rubber stamp (wooden handle, red ink pad) for the ORIGINAL PLAN hint.
+  pixelArt("ui.icon.stamp", [
+    "................",
+    "......oooo......",
+    ".....oLLMMo.....",
+    "....oLLMMMDo....",
+    "....oMMMMDDo....",
+    ".....ooMDoo.....",
+    "......oMDo......",
+    "......oMDo......",
+    "...oooooooooo...",
+    "..oGGGGGGGGGGo..",
+    "..oggggggggggo..",
+    "..oRRRRRRRRRRo..",
+    "...oooooooooo...",
+    "................",
+    "..iii.iiii.iii..",
+    "................",
+  ], { o: "#4a1f0a", L: "#f2a65a", M: "#c25f17", D: "#8a3c0e", G: "#9a8f8a", g: "#6b625e", R: "#c4121a", i: "#e0303a" });
 }

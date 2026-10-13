@@ -19,6 +19,8 @@
 }
 .fm-cal-dialog .sv-dialog__content {
   padding: 6px 2px 4px;
+  /* Phones: the board only ever scrolls up and down, never wobbles sideways. */
+  overflow-x: hidden;
 }
 
 /* The real board: its dark frame as a 9-slice, the planks tiled behind the papers. */
@@ -283,6 +285,8 @@
   border: 0;
   cursor: pointer;
   touch-action: manipulation;
+  /* Two sheep faces at 2 CSS px per game px are a hair wider than a 360px-phone cell. */
+  overflow: hidden;
 }
 .fm-cal__cell.is-blank {
   background: #f3e2c2;
@@ -342,6 +346,7 @@
 }
 .fm-cal__heads {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -446,11 +451,6 @@
 .fm-cal__quiet {
   margin: 6px 0;
   font-style: italic;
-  color: var(--ink-soft);
-}
-.fm-cal__hint {
-  margin: 4px 0 2px;
-  font-size: 0.8em;
   color: var(--ink-soft);
 }
 .fm-cal__done {

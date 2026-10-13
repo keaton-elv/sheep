@@ -1,8 +1,8 @@
-// "How the farm works": a little journal in Stardew's quest-log style, in a plain narrator voice.
-// Opened from the toolbar's "…" menu, and automatically once on a device's first visit.
-// Copy stays short: one line per idea, plus a few hints for the secrets.
+// "How it works": a little journal in Stardew's quest-log style. One short line per idea, each
+// with its icon, plus a few hints for the secrets. Opened from the toolbar's "…" menu, and
+// automatically once on a device's first visit.
 
-import { LOOM_DURATION_MS, LOOM_WOOL_COST, RETIRE_AFTER_MS } from "../../shared/types";
+import { HAT_COST, LOOM_WOOL_COST, RETIRE_AFTER_MS } from "../../shared/types";
 import { has } from "../engine/sprites";
 import { store } from "../net";
 import { el, frameIcon, openDialog, registerMenu, spriteIcon } from "./dom";
@@ -12,9 +12,12 @@ import "./help.css";
 
 interface Entry {
   icons: (() => HTMLElement)[];
+  /** Bold lead-in. */
   title: string;
   text: string;
   secret?: true;
+  /** Title inked like the red ORIGINAL PLAN rubber stamp. */
+  stamp?: true;
 }
 
 const sprite = (key: string, scale = 1) => () => spriteIcon(iconKey(key), { scale });
@@ -25,78 +28,33 @@ const lamb = () => frameIcon("sheepBaby", 12, 32, 32, { class: "help-sheep is-la
 const shorn = () => frameIcon("sheepSheared", 13, 32, 32, { class: "help-sheep" });
 
 const RETIRE_DAYS = Math.round(RETIRE_AFTER_MS / 86_400_000);
-const LOOM_MINUTES = Math.max(1, Math.round(LOOM_DURATION_MS / 60_000));
 
 const ENTRIES: Entry[] = [
-  {
-    icons: [sheep],
-    title: "Every plan is a sheep",
-    text: "Tap the + to buy one at the ranch. Its name is the plan: a date, a workshop, a trip...",
-  },
-  {
-    icons: [lamb],
-    title: "Lambs",
-    text: "New sheep arrive as wobbly little lambs and grow up after a day.",
-  },
-  {
-    icons: [sprite("ui.heart.full", 2)],
-    title: "Pet your sheep",
-    text: "Tap a sheep to pet it (once a day each) and peek at its plan. Hearts show how excited you both are.",
-  },
-  {
-    icons: [sprite("ui.tb.shears", 1.5)],
-    title: "Did it? Shear it!",
-    text: "Pick the shears and tap the sheep, or press Shear on its card. The wool goes in the chest, and you can jot down a memory.",
-  },
-  {
-    icons: [sprite("ui.icon.flock", 1.5)],
-    title: "The Flock",
-    text: "Every sheep in one list. Tap the flock button to find any of them fast.",
-  },
-  {
-    icons: [sprite("ui.icon.hat", 1.5)],
-    title: "Hats",
-    text: "Pick one from any sheep's card — 1 cloth. Taking it off is free.",
-  },
-  {
-    icons: [sprite("ui.icon.tag", 1.5)],
-    title: "Changed your mind?",
-    text: "Edit a plan or sell the sheep back to the ranch from its card. Sheared one by accident? There's an un-shear button.",
-  },
+  { icons: [sheep], title: "Every plan is a sheep.", text: "Tap + to buy one. Its name is the plan." },
+  { icons: [sprite("ui.heart.full", 2)], title: "Pet.", text: "Once a day each. Hearts = excitement." },
+  { icons: [sprite("ui.tb.shears", 1.5)], title: "Did it? Shear it!", text: "The wool goes in the chest." },
+  { icons: [shorn], title: "The Barn.", text: `Shorn sheep nap ${RETIRE_DAYS} days, then move in as memories.` },
+  { icons: [lamb], title: "Lambs.", text: "New sheep start tiny. Grown by tomorrow." },
+  { icons: [sprite("ui.icon.hat", 1.5)], title: "Hats.", text: `${HAT_COST} cloth, from any sheep's card.` },
+  { icons: [sprite("ui.icon.flock", 1.5)], title: "Flock.", text: "Every sheep in one list." },
   {
     icons: [sprite("ui.hud.wool"), sprite("ui.hud.cloth")],
-    title: "Wool, loom, cloth",
-    text: `${LOOM_WOOL_COST} wool in the loom makes cloth in about ${LOOM_MINUTES} minutes. Spend it at the carpenter's shop (in the … menu), then tap the pasture to place your decoration.`,
+    title: "Wool → cloth.",
+    text: `${LOOM_WOOL_COST} wool in the loom. Spend cloth at the carpenter's shop.`,
   },
-  {
-    icons: [shorn],
-    title: "Memories in the barn",
-    text: `A sheared sheep naps in the pasture for ${RETIRE_DAYS} days so you both see it, then moves into the barn for good.`,
-  },
-  {
-    icons: [sprite("ui.icon.calendar"), sprite("ui.icon.mail")],
-    title: "Calendar & mail",
-    text: "Plans with a date go up on the calendar. Letters about the farm show up in the mailbox. (Tap the farm sign to rename the farm.)",
-  },
+  { icons: [sprite("ui.icon.calendar"), sprite("ui.icon.mail")], title: "Calendar & mail.", text: "Dated plans. Letters from Snickers, Otto & the sheep." },
+  { icons: [sprite("ui.heart.full", 2), sprite("ui.heart.full", 2)], title: "One farm, two farmers.", text: "Everything shows up live." },
   {
     icons: [critter("fox.sit.0", "ui.star"), critter("hedgehog.idle.0", "ui.star")],
-    title: "Otto & Milo",
-    text: "The fox and the hedgehog in the corner. Best friends, champion nappers.",
+    title: "Otto & Milo.",
+    text: "Fox and hedgehog. Best friends, champion nappers.",
   },
-  {
-    icons: [sprite("ui.icon.snickers", 1.5)],
-    title: "Snickers",
-    text: "Snickers lives by the barn. Rumor has it he has a secret button...",
-  },
-  {
-    icons: [sprite("ui.heart.full", 2), sprite("ui.heart.full", 2)],
-    title: "Farming together",
-    text: "It's one farm for two. When one of you shears a sheep, the other sees it happen, live.",
-  },
+  { icons: [sprite("ui.icon.snickers", 1.5)], title: "Snickers.", text: "Pet his head. Rumor has it he has a secret button..." },
+  { icons: [sprite("ui.icon.stamp", 1.5)], title: "ORIGINAL PLAN.", text: "Change a plan... then change it back.", secret: true, stamp: true },
   {
     icons: [sprite("ui.star", 2)],
     title: "Psst...",
-    text: "Tap the grass a bunch. Knock on the stump. Look up at night.",
+    text: "Tap the grass a bunch. Knock on the stump. Look up at night. Sheep love a good baaaaah...",
     secret: true,
   },
 ];
@@ -108,35 +66,28 @@ export function initHelp(): void {
 function openHelp(welcome: boolean): void {
   registerToolbarArt();
   registerHelpArt();
-  const farm = store.state?.farmName;
+  const farm = store.state?.farmName?.trim() || "Papa Snickers's Sheep Farm";
 
-  const intro = welcome
-    ? el(
-        "div",
-        { class: "help-note" },
-        el("p", { class: "help-note__big" }, `Welcome to ${farm ? farm : "the farm"}!`),
-        el("p", null, "The sheep are very excited to meet you both. Here's how things work around here."),
-      )
-    : null;
+  const intro = welcome ? el("p", { class: "help-note" }, "The sheep can't wait to meet you... baa!") : null;
 
-  const list = el("ol", { class: "help-list" });
+  const list = el("ul", { class: "help-list" });
   for (const e of ENTRIES) {
     list.appendChild(
       el(
         "li",
         { class: `help-entry ${e.secret ? "is-secret" : ""}` },
         el("div", { class: `help-entry__icons ${e.icons.length > 1 ? "is-pair" : ""}`, "aria-hidden": "true" }, ...e.icons.map((f) => f())),
-        el("div", { class: "help-entry__text" }, el("h3", { class: "help-entry__title" }, e.title), el("p", null, e.text)),
+        el("p", { class: "help-entry__text" }, el("b", { class: `help-entry__title ${e.stamp ? "is-stamp" : ""}` }, e.title), " ", e.text),
       ),
     );
   }
 
   const keys = matchMedia("(hover: hover) and (pointer: fine)").matches
-    ? el("p", { class: "help-keys" }, "Tip: keys ", el("kbd", null, "1"), "–", el("kbd", null, "8"), " pick toolbar slots, ", el("kbd", null, "Esc"), " closes menus.")
+    ? el("p", { class: "help-keys" }, el("kbd", null, "1"), "–", el("kbd", null, "8"), " toolbar · ", el("kbd", null, "Esc"), " close")
     : null;
 
   openDialog({
-    title: welcome ? "Welcome to the Farm" : "How the Farm Works",
+    title: welcome ? farm : "How It Works",
     className: "help-journal",
     body: [intro, list, keys],
     buttons: [{ label: welcome ? "Let's farm!" : "Got it!", kind: "primary" }],

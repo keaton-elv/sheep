@@ -1,6 +1,7 @@
 // Stardew's toolbar along the bottom: Hand and Shears (tools), then shortcuts to the ranch
-// (+ a new sheep), the Flock list, the calendar, the barn, the mailbox, and a "…" menu with the
-// rest (the carpenter's shop, loom, chest, name tags, sound, how to play, log out).
+// (+ a new sheep), the Flock list, the calendar, The Barn, the mailbox, and a "…" menu with the
+// rest (the carpenter's shop, loom, chest, name tags, sound, how it works, log out).
+// Copy is minimal on purpose: icons do the talking; hover labels are a name and a few words.
 // Mobile first: every slot is at least 40 CSS px, and the bar fits a 360px-wide phone.
 
 import { isMuted, setMuted, sfx } from "../audio";
@@ -36,14 +37,14 @@ interface SlotDef {
 }
 
 const SLOTS: SlotDef[] = [
-  { id: "hand", icon: "tool.hand", name: "Hand", hint: "Pet sheep & peek at their plans", tool: "hand" },
-  { id: "shears", icon: "ui.tb.shears", name: "Shears", hint: "Done a plan? Shear its sheep!", tool: "shears" },
-  { id: "new", icon: "ui.tool.plus-sheep", name: "New plan", hint: "Buy a sheep at the ranch", menu: "ranch" },
-  { id: "flock", icon: "ui.icon.flock", name: "Flock", hint: "Every sheep in a list. Find one fast", menu: "flock" },
-  { id: "calendar", icon: "ui.icon.calendar", name: "Calendar", hint: "Plans with a date", menu: "calendar" },
-  { id: "barn", icon: "ui.icon.barn", name: "Barn", hint: "Memories of things you did", menu: "barn" },
-  { id: "mail", icon: "ui.icon.mail", name: "Mailbox", hint: "Letters about the farm", menu: "mailbox" },
-  { id: "more", icon: "ui.icon.more", name: "More", hint: "Carpenter's shop, loom, chest, settings & help", more: true },
+  { id: "hand", icon: "tool.hand", name: "Hand", hint: "Pet & peek", tool: "hand" },
+  { id: "shears", icon: "ui.tb.shears", name: "Shears", hint: "Did it? Snip snip!", tool: "shears" },
+  { id: "new", icon: "ui.tool.plus-sheep", name: "New plan", hint: "Off to the ranch...", menu: "ranch" },
+  { id: "flock", icon: "ui.icon.flock", name: "Flock", hint: "Find a sheep", menu: "flock" },
+  { id: "calendar", icon: "ui.icon.calendar", name: "Calendar", hint: "Dated plans", menu: "calendar" },
+  { id: "barn", icon: "ui.icon.barn", name: "The Barn", hint: "Memories", menu: "barn" },
+  { id: "mail", icon: "ui.icon.mail", name: "Mailbox", hint: "Letters", menu: "mailbox" },
+  { id: "more", icon: "ui.icon.more", name: "More", hint: "Shop, loom, chest...", more: true },
 ];
 
 function storageGet(key: string): string | null {
@@ -132,7 +133,7 @@ export function initToolbar(g: Game): void {
       syncTool();
       if (def.tool === "shears" && !storageGet(SHEARS_HINT_KEY)) {
         storageSet(SHEARS_HINT_KEY, "1");
-        toast("Tap a sheep you've done to shear it ✂", { icon: "tool.shears", ms: 4200 });
+        toast("Tap a sheep you've done ✂", { icon: "tool.shears", ms: 4200 });
       }
       return;
     }
@@ -167,7 +168,7 @@ export function initToolbar(g: Game): void {
     mailBadge.textContent = n > 9 ? "9+" : String(n);
     const btn = buttons.get("mail")!;
     btn.classList.toggle("has-mail", n > 0);
-    btn.setAttribute("aria-label", n > 0 ? `Mailbox: ${n} new ${n === 1 ? "letter" : "letters"}` : "Mailbox: letters about the farm");
+    btn.setAttribute("aria-label", n > 0 ? `Mailbox: ${n} new ${n === 1 ? "letter" : "letters"}` : "Mailbox");
   };
   syncMail(unreadMailCount());
   onMailChange(syncMail);
@@ -204,16 +205,16 @@ export function initToolbar(g: Game): void {
       g.emit("labels", on);
       sfx("select");
       closePopover(true);
-      toast(on ? "Name tags on. Hello, everyone!" : "Name tags off. Mystery sheep!", { icon: "ui.icon.tag" });
+      toast(on ? "Name tags on. Hello, everyone!" : "Name tags off. Mystery sheep...", { icon: "ui.icon.tag" });
     });
     item(isMuted() ? "ui.icon.mute" : "ui.icon.sound", "Sound", isMuted() ? "Off" : "On", () => {
       const next = !isMuted();
       setMuted(next);
       closePopover(true);
-      toast(next ? "Sound off. The sheep will baa quietly." : "Sound on. Baaa!", { icon: next ? "ui.icon.mute" : "ui.icon.sound" });
+      toast(next ? "Sound off. baa... (quietly)" : "Sound on. Baaa!", { icon: next ? "ui.icon.mute" : "ui.icon.sound" });
       if (!next) setTimeout(() => sfx("baa"), 120);
     });
-    item("ui.icon.help", "How to play", null, go("help"));
+    item("ui.icon.help", "How it works", null, go("help"));
     // Arrow keys move between items (Tab works too; Escape closes the popover).
     list.addEventListener("keydown", (ev) => {
       if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp" && ev.key !== "Home" && ev.key !== "End") return;
@@ -226,7 +227,7 @@ export function initToolbar(g: Game): void {
     });
     item("ui.icon.logout", "Log out", null, async () => {
       closePopover(true);
-      const ok = await confirmDialog("Head home for now? You'll need the secret word to get back in.", { yes: "Log out", no: "Stay", danger: true });
+      const ok = await confirmDialog("Heading home? You'll need the password to get back in.", { yes: "Log out", no: "Stay", danger: true });
       if (!ok) return;
       try {
         await api.logout();

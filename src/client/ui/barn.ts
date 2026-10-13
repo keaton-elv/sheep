@@ -5,30 +5,25 @@ import { sfx } from "../audio";
 import { api, barnSheep, doneSheep, isRetired, serverNow, store } from "../net";
 import { daysBetween, monthName, parseDayKey, stardewDate } from "../../shared/calendar";
 import { CATEGORY_LABELS, LIMITS, RETIRE_AFTER_MS, type FarmState, type Sheep } from "../../shared/types";
+import { originalStamps } from "./animal-common";
 import { categoryIcon, farmNow, friendly, sheepPortrait } from "./calendar-util";
 import { confirmDialog, el, frameIcon, heartsEl, openDialog, openMenu, plural, promptDialog, registerMenu, relativeDays, toast, type DialogHandle } from "./dom";
+import { originalPlanBadge } from "./stamp";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const QUIPS = [
-  "It smells like hay and good decisions in here.",
-  "The auto-grabber is on strike again.",
-  "Somebody left a truffle in the corner. Suspicious.",
-  "Hay supply: plentiful. The silo made sure.",
-  "Snickers was here. There's a warm, cat-shaped dent in the hay.",
-  "The heater hums. Every sheep is dreaming of you two.",
-  "A sparrow is nesting in the rafters. Everyone's being very quiet about it.",
+  "Smells like hay and good decisions...",
+  "The auto-grabber is on strike again...",
+  "Somebody left a truffle in the corner. Suspicious...",
+  "A warm, cat-shaped dent in the hay. Snickers was here.",
+  "The heater hums... Zzz...",
+  "Baa... (from somewhere in the dark)",
 ];
 
 export function initBarn(): void {
   registerMenu("barn", () => openBarn());
-}
-
-/** "Papa Snickers's Sheep Farm" -> "Papa Snickers's Sheep Barn" ("Moonlight Meadow" -> "Moonlight Meadow Barn"). */
-export function barnName(farmName: string): string {
-  const base = farmName.replace(/\s+farm$/i, "").trim();
-  return `${base || farmName} Barn`;
 }
 
 function shearedDate(s: Sheep): Date {
@@ -37,15 +32,12 @@ function shearedDate(s: Sheep): Date {
 
 function openBarn(): void {
   const root = el("div", { class: "fm-barn fm-menu" });
-  const state = store.state;
-  const d = openDialog({ title: state ? barnName(state.farmName) : "The Barn", className: "fm-barn-dialog fm-menu", body: root, onClose: () => off() });
+  openDialog({ title: "The Barn", className: "fm-barn-dialog fm-menu", body: root, onClose: () => off() });
   sfx("door", { volume: 0.5 });
-  const title = d.box.querySelector(".sv-dialog__title");
   const quip = QUIPS[Math.floor(Math.random() * QUIPS.length)]!;
 
   const render = () => {
     const st = store.state;
-    if (title && st) title.textContent = barnName(st.farmName);
     root.replaceChildren(...content(st, quip).filter((n): n is HTMLElement => n !== null));
   };
   const off = store.changed.on(render);
@@ -53,7 +45,7 @@ function openBarn(): void {
 }
 
 function content(st: FarmState | null, quip: string): (HTMLElement | null)[] {
-  if (!st) return [el("p", { class: "fm-barn__loading" }, "Opening the barn doors...")];
+  if (!st) return [el("p", { class: "fm-barn__loading" }, "Creak...")];
   const now = serverNow();
   const done = doneSheep(st);
   const byNewest = (a: Sheep, b: Sheep) => (b.shearedAt ?? 0) - (a.shearedAt ?? 0);
@@ -66,7 +58,7 @@ function content(st: FarmState | null, quip: string): (HTMLElement | null)[] {
         "div",
         { class: "fm-empty fm-barn__empty" },
         frameIcon("sheep", 13, 32, 32, { scale: 2 }),
-        el("p", { class: "sv-say" }, "The barn is quiet. Did a plan together? Shear its sheep and the memory moves in here."),
+        el("p", { class: "sv-say" }, "Quiet in here... Shear a sheep and its memory moves in."),
       ),
     ];
   }
@@ -91,10 +83,10 @@ function content(st: FarmState | null, quip: string): (HTMLElement | null)[] {
       ? el(
           "section",
           { class: "fm-barn__section" },
-          el("h3", null, "Resting in the pasture"),
+          el("h3", null, "Still grazing"),
           list(resting, (s) => {
             const left = Math.max(1, Math.ceil(((s.shearedAt ?? now) + RETIRE_AFTER_MS - now) / DAY_MS));
-            return `Moves into the barn in ${plural(left, "day")}`;
+            return left === 1 ? "Moves in tomorrow" : `Moves in ${left} days`;
           }),
         )
       : null,
@@ -104,7 +96,7 @@ function content(st: FarmState | null, quip: string): (HTMLElement | null)[] {
       el("h3", null, "Memories"),
       memories.length
         ? list(memories, () => null)
-        : el("p", { class: "fm-barn__hint" }, "Nobody yet. Sheared sheep graze for 3 days, then move in here."),
+        : el("p", { class: "fm-barn__hint" }, "Nobody yet... (they graze 3 days first)"),
     ),
     el("p", { class: "fm-quip" }, quip),
   ];
@@ -126,9 +118,10 @@ function memoryRow(s: Sheep, st: FarmState, extra: string | null): HTMLElement {
         cat,
         `Sheared ${stardewDate(shearedDate(s), st.foundedAt)}`,
         s.golden ? el("span", { class: "fm-barn__gold" }, " · golden!") : null,
+        originalStamps(s) > 0 ? originalPlanBadge(originalStamps(s), { inline: true }) : null,
       ),
       extra ? el("span", { class: "fm-barn__extra" }, extra) : null,
-      el("span", { class: `fm-barn__memory ${s.memory ? "" : "is-empty"}` }, s.memory ? `“${s.memory}”` : "No memory yet. Tap to write one!"),
+      el("span", { class: `fm-barn__memory ${s.memory ? "" : "is-empty"}` }, s.memory ? `“${s.memory}”` : "No memory yet..."),
       s.pets > 0 ? heartsEl(s.pets) : null,
     ),
   );
@@ -138,7 +131,7 @@ function memoryRow(s: Sheep, st: FarmState, extra: string | null): HTMLElement {
 export function openMemory(id: string): void {
   const start = store.sheep(id);
   if (!start) {
-    toast("That sheep wandered off somewhere...");
+    toast("That sheep wandered off...");
     return;
   }
   const body = el("div", { class: "fm-mem fm-menu" });
@@ -159,7 +152,7 @@ export function openMemory(id: string): void {
           if (!s || s.shearedAt === null) return;
           const w = s.golden ? 2 : 1;
           const ok = await confirmDialog(
-            `Un-shear “${s.name}”? Its wool grows back, it becomes a plan again, and ${w} wool leaves the chest.`,
+            `Un-shear “${s.name}”? It's a plan again, and ${plural(w, "wool", "wool")} leaves the chest.`,
             { yes: "Let it out", no: "Keep it", danger: true },
           );
           if (!ok) return false;
@@ -175,8 +168,8 @@ export function openMemory(id: string): void {
           const s = current();
           if (!s) return;
           const text = await promptDialog({
-            title: "A little memory",
-            label: `What happened at “${s.name}”? What was the best part?`,
+            title: "A little memory...",
+            label: "What was the best part?",
             value: s.memory,
             placeholder: "We got lost, found a bakery, best day ever...",
             multiline: true,
@@ -205,7 +198,7 @@ export function openMemory(id: string): void {
     const st = store.state;
     const s = current();
     if (!st || !s) {
-      body.replaceChildren(el("p", { class: "sv-say" }, "This sheep wandered off somewhere... (it's not on the farm anymore)."));
+      body.replaceChildren(el("p", { class: "sv-say" }, "This sheep wandered off..."));
       showButtons(false);
       return;
     }
@@ -216,7 +209,7 @@ export function openMemory(id: string): void {
           "div",
           { class: "fm-empty" },
           sheepPortrait(s, { scale: 2 }),
-          el("p", { class: "sv-say" }, `${s.name} is woolly again and back out grazing. A plan once more!`),
+          el("p", { class: "sv-say" }, "Woolly again... back out grazing!"),
         ),
       );
       showButtons(false);
@@ -240,12 +233,19 @@ function memoryPage(s: Sheep, st: FarmState): (HTMLElement | null)[] {
   const real = `${DOW[sheared.getDay()]}, ${monthName(sheared.getMonth())} ${sheared.getDate()}, ${sheared.getFullYear()}`;
   const ago = relativeDays(daysBetween(farmNow(), sheared));
   const link = /^https?:\/\//i.test(s.link) ? s.link : "";
+  // Same rule as the sheep card: stamped while it's on its ORIGINAL PLAN.
+  const stamps = originalStamps(s);
 
   return [
     el(
       "div",
       { class: "fm-mem__top" },
-      el("div", { class: "fm-mem__pic" }, sheepPortrait(s, { scale: 2 })),
+      el(
+        "div",
+        { class: "fm-mem__pic" },
+        sheepPortrait(s, { scale: 2 }),
+        stamps > 0 ? originalPlanBadge(stamps) : null,
+      ),
       el(
         "div",
         { class: "fm-mem__facts" },
@@ -256,11 +256,11 @@ function memoryPage(s: Sheep, st: FarmState): (HTMLElement | null)[] {
         planned ? el("p", { class: "fm-mem__real" }, `Planned for ${stardewDate(planned, st.foundedAt)}`) : null,
       ),
     ),
-    resting ? el("p", { class: "fm-mem__resting" }, `Grazing in the pasture for ${plural(left, "more day")}, then it moves into the barn.`) : null,
+    resting ? el("p", { class: "fm-mem__resting" }, `Grazing ${plural(left, "more day")}, then into the barn.`) : null,
     el("h3", null, "Memory"),
     s.memory
       ? el("blockquote", { class: "fm-mem__memory" }, s.memory)
-      : el("p", { class: "fm-mem__memory is-empty" }, "No memory yet. What was the best part?"),
+      : el("p", { class: "fm-mem__memory is-empty" }, "No memory yet..."),
     s.notes ? el("h3", null, "Notes") : null,
     s.notes ? el("p", { class: "fm-mem__notes" }, s.notes) : null,
     link
@@ -270,7 +270,7 @@ function memoryPage(s: Sheep, st: FarmState): (HTMLElement | null)[] {
       ? el(
           "button",
           { type: "button", class: "fm-mem__cal", on: { click: () => openMenu("calendar", s.date) } },
-          "See it on the calendar ›",
+          "On the calendar ›",
         )
       : null,
   ];

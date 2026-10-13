@@ -1,8 +1,10 @@
 // The farm's wildlife. Art is plain data in critter-sprites.ts (registered by critter-art.ts) plus
 // real frames from critters.png; each kind of critter has its own file:
 //   critter-fox.ts      Otto the fox & Milo the hedgehog, their stump & blanket (+ the raccoon in the stump)
+//   critter-tag.ts      the little "Otto" / "Milo" name tags that pop up when you tap them
 //   critter-birds.ts    sparrows, blue jays, cardinals, crows, a woodpecker, the night owl
 //   critter-bugs.ts     ladybugs (and a rare golden one), bumblebees and their bee houses, the Bumblesteed
+//                       (each sighting sets localStorage farm.bumblesteed.lastSeen + emits "bumblesteed")
 //   critter-ambient.ts  butterflies, the fence squirrel, the forest bunny, rain frogs
 //   critter-star.ts     the rare shooting star (make a wish!)
 //   critter-place.ts    where critters can stand: grass, fence rails & posts, decorations

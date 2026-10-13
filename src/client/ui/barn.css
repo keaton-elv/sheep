@@ -140,6 +140,7 @@
   gap: 12px;
 }
 .fm-mem__pic {
+  position: relative;
   flex: none;
   display: grid;
   place-items: center;
@@ -149,6 +150,14 @@
   border-color: transparent;
   border-image: var(--img-slot) 5 fill / calc(var(--fm-px) * 4) stretch;
   image-rendering: pixelated;
+}
+/* ORIGINAL PLAN, stamped right onto the photo (the sheep card's badge, minus the slam:
+   this page redraws on every farm update). */
+.fm-mem__pic .st-badge {
+  position: absolute;
+  right: -8px;
+  bottom: -6px;
+  animation: none;
 }
 .fm-mem__facts {
   flex: 1;

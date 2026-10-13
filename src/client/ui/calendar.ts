@@ -19,10 +19,10 @@ const MAX_HEADS = 2;
 const UPCOMING = 5;
 
 const QUIET_DAY = [
-  "Nothing planned yet. The sheep are suspiciously free.",
-  "A wide open day. Perfect for an adventure... or a nap.",
-  "No plans! The ranch has a sheep for every occasion.",
-  "Free as a sheep in springtime.",
+  "Nothing planned... the sheep are suspiciously free.",
+  "Wide open. Perfect for an adventure... or a nap.",
+  "Free as a sheep in springtime...",
+  "Zzz...",
 ];
 
 export function initCalendar(): void {
@@ -177,7 +177,7 @@ function openCalendar(focus?: string): void {
       grid,
       isThisMonth
         ? null
-        : el("button", { type: "button", class: "fm-cal__today", on: { click: () => jumpTo(todayKey) } }, "Back to today"),
+        : el("button", { type: "button", class: "fm-cal__today", on: { click: () => jumpTo(todayKey) } }, "Today"),
     );
     addSwipe(sheet, go);
     return sheet;
@@ -187,7 +187,7 @@ function openCalendar(focus?: string): void {
 
   function dayPanel(state: FarmState | null, byDay: Map<string, Sheep[]>): HTMLElement {
     if (!selected) {
-      return el("div", { class: "fm-note fm-cal__day is-hint" }, el("p", null, "Tap a day to see what's planned."));
+      return el("div", { class: "fm-note fm-cal__day is-hint" }, el("p", null, "Tap a day..."));
     }
     const date = parseDayKey(selected);
     if (!date) return el("div");
@@ -201,7 +201,7 @@ function openCalendar(focus?: string): void {
     for (const p of plans) list.appendChild(el("li", null, planRow(p, null)));
 
     let quip = QUIET_DAY[(date.getDate() + date.getMonth()) % QUIET_DAY.length]!;
-    if (date.getDay() === 3) quip = "Midweek and wide open. Perfect excuse for a little date?";
+    if (date.getDay() === 3) quip = "Midweek and wide open... date night?";
     if (rel < 0) quip = "Nothing happened here... or nobody wrote it down.";
 
     return el(
@@ -212,7 +212,7 @@ function openCalendar(focus?: string): void {
       fest
         ? el("p", { class: "fm-cal__fest" }, festIcon(fest, false), el("span", null, el("b", null, fest.name), " ", fest.note))
         : null,
-      plans.length ? list : el("p", { class: "fm-cal__quiet" }, state ? quip : "The billboard is still being pinned up..."),
+      plans.length ? list : el("p", { class: "fm-cal__quiet" }, state ? quip : "Pinning it up..."),
       state
         ? el(
             "button",
@@ -222,7 +222,7 @@ function openCalendar(focus?: string): void {
               on: { click: () => openMenu("ranch", { date: key }) },
             },
             sheepHead(false),
-            el("span", null, plans.length ? "Plan another thing this day" : "Plan something on this day"),
+            el("span", null, plans.length ? "Plan another" : "Plan something"),
           )
         : null,
     );
@@ -251,34 +251,32 @@ function openCalendar(focus?: string): void {
       }
       note.appendChild(ul);
     } else {
-      note.appendChild(el("p", { class: "fm-cal__quiet" }, "Nothing dated yet. Give a sheep a day and it shows up here."));
+      note.appendChild(el("p", { class: "fm-cal__quiet" }, "Nothing dated yet..."));
     }
 
     if (overdue.length) {
       note.appendChild(
         disclosure(
-          `${plural(overdue.length, "plan")} slipped past ${overdue.length === 1 ? "its" : "their"} date`,
+          `${plural(overdue.length, "plan")} slipped by...`,
           showOverdue,
           (v) => {
             showOverdue = v;
             render();
           },
           overdue.map((x) => planRow(x.s, el("span", { class: "fm-chip is-late" }, relativeDays(x.rel)), true)),
-          "Still woolly! Shear them if you did it, or pick a new day.",
         ),
       );
     }
     if (undated.length) {
       note.appendChild(
         disclosure(
-          `${plural(undated.length, "sheep", "sheep")} without a date`,
+          `Someday... (${undated.length})`,
           showUndated,
           (v) => {
             showUndated = v;
             render();
           },
           undated.map((s) => planRow(s, null)),
-          "Pick a day on a sheep's card and it'll appear on the calendar.",
         ),
       );
     }
@@ -307,7 +305,7 @@ function openCalendar(focus?: string): void {
     );
   }
 
-  function disclosure(label: string, open: boolean, set: (v: boolean) => void, rows: HTMLElement[], hint: string): HTMLElement {
+  function disclosure(label: string, open: boolean, set: (v: boolean) => void, rows: HTMLElement[]): HTMLElement {
     const id = `fm-disc-${Math.random().toString(36).slice(2, 8)}`;
     return el(
       "div",
@@ -318,9 +316,7 @@ function openCalendar(focus?: string): void {
         el("span", { class: "fm-disc__caret", "aria-hidden": "true" }, open ? "▾" : "▸"),
         el("span", null, label),
       ),
-      open
-        ? el("div", { id }, el("ul", { class: "fm-cal__plans" }, ...rows.map((r) => el("li", null, r))), el("p", { class: "fm-cal__hint" }, hint))
-        : null,
+      open ? el("div", { id }, el("ul", { class: "fm-cal__plans" }, ...rows.map((r) => el("li", null, r)))) : null,
     );
   }
 

@@ -1,7 +1,8 @@
 // The real Stardew day/time box in the top-right: the date, the sun/moon dial and its hand, the
 // weather + season icons, the time in 10-minute ticks, and the money box underneath repurposed as
 // the WOOL counter (with Stardew's rolling digits).
-// Tap the clock for a little stats card + TV weather report; tap the wool for the chest.
+// Tap the clock for the farm report (date, weather, a few numbers, one line from the TV); tap the
+// wool for the chest.
 //
 // The box is painted on a canvas at the farm's device-pixel scale, so the dial hand can rotate
 // smoothly (like the game draws it at 4x) while everything else stays crisp pixel art.
@@ -12,7 +13,7 @@ import type { Season } from "../../shared/calendar";
 import type { FarmState, WeatherKind } from "../../shared/types";
 import type { Game } from "../engine/game";
 import { draw as drawSprite, has, spriteCanvas } from "../engine/sprites";
-import { barnSheep, isLamb, store } from "../net";
+import { store } from "../net";
 import { festivalOn } from "./calendar-festivals";
 import { el, openMenu, relativeDays, spriteIcon, uiRoot } from "./dom";
 import { CLOCK, registerHudArt } from "./hud-art";
@@ -37,72 +38,50 @@ const WEATHER_NAMES: Record<WeatherKind, string> = {
   windy: "Windy",
 };
 
+// The TV's weather channel: one of these sometimes stands in for the trivia line.
 const WEATHER_REPORT: Record<WeatherKind, string[]> = {
-  sunny: ["Clear skies and sunshine. Perfect sheep-napping weather.", "Sunny all day! Great weather for an adventure."],
-  cloudy: ["A bit cloudy, but the sheep don't mind one bit.", "Grey skies. Cozy-blanket weather."],
-  rain: ["Rain today! No need to water the crops.", "Rainy... the sheep are huddled up and smell like wet wool."],
-  storm: ["Thunderstorms! Stay cozy, and maybe put up a lightning rod.", "Stormy! The sheep are hiding in the barn."],
-  snow: ["Snow! Bundle up, farmers.", "It's snowing! Perfect for hot cocoa and planning a trip."],
-  fog: ["Foggy out there. Spooky! Keep a lantern handy.", "Thick fog. Even the crows got lost."],
+  sunny: ["Clear skies. Perfect sheep-napping weather...", "Sunny all day! Adventure weather."],
+  cloudy: ["A bit cloudy. The sheep don't mind.", "Grey skies. Cozy-blanket weather..."],
+  rain: ["Rain today! No need to water the crops.", "Rainy... the sheep smell like wet wool."],
+  storm: ["Thunderstorms! Maybe put up a lightning rod.", "Stormy... the sheep are huddled up."],
+  snow: ["Snow! Bundle up, farmers.", "Snowing... hot cocoa and trip-planning weather."],
+  fog: ["Foggy out there. Spooky...", "Thick fog. Even the crows got lost."],
   windy: ["Windy! Leaves (and a bit of fluff) are flying.", "Breezy today. Hold onto your hat!"],
 };
 
+/** "Livin' Off The Land" for sheep people: Stardew references and little jokes. */
 const TRIVIA = [
   "Sheep in the valley cost 8,000g. These ones only cost a good idea.",
-  "A real loom turns 1 wool into 1 cloth. Ours is fussier, but it hums while it works.",
-  "Pet your sheep every day. They notice!",
-  "Every Stardrop you find raises your max energy.",
-  "The Feast of the Winter Star is on Winter 25.",
-  "Spirit's Eve is on Fall 27. Bring a lantern!",
+  "Up past 2am? You'll pass out. Go to bed...",
+  "The Traveling Cart visits on Fridays and Sundays.",
   "The Egg Festival is on Spring 13. Bring a basket.",
   "The Flower Dance is on Spring 24. Ask someone early!",
   "The Luau is on Summer 11. Don't put anything weird in the soup.",
   "The Moonlight Jellies arrive on Summer 28.",
-  "The Stardew Valley Fair is on Fall 16. Go for the star tokens!",
-  "Rainy days are free watering days.",
-  "If you're up past 2am, you'll pass out. Go to bed!",
-  "The Traveling Cart visits on Fridays and Sundays.",
-  "The Stardrop Saloon is the place to be on a Friday night.",
-  "A sheep's wool grows back every few days. So do good ideas.",
+  "The Fair is on Fall 16. Go for the star tokens!",
+  "Spirit's Eve is on Fall 27. Bring a lantern!",
+  "The Feast of the Winter Star is on Winter 25.",
+  "Every Stardrop raises your max energy.",
   "Crows won't land near a scarecrow. Rarecrows are just showing off.",
-  "Bee houses make honey from the flowers nearby. Very busy, very buzzy.",
-  "Ladybugs are lucky. A golden one is luckier.",
+  "Ladybugs are lucky. A golden one is luckier...",
   "Sheep love being talked to. Probably. They haven't said.",
-  "A hat doesn't change a sheep. It just makes it fancier.",
-  "Lambs grow up in a day. Blink and you'll miss it.",
-  "The barn remembers everything you two have done.",
-  "Snickers naps on the barn doorstep most afternoons.",
-  "Fall is the best season for finding mushrooms.",
-  "Winter is for planning. Spring is for doing.",
-  "Shooting stars are rare. Look up on clear nights.",
-  "Fireflies come out on summer nights.",
-  "A cozy night in counts as an adventure.",
-  "The Flock list finds any sheep in a snap.",
-  "Legend says a tiny knight rides a bumblebee over the pasture. Keep an eye out.",
+  "Lambs grow up in a day. Blink and you'll miss it...",
+  "Shooting stars are rare. Look up on clear nights...",
+  "Snickers naps on the barn doorstep most afternoons. Zzz...",
+  "Otto and Milo nap curled up together. Zzz...",
+  "Legend says a tiny knight rides a bumblebee over the pasture...",
   "Plans change. The ORIGINAL PLAN usually wins.",
+  "Baa...",
 ];
 
 const SEASON_NAMES: Record<Season, string> = { spring: "Spring", summer: "Summer", fall: "Fall", winter: "Winter" };
 
 let lastTrivia = -1;
 
-// ORIGINAL PLAN: how many times a plan was renamed and then changed back. The module that owns the
-// stamp tells the HUD how to count them; until then, a farm-level `originalPlans` number is used
-// if the state has one.
-let originalPlanCounter: ((s: FarmState) => number) | null = null;
-
-/** Let the ORIGINAL PLAN feature tell the clock popover how many times it has happened. */
-export function setOriginalPlanCounter(count: (s: FarmState) => number): void {
-  originalPlanCounter = count;
-}
-
+/** ORIGINAL PLAN: how many times any plan was renamed and then changed back. */
 function originalPlans(s: FarmState): number {
-  try {
-    const n = originalPlanCounter ? originalPlanCounter(s) : (s as FarmState & { originalPlans?: unknown }).originalPlans;
-    return typeof n === "number" && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
-  } catch {
-    return 0;
-  }
+  const n = s.originalPlans;
+  return typeof n === "number" && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
 }
 
 type Special = "festival" | "wedding" | null;
@@ -362,7 +341,7 @@ export function initHud(g: Game): void {
     if (dirty) {
       const weather = WEATHER_NAMES[env.weather] ?? capitalize(env.weather);
       const festival = special.name ? ` ${special.name} today!` : "";
-      face.setAttribute("aria-label", `${clockDateLabel(now)}, ${timeEl.textContent}. ${weather}, ${SEASON_NAMES[env.season]}.${festival} Tap for the farm report.`);
+      face.setAttribute("aria-label", `${clockDateLabel(now)}, ${timeEl.textContent}. ${weather}, ${SEASON_NAMES[env.season]}.${festival} Farm report`);
       if (!animating()) paint();
     }
   };
@@ -500,15 +479,24 @@ function temperature(c: number): string {
   return useFahrenheit() ? `${Math.round((c * 9) / 5 + 32)}°F` : `${Math.round(c)}°C`;
 }
 
-function statRow(label: string, value: string | number, icon?: string): HTMLElement {
+function stat(icon: string, label: string, value: string | number): HTMLElement {
   return el(
     "li",
     { class: "hud-report__stat" },
-    el("span", { class: "hud-report__staticon" }, icon ? spriteIcon(icon) : null),
+    el("span", { class: "hud-report__staticon" }, spriteIcon(icon)),
     el("span", { class: "hud-report__label" }, label),
     el("span", { class: "hud-report__dots", "aria-hidden": "true" }),
     el("b", { class: "hud-report__value" }, String(value)),
   );
+}
+
+/** One line from the TV: usually a tip or a joke, sometimes today's weather channel. */
+function tvLine(kind: WeatherKind): string {
+  if (Math.random() < 0.3) return weatherLine(kind);
+  let i = Math.floor(Math.random() * TRIVIA.length);
+  if (i === lastTrivia) i = (i + 1) % TRIVIA.length;
+  lastTrivia = i;
+  return TRIVIA[i]!;
 }
 
 function buildReport(g: Game): HTMLElement {
@@ -519,84 +507,64 @@ function buildReport(g: Game): HTMLElement {
   const w = store.weather;
   const sp = specialDay(now, s);
 
-  // TV weather report
-  const where = w?.city ? `in ${w.city}` : "on the farm";
-  const temp = w?.tempC != null ? `, ${temperature(w.tempC)}` : "";
-  const lines = WEATHER_REPORT[kind] ?? WEATHER_REPORT.sunny;
-  const name = WEATHER_NAMES[kind] ?? capitalize(kind);
-  const report = el(
-    "section",
-    { class: "hud-report__tv" },
-    spriteIcon("ui.icon.tv", { scale: 2, class: "hud-report__tvicon" }),
-    el(
-      "div",
-      null,
-      el("div", { class: "hud-report__kicker" }, "Weather Report"),
-      el("div", { class: "hud-report__weather" }, spriteIcon(weatherIconKey(kind, env.season, null)), ` ${name} ${where}${temp}`),
-      el("p", { class: "hud-report__say" }, lines[Math.floor(Math.random() * lines.length)]!),
-    ),
-  );
-
   const today = el(
     "div",
     { class: "hud-report__date" },
     spriteIcon(`ui.season.${env.season}`),
     ` ${s ? stardewDate(now, s.foundedAt) : `${capitalize(env.season)} ${now.getDate()}`}`,
   );
-  const festival = sp.name && sp.kind ? el("div", { class: "hud-report__festival" }, spriteIcon(`ui.weather.${sp.kind}`), ` ${sp.name} today!`) : null;
+  const festival = sp.name && sp.kind ? el("div", { class: "hud-report__festival" }, spriteIcon(`ui.weather.${sp.kind}`), ` ${sp.name}!`) : null;
+  const temp = w?.tempC != null ? `, ${temperature(w.tempC)}` : "";
+  const weather = el(
+    "div",
+    { class: "hud-report__weather" },
+    spriteIcon(weatherIconKey(kind, env.season, null)),
+    ` ${WEATHER_NAMES[kind] ?? capitalize(kind)}${temp}`,
+    w?.city ? el("span", { class: "hud-report__city" }, ` · ${w.city}`) : null,
+  );
 
   let stats: HTMLElement;
+  let stamp: HTMLElement | null = null;
+  let next: HTMLElement | null = null;
   if (s) {
-    const waiting = s.sheep.filter((x) => x.shearedAt === null);
-    const done = s.sheep.length - waiting.length;
+    const waiting = s.sheep.filter((x) => x.shearedAt === null).length;
     const halves = s.sheep.reduce((sum, x) => sum + x.pets, 0);
-    const lambs = waiting.filter((x) => isLamb(x)).length;
-    const hats = waiting.filter((x) => x.hat !== null && x.hat !== undefined).length;
+    const golden = s.sheep.filter((x) => x.golden).length;
     stats = el(
       "ul",
       { class: "hud-report__stats" },
-      statRow("Plans waiting", waiting.length, "ui.tool.plus-sheep"),
-      statRow("Adventures done", done, iconKey("ui.tb.shears")),
-      statRow("Memories in the barn", barnSheep(s).length, "ui.icon.barn"),
-      statRow("Wool in the chest", s.wool, woolKey()),
-      statRow("Cloth", s.cloth, clothKey()),
-      statRow("Hearts given", fmtHearts(halves), "ui.heart.full"),
+      // (Wool isn't here: the counter right under the clock already shows it.)
+      stat("ui.tool.plus-sheep", "Plans", waiting),
+      stat(iconKey("ui.tb.shears"), "Done", s.sheep.length - waiting),
+      stat(clothKey(), "Cloth", s.cloth),
+      stat("ui.heart.full", "Hearts", fmtHearts(halves)),
+      golden ? stat("ui.star", "Golden", golden) : null,
     );
-    if (lambs) stats.appendChild(statRow(lambs === 1 ? "Brand-new lamb" : "Brand-new lambs", lambs, iconKey("ui.icon.flock")));
-    if (hats) stats.appendChild(statRow(hats === 1 ? "Sheep in a hat" : "Sheep in hats", hats, iconKey("ui.icon.hat")));
-    const golden = s.sheep.filter((x) => x.golden).length;
-    if (golden) stats.appendChild(statRow(golden === 1 ? "Golden sheep (lucky!)" : "Golden sheep (so lucky!)", golden, "ui.star"));
-    const stamps = originalPlans(s);
-    if (stamps) {
-      stats.appendChild(
-        el(
-          "li",
-          { class: "hud-report__stat hud-report__stamp", "aria-label": `Back to the ORIGINAL PLAN: ${stamps} ${stamps === 1 ? "time" : "times"}` },
-          el("span", { class: "hud-report__stampmark", "aria-hidden": "true" }, "ORIGINAL PLAN"),
-          el("span", { class: "hud-report__dots", "aria-hidden": "true" }),
-          el("b", { class: "hud-report__value", "aria-hidden": "true" }, `×${stamps}`),
-        ),
+    const n = originalPlans(s);
+    if (n > 0) {
+      stamp = el(
+        "div",
+        { class: "hud-report__stamp", role: "img", "aria-label": `ORIGINAL PLAN, ${n} ${n === 1 ? "time" : "times"}` },
+        el("span", { "aria-hidden": "true" }, "ORIGINAL PLAN"),
+        el("b", { "aria-hidden": "true" }, `×${n}`),
       );
     }
-    const next = nextPlan(s, now);
-    if (next) stats.appendChild(el("li", { class: "hud-report__next" }, "Next up: ", el("b", null, next.name), ` (${next.when})`));
+    const np = nextPlan(s, now);
+    if (np) next = el("p", { class: "hud-report__next" }, "Next: ", el("b", null, np.name), ` (${np.when})`);
   } else {
-    stats = el("p", { class: "hud-report__say" }, "The farm ledger is still loading...");
+    stats = el("p", { class: "hud-report__say" }, "Counting sheep...");
   }
 
-  let i = Math.floor(Math.random() * TRIVIA.length);
-  if (i === lastTrivia) i = (i + 1) % TRIVIA.length;
-  lastTrivia = i;
-  const trivia = el("p", { class: "hud-report__trivia" }, spriteIcon("ui.star"), " ", TRIVIA[i]!);
+  const tv = el("p", { class: "hud-report__tv" }, spriteIcon("ui.icon.tv", { class: "hud-report__tvicon" }), el("span", null, tvLine(kind)));
 
   const live = el(
     "p",
     { class: `hud-report__live ${store.connected ? "is-live" : ""}` },
     el("span", { class: "hud-report__dot", "aria-hidden": "true" }),
-    store.connected ? "Live: you'll see each other's changes" : "Offline for a sec. We'll catch up!",
+    store.connected ? "Live" : "Offline...",
   );
 
-  return el("div", { class: "hud-report__body" }, report, today, festival, stats, trivia, live);
+  return el("div", { class: "hud-report__body" }, today, festival, weather, stats, stamp, next, tv, live);
 }
 
 function nextPlan(s: FarmState, now: Date): { name: string; when: string } | null {

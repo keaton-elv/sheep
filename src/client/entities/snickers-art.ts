@@ -968,3 +968,58 @@ export const POSE_BOUNDS = {
   sleep: { l: -11, t: -16, r: 14, b: 1 },
 } satisfies Record<string, Bounds>;
 export type PoseKind = keyof typeof POSE_BOUNDS;
+
+/** Each pose at rest (no blink, bob or tail flick): what has to fit wherever he settles. */
+export const REST_LAYERS = {
+  front: [
+    ["sitTail", 0, 0],
+    ["sitBody", 0, 0],
+    ["headFront", HEAD_FRONT.dx, HEAD_FRONT.dy],
+  ],
+  side: [
+    ["sideTail", 0, 0],
+    ["sideBody", 0, 0],
+    ["headSide", HEAD_SIDE.dx, HEAD_SIDE.dy],
+  ],
+  loaf: [
+    ["loafBody", 0, 0],
+    ["headFront", HEAD_LOAF.dx, HEAD_LOAF.dy],
+    ["loafTail", 0, 0],
+  ],
+  sleep: [
+    ["sleepBody", 0, 0],
+    ["headSleep", HEAD_SLEEP.dx, HEAD_SLEEP.dy],
+    ["sleepTail", 0, 0],
+  ],
+} satisfies Record<"front" | "side" | "loaf" | "sleep", readonly Layer[]>;
+
+/** One row of a silhouette: `dy` rows from his feet, covering columns l..r (inclusive) of his feet. */
+export interface SilhouetteRow {
+  dy: number;
+  l: number;
+  r: number;
+}
+
+const silhouettes = new Map<readonly Layer[], SilhouetteRow[]>();
+
+/**
+ * The drawn rows of a stack of layers, feet-relative and unflipped (mirrored, a row covers -r..-l).
+ * Built from the real pixels, once per stack.
+ */
+export function silhouette(layers: readonly Layer[]): SilhouetteRow[] {
+  const hit = silhouettes.get(layers);
+  if (hit) return hit;
+  const rows: SilhouetteRow[] = [];
+  for (let fy = 0; fy < FRAME; fy++) {
+    let l = Infinity;
+    let r = -Infinity;
+    for (let fx = 0; fx < FRAME; fx++) {
+      if (!opaqueAt(layers, false, fx, fy)) continue;
+      l = Math.min(l, fx - CENTER_COL);
+      r = Math.max(r, fx - CENTER_COL);
+    }
+    if (r >= l) rows.push({ dy: fy - FEET_ROW, l, r });
+  }
+  silhouettes.set(layers, rows);
+  return rows;
+}

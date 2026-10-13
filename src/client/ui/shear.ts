@@ -16,19 +16,9 @@ export function initShear(): void {
 /** Sheep currently mid-shear on this device (double taps, impatient fingers). */
 const inFlight = new Set<string>();
 
-const MEMORY_PLACEHOLDERS = [
-  "The best part was…",
-  "We laughed so hard when…",
-  "Next time, let's…",
-  "Favorite moment:…",
-  "10/10 would shear again because…",
-];
+const MEMORY_PLACEHOLDERS = ["The best part was...", "We laughed so hard when...", "Next time, let's...", "10/10 would shear again because..."];
 
-const GOLDEN_LINES = [
-  "Golden wool! Two for the chest. Even the stars are jealous.",
-  "Golden wool?! That's going straight into the chest. Twice.",
-  "The wool is... glowing? Two golden bundles for the chest!",
-];
+const GOLDEN_LINES = ["Golden wool! Two for the chest. Even the stars are jealous.", "The wool is... glowing? Two for the chest!"];
 
 /** Run the whole shear flow for one sheep. Exported so other modules can trigger it directly. */
 export async function shearFlow(id: string): Promise<void> {
@@ -44,21 +34,21 @@ export async function shearFlow(id: string): Promise<void> {
 async function runShear(id: string): Promise<void> {
   const s = store.sheep(id);
   if (!s) {
-    toast("That sheep wandered off.");
+    toast("That sheep wandered off...");
     return;
   }
   if (s.shearedAt !== null) {
-    await say(`${s.name} has already been sheared!`);
+    await say(`${s.name} is already sheared!`);
     return;
   }
 
-  const yes = await confirmDialog(`Shear ${s.name}?\n(Only if you two actually did it!)`, { yes: "We did it!", no: "Not yet" });
+  const yes = await confirmDialog(`Shear ${s.name}?\n(Only if you did it!)`, { yes: "We did it!", no: "Not yet" });
   if (!yes) return;
 
   // The other farmer might have sheared it while we were deciding.
   const fresh = store.sheep(id);
   if (!fresh) {
-    toast(`${s.name} wandered off before you got the shears out.`);
+    toast(`${s.name} wandered off before you got the shears out...`);
     return;
   }
   if (fresh.shearedAt !== null) {
@@ -96,8 +86,8 @@ async function runShear(id: string): Promise<void> {
     // Logged out: main.ts is already closing everything and showing the password gate.
     if (err instanceof ApiError && err.status === 401) return;
     if (err instanceof ApiError && err.status === 409) await say(`Looks like ${name} was already sheared! Teamwork.`);
-    else if (err instanceof ApiError && err.status === 404) await say(`Hmm, ${name} isn't on the farm anymore.`);
-    else await say(`Uh oh, the shears got stuck. ${friendlyError(err)}`);
+    else if (err instanceof ApiError && err.status === 404) await say(`Hmm... ${name} wandered off.`);
+    else await say(`Uh oh, the shears got stuck... ${friendlyError(err)}`);
     return;
   }
 
@@ -109,12 +99,12 @@ async function runShear(id: string): Promise<void> {
   }
   const woolNow = store.state?.wool ?? woolBefore + wool;
   if (woolBefore < LOOM_WOOL_COST && woolNow >= LOOM_WOOL_COST) {
-    setTimeout(() => toast(`${LOOM_WOOL_COST} wool! The loom can weave cloth now.`, { icon: "item.cloth", ms: 4200 }), 900);
+    setTimeout(() => toast(`${LOOM_WOOL_COST} wool! Loom time...`, { icon: "item.cloth", ms: 4200 }), 900);
   }
 
   const memory = await promptDialog({
     title: "A little memory?",
-    label: "Write a note for the barn (optional)",
+    label: "For the barn...",
     value: prevMemory,
     placeholder: pick(MEMORY_PLACEHOLDERS),
     multiline: true,
@@ -131,6 +121,6 @@ async function runShear(id: string): Promise<void> {
     }
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return;
-    await say(`The memory didn't stick: ${friendlyError(err)} You can add it later from ${name}'s card.`);
+    await say(`The memory didn't stick... ${friendlyError(err)}`);
   }
 }

@@ -73,7 +73,7 @@ function openLoom(): void {
     run(async () => {
       await api.loomCollect();
       sfx("pop");
-      toast("Cloth", { icon: "item.cloth" });
+      toast("Cloth!", { icon: "item.cloth" });
     });
 
   function render(): void {
@@ -81,7 +81,7 @@ function openLoom(): void {
     fill = countdown = bar = null;
     if (!st) {
       lastPhase = "";
-      root.replaceChildren(el("p", { class: "sv-say" }, "The loom is still warming up..."));
+      root.replaceChildren(el("p", { class: "sv-say" }, "Warming up..."));
       return;
     }
     const phase = phaseOf(st);
@@ -95,13 +95,13 @@ function openLoom(): void {
     );
 
     const status = el("div", { class: "fm-loom__status" });
-    const woolLine = el("p", { class: "fm-count" }, spriteIcon("item.wool"), `You have ${plural(st.wool, "wool", "wool")}`);
+    const woolLine = el("p", { class: "fm-count", role: "img", "aria-label": `You have ${plural(st.wool, "wool", "wool")}` }, spriteIcon("item.wool"), `× ${st.wool}`);
 
     if (phase === "idle") {
       const enough = st.wool >= LOOM_WOOL_COST;
       const need = LOOM_WOOL_COST - st.wool;
       status.append(
-        el("h3", null, "The loom is empty."),
+        el("h3", null, "Empty..."),
         woolLine,
         el(
           "button",
@@ -110,8 +110,8 @@ function openLoom(): void {
           el("span", null, `Put in ${LOOM_WOOL_COST} wool`),
         ),
         enough
-          ? el("p", { class: "fm-loom__hint" }, "Takes 4 farm hours (about 3 real minutes).")
-          : el("p", { class: "fm-loom__hint" }, `Needs ${plural(need, "more wool", "more wool")}. Go shear ${need === 1 ? "a sheep" : "some sheep"}!`),
+          ? el("p", { class: "fm-loom__hint" }, "4 farm hours (about 3 minutes)")
+          : el("p", { class: "fm-loom__hint" }, `Needs ${plural(need, "more wool", "more wool")}...`),
       );
     } else if (phase === "working") {
       fill = el("div", { class: "fm-loom__fill" });
@@ -126,12 +126,12 @@ function openLoom(): void {
       tick();
     } else {
       status.append(
-        el("h3", null, "Your cloth is ready!"),
+        el("h3", null, "Cloth's ready!"),
         el(
           "button",
           { type: "button", class: "sv-btn sv-btn--primary fm-loom__collect", disabled: busy, on: { click: collect } },
           spriteIcon("item.cloth"),
-          el("span", null, "Collect cloth"),
+          el("span", null, "Collect"),
         ),
         woolLine,
       );
@@ -140,9 +140,9 @@ function openLoom(): void {
     const footer = el(
       "div",
       { class: "fm-loom__footer" },
-      el("span", { class: "fm-count" }, spriteIcon("item.cloth"), plural(st.cloth, "cloth", "cloth"), " in the chest"),
+      el("span", { class: "fm-count", role: "img", "aria-label": `${plural(st.cloth, "cloth", "cloth")} in the chest` }, spriteIcon("item.cloth"), `× ${st.cloth}`),
       st.cloth > 0
-        ? el("button", { type: "button", class: "sv-btn", on: { click: () => openMenu("shop") } }, el("span", null, "Carpenter's shop ›"))
+        ? el("button", { type: "button", class: "sv-btn", on: { click: () => openMenu("shop") } }, el("span", null, "Shop ›"))
         : null,
     );
 
@@ -197,7 +197,7 @@ function openChest(): void {
     body: root,
     buttons: [
       { label: "Loom", onClick: () => (openMenu("loom"), false) },
-      { label: "Carpenter's shop", icon: "item.cloth", kind: "primary", onClick: () => (openMenu("shop"), false) },
+      { label: "Shop", icon: "item.cloth", kind: "primary", onClick: () => (openMenu("shop"), false) },
     ],
     onClose: () => off(),
   });
@@ -212,7 +212,7 @@ function openChest(): void {
         icon: "item.wool",
         name: "Wool",
         count: st.wool,
-        desc: `Soft, fluffy, and full of memories. Put ${LOOM_WOOL_COST} in the loom!`,
+        desc: `Soft, fluffy, full of memories... ${LOOM_WOOL_COST} makes a cloth.`,
       });
     }
     if (st.cloth > 0) {
@@ -221,7 +221,7 @@ function openChest(): void {
         icon: "item.cloth",
         name: "Cloth",
         count: st.cloth,
-        desc: "Woven from your adventures. Spend it at the carpenter's shop, or on a fancy hat for a sheep.",
+        desc: "Woven from your adventures. Buys decorations and hats.",
       });
     }
     return list;
@@ -231,16 +231,16 @@ function openChest(): void {
     ? {
         id: "feather",
         icon: "item.feather",
-        name: "Snickers' Feather",
+        name: "Snickers's Feather",
         count: 1,
-        desc: "His very favorite toy. He hid it in here. Do NOT tell him you found it.",
+        desc: "His favorite toy. He hid it in here. Do NOT tell him you found it...",
       }
     : null;
 
   function render(): void {
     const st = store.state;
     if (!st) {
-      root.replaceChildren(el("p", { class: "sv-say" }, "The chest is stuck... (the farm is still loading)"));
+      root.replaceChildren(el("p", { class: "sv-say" }, "Stuck... (still loading)"));
       return;
     }
     const list = items(st);
@@ -280,11 +280,7 @@ function openChest(): void {
       append(
         info,
         has("ui.menu.chest") ? spriteIcon("ui.menu.chest", { class: "fm-chest__pic" }) : null,
-        el(
-          "span",
-          { class: "fm-chest__idle" },
-          list.length ? "Tap something to look at it." : "Empty! Shear a sheep to get wool.",
-        ),
+        list.length ? (has("ui.menu.chest") ? null : el("span", { class: "fm-chest__idle" }, "...")) : el("span", { class: "fm-chest__idle" }, "Empty... shear a sheep!"),
       );
     }
 
@@ -296,7 +292,7 @@ function openChest(): void {
         { class: "fm-chest__lifetime fm-count" },
         spriteIcon("item.wool"),
         `Lifetime wool: ${st.totalWool}`,
-        st.loom ? el("span", { class: "fm-chest__loom" }, phaseOf(st) === "ready" ? " · cloth ready in the loom!" : " · the loom is busy") : null,
+        st.loom ? el("span", { class: "fm-chest__loom" }, phaseOf(st) === "ready" ? " · cloth's ready in the loom!" : " · loom: clack, clack...") : null,
       ),
     );
   }
