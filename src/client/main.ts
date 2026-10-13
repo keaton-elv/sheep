@@ -76,10 +76,13 @@ async function boot(): Promise<void> {
   applySkin();
 
   g.start();
-  document.getElementById("boot")?.classList.add("is-done");
   // Audio unlocks itself on the first tap/click/key (audio.ts listens for the events iOS accepts).
 
-  if (!(await api.me())) await showPasswordGate();
+  // Logged out: the title screen goes up (instantly) under the loading screen before that fades, so
+  // the farm never peeks out first.
+  const gate = (await api.me()) ? null : showPasswordGate({ instant: true });
+  document.getElementById("boot")?.classList.add("is-done");
+  if (gate) await gate;
 
   // Logged out somewhere along the way (password changed?): ask again, then resync.
   // Registered before the first state load so a 401 there brings the gate up too.

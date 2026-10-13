@@ -271,7 +271,8 @@ function farmSeason(): Season {
 }
 
 /** Show the password gate; resolves once the right word has been entered. */
-export function showPasswordGate(): Promise<void> {
+/** `instant`: no fade-in (at boot, the loading screen is still covering the farm and fades off it). */
+export function showPasswordGate(opts: { instant?: boolean } = {}): Promise<void> {
   registerPasswordArt();
   return new Promise<void>((resolve) => {
     const timers: number[] = [];
@@ -564,7 +565,7 @@ export function showPasswordGate(): Promise<void> {
     const main = el("div", { class: "gate-main" }, title, box);
     const gate = el(
       "div",
-      { class: `farm-gate is-${ph}`, role: "dialog", "aria-modal": "true", "aria-labelledby": "farm-title" },
+      { class: `farm-gate is-${ph}${opts.instant ? " is-instant" : ""}`, role: "dialog", "aria-modal": "true", "aria-labelledby": "farm-title" },
       sky,
       main,
     );
