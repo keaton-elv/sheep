@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sheep",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+  "workers_dev": true,
+  // The whole app lives under /sheep so it can share keatonelvins.com with the main site.
+  // Vite builds into dist/client/sheep/, so asset paths line up with the URL paths.
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "run_worker_first": ["/sheep/api/*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "FARM", "class_name": "Farm" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Farm"] }],
+  // Routes run in front of the `site` Worker's custom domain, so only /sheep* comes here.
+  "routes": [
+    { "pattern": "keatonelvins.com/sheep*", "zone_name": "keatonelvins.com" },
+    { "pattern": "www.keatonelvins.com/sheep*", "zone_name": "keatonelvins.com" }
+  ]
+  // Secrets (set with `wrangler secret put`): FARM_PASSWORD, COOKIE_SECRET
+}

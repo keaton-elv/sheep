@@ -1,0 +1,117 @@
+@import "@fontsource/pixelify-sans/400.css";
+@import "@fontsource/pixelify-sans/700.css";
+
+:root {
+  /* CSS px per game pixel; set by the engine on resize so DOM UI matches the farm's pixels. */
+  --px: 2px;
+
+  --ink: #3b2316;
+  --ink-soft: #6b4a33;
+  --ink-shadow: #e3a862;
+  --parchment: #ffd795;
+  --ok-ink: #2f6b1f;
+  --danger: #b3261e;
+  --focus: #ffefb0;
+  --night: #1b1636;
+
+  --img-box: none;
+  --img-button: none;
+  --img-button-hover: none;
+  --img-input: none;
+  --img-slot: none;
+
+  color-scheme: light;
+  font-family: "Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.35;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 720px) {
+  :root {
+    font-size: 19px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #5a8f3c;
+  overscroll-behavior: none;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea,
+[contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+#farm {
+  position: fixed;
+  inset: 0;
+  display: block;
+  image-rendering: pixelated;
+  touch-action: none;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+#ui > * {
+  pointer-events: auto;
+}
+#ui > .sv-toasts {
+  pointer-events: none;
+}
+
+a {
+  color: #2a5db0;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Boot splash while sprites load. */
+#boot {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #5a8f3c;
+  color: #fff7e3;
+  font-size: 1.4em;
+  text-shadow: 2px 2px 0 #2f5320;
+  z-index: 100;
+  transition: opacity 300ms;
+}
+#boot.is-done {
+  opacity: 0;
+  pointer-events: none;
+}
