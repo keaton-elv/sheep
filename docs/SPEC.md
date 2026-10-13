@@ -23,7 +23,7 @@ and desktop works great too.
 | Shears tool + tap (or "Shear" on the card) | "We did it!" Snip animation, wool pops into the chest, optional memory note |
 | Sheared sheep rests in the pasture 3 days, then walks into the barn | The other person sees it was done, and it then becomes a memory |
 | Barn | Browsable memories of everything you've done |
-| 5 wool → Loom (168 s, i.e. 4 in-game hours) → 1 cloth | Reward currency |
+| 4 wool → Loom (168 s, i.e. 4 in-game hours) → 1 cloth | Reward currency |
 | Cloth → carpenter's shop decorations, placed by tapping the pasture | Decorate the farm together |
 | Billboard calendar | Dated plans by month |
 | Mailbox letters | What happened while you were away |

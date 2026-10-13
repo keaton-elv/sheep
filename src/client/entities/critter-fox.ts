@@ -21,11 +21,12 @@ REGIONS["critter.raccoon2.peek"] ??= { sheet: "raccoons", x: 264, y: 12, w: 16, 
 
 // ---------- layout (corner-local) ----------
 
-const STUMP = { x: 11, y: 14 };
+// The stump sits up and to the left, out of Milo's way (he used to stand right in front of it).
+const STUMP = { x: 7, y: 9 };
 const BLANKET = { x: 24, y: 16 };
 const FOX_HOME = { x: 36, y: 22 };
-const HOG_HOME = { x: 16, y: 27 };
-const HOG_AREA = { x0: 4, x1: 25, y0: 22, y1: 30 };
+const HOG_HOME = { x: 20, y: 27 };
+const HOG_AREA = { x0: 15, x1: 27, y0: 22, y1: 30 };
 /** Where the hedgehog stands to touch noses with the fox (fox lying at home, facing left). */
 const NUZZLE = { x: FOX_HOME.x - 15, y: FOX_HOME.y - 3 };
 /** Where the fox lands its mousing pounce. */

@@ -27,8 +27,8 @@ const fail = (status: number, error: string): Result<never> => ({ ok: false, sta
 
 const DEFAULT_FARM_NAME = "Papa Snickers's Sheep Farm";
 const EVENT_CAP = 50;
-/** Roughly 1 in 20 sheep shows up golden. */
-const GOLDEN_CHANCE = 0.05;
+/** Roughly 1 in 10 sheep shows up golden. */
+const GOLDEN_CHANCE = 0.1;
 
 type SheepRow = {
   id: string;

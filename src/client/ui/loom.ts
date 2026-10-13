@@ -1,4 +1,4 @@
-// The loom (5 wool -> 1 cloth, 4 in-game hours) and the chest (everything you've earned).
+// The loom (LOOM_WOOL_COST wool -> 1 cloth, 4 in-game hours) and the chest (everything you've earned).
 
 import "./loom.css";
 import { sfx } from "../audio";
