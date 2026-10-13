@@ -7,7 +7,7 @@
 // game looks complete with hand-drawn art and upgrades itself as real sheets are added.
 //
 // Key naming: "ui.*" HUD & menus, "emote.*", "item.*", "tool.*", "decor.*", "world.*",
-// "critter.*", "fox.*", "hedgehog.*", "junimo.*", "portrait.*". Animation frames end in ".0", ".1"...
+// "critter.*", "fox.*", "hedgehog.*", "snickers.*". Animation frames end in ".0", ".1"...
 
 export interface Region {
   sheet: string;

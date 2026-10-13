@@ -13,7 +13,7 @@ import { el, openDialog, registerMenu, relativeDays, spriteIcon, toast, typewrit
 import { categoryIcon } from "./marnie-art";
 
 export function initMarnie(): void {
-  registerMenu("marnie", (arg?: { date?: string }) => openBuySheep(arg));
+  registerMenu("ranch", (arg?: { date?: string }) => openBuySheep(arg));
   // arg: a sheep id, or { id, focus: "date" } to jump straight to the date ("No date yet. Pick one?").
   registerMenu("editSheep", (arg?: string | { id: string; focus?: "date" }) => {
     if (typeof arg === "string") openEditSheep(arg);

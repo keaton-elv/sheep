@@ -94,7 +94,7 @@ export function heartsEl(pets: number, opts: { scale?: number } = {}): HTMLEleme
 // ---------- menus registry ----------
 
 export type MenuName =
-  | "marnie" // buy a sheep (new todo). arg: { date?: string }
+  | "ranch" // buy a sheep (new todo). arg: { date?: string }
   | "editSheep" // edit a sheep. arg: sheep id
   | "sheep" // animal info card. arg: sheep id
   | "shear" // shear flow. arg: sheep id
@@ -102,7 +102,7 @@ export type MenuName =
   | "barn"
   | "loom"
   | "chest"
-  | "shop" // Robin's decorations
+  | "shop" // the carpenter's shop (decorations)
   | "decor" // a placed decoration. arg: decoration id
   | "mailbox"
   | "farmSign" // rename the farm

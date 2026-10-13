@@ -219,7 +219,7 @@ function openCalendar(focus?: string): void {
             {
               type: "button",
               class: "sv-btn sv-btn--primary fm-cal__add",
-              on: { click: () => openMenu("marnie", { date: key }) },
+              on: { click: () => openMenu("ranch", { date: key }) },
             },
             sheepHead(false),
             el("span", null, plans.length ? "Plan another thing this day" : "Plan something on this day"),

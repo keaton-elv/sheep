@@ -60,6 +60,10 @@ export interface Sheep {
   seed: number;
   /** Hat id (index into the animal hats sheet), or null for bare-headed. */
   hat: number | null;
+  /** The plan's very first name. Renaming it and then changing it back = ORIGINAL PLAN. */
+  originalName: string;
+  /** How many times this sheep has gone back to its ORIGINAL PLAN. */
+  originalReturns: number;
 }
 
 export const DECOR_KINDS = [
@@ -110,7 +114,17 @@ export interface LoomState {
   readyAt: number;
 }
 
-export type FarmEventKind = "bought" | "sheared" | "unsheared" | "sold" | "loomed" | "decorated" | "renamed" | "hatted";
+export type FarmEventKind =
+  | "bought"
+  | "sheared"
+  | "unsheared"
+  | "sold"
+  | "loomed"
+  | "decorated"
+  | "renamed"
+  | "hatted"
+  /** A plan got renamed back to its original name. */
+  | "original";
 
 /** Things that happened on the farm, shown as letters in the mailbox. */
 export interface FarmEvent {
@@ -130,6 +144,8 @@ export interface FarmState {
   cloth: number;
   /** Lifetime wool ever sheared (for milestones/stardrops). */
   totalWool: number;
+  /** How many times any plan went back to its ORIGINAL PLAN. */
+  originalPlans: number;
   loom: LoomState | null;
   decorations: Decoration[];
   sheep: Sheep[];

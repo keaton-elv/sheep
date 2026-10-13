@@ -45,6 +45,8 @@ type SheepRow = {
   golden: number;
   seed: number;
   hat: number | null;
+  original_name: string | null;
+  original_returns: number | null;
 };
 
 type DecorRow = { id: string; kind: string; fx: number; fy: number; variant: number; created_at: number };
@@ -66,6 +68,8 @@ function toSheep(r: SheepRow): Sheep {
     golden: r.golden === 1,
     seed: r.seed,
     hat: r.hat ?? null,
+    originalName: r.original_name ?? r.name,
+    originalReturns: r.original_returns ?? 0,
   };
 }
 
@@ -135,6 +139,12 @@ export class Farm extends DurableObject<Env> {
     // v2: hats. SQLite has no "ADD COLUMN IF NOT EXISTS", so check the schema first.
     const cols = this.sql.exec<{ name: string }>(`PRAGMA table_info(sheep)`).toArray();
     if (!cols.some((c) => c.name === "hat")) this.sql.exec(`ALTER TABLE sheep ADD COLUMN hat INTEGER`);
+    // v3: ORIGINAL PLAN. Existing sheep's current name becomes their original.
+    if (!cols.some((c) => c.name === "original_name")) {
+      this.sql.exec(`ALTER TABLE sheep ADD COLUMN original_name TEXT`);
+      this.sql.exec(`ALTER TABLE sheep ADD COLUMN original_returns INTEGER NOT NULL DEFAULT 0`);
+      this.sql.exec(`UPDATE sheep SET original_name = name WHERE original_name IS NULL`);
+    }
     this.sql.exec(
       `INSERT OR IGNORE INTO meta (key, value) VALUES ('farm_name', ?), ('founded_at', ?), ('wool', '0'), ('cloth', '0'), ('total_wool', '0')`,
       DEFAULT_FARM_NAME,
@@ -207,6 +217,7 @@ export class Farm extends DurableObject<Env> {
       wool: this.getNum("wool"),
       cloth: this.getNum("cloth"),
       totalWool: this.getNum("total_wool"),
+      originalPlans: this.getNum("original_plans"),
       loom: loomStarted && loomReady ? { startedAt: Number(loomStarted), readyAt: Number(loomReady) } : null,
       decorations: this.sql.exec<DecorRow>(`SELECT * FROM decorations ORDER BY created_at`).toArray().map(toDecor),
       sheep: this.sql.exec<SheepRow>(`SELECT * FROM sheep ORDER BY created_at`).toArray().map(toSheep),
@@ -229,8 +240,8 @@ export class Farm extends DurableObject<Env> {
     const golden = Math.random() < GOLDEN_CHANCE ? 1 : 0;
     const row = this.sql
       .exec<SheepRow>(
-        `INSERT INTO sheep (id, name, notes, link, category, date, created_at, seed, golden)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+        `INSERT INTO sheep (id, name, notes, link, category, date, created_at, seed, golden, original_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
         id,
         input.name,
         input.notes,
@@ -240,6 +251,7 @@ export class Farm extends DurableObject<Env> {
         Date.now(),
         seed,
         golden,
+        input.name,
       )
       .one();
     const sheep = toSheep(row);
@@ -251,17 +263,22 @@ export class Farm extends DurableObject<Env> {
     const existing = this.findSheep(id);
     if (!existing) return fail(404, "That sheep wandered off.");
     const next = { ...existing, ...patch };
+    // ORIGINAL PLAN: renamed away at some point, and now renamed right back.
+    const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+    const backToOriginal = !same(existing.name, existing.originalName) && same(next.name, existing.originalName);
     this.sql.exec(
-      `UPDATE sheep SET name = ?, notes = ?, link = ?, category = ?, date = ?, memory = ? WHERE id = ?`,
+      `UPDATE sheep SET name = ?, notes = ?, link = ?, category = ?, date = ?, memory = ?, original_returns = original_returns + ? WHERE id = ?`,
       next.name,
       next.notes,
       next.link,
       next.category,
       next.date,
       next.memory,
+      backToOriginal ? 1 : 0,
       id,
     );
-    this.changed(null, origin);
+    if (backToOriginal) this.setMeta("original_plans", this.getNum("original_plans") + 1);
+    this.changed(backToOriginal ? this.logEvent("original", next.name, id) : null, origin);
     return ok(this.findSheep(id)!);
   }
 

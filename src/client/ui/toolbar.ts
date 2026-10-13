@@ -38,7 +38,7 @@ interface SlotDef {
 const SLOTS: SlotDef[] = [
   { id: "hand", icon: "tool.hand", name: "Hand", hint: "Pet sheep & peek at their plans", tool: "hand" },
   { id: "shears", icon: "ui.tb.shears", name: "Shears", hint: "Done a plan? Shear its sheep!", tool: "shears" },
-  { id: "new", icon: "ui.tool.plus-sheep", name: "New plan", hint: "Buy a sheep at the ranch", menu: "marnie" },
+  { id: "new", icon: "ui.tool.plus-sheep", name: "New plan", hint: "Buy a sheep at the ranch", menu: "ranch" },
   { id: "flock", icon: "ui.icon.flock", name: "Flock", hint: "Every sheep in a list. Find one fast", menu: "flock" },
   { id: "calendar", icon: "ui.icon.calendar", name: "Calendar", hint: "Plans with a date", menu: "calendar" },
   { id: "barn", icon: "ui.icon.barn", name: "Barn", hint: "Memories of things you did", menu: "barn" },

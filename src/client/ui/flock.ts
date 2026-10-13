@@ -167,7 +167,7 @@ function openFlock(): void {
         icon: "ui.sheep",
         onClick: (d) => {
           d.close();
-          openMenu("marnie");
+          openMenu("ranch");
         },
       },
     ],

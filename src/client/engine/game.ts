@@ -138,7 +138,8 @@ export class Game {
       const el = document.createElement("div");
       el.style.cssText =
         "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
-        "padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)";
+        "padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);" +
+        "padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)";
       document.body.appendChild(el);
       return el;
     })());
@@ -147,6 +148,8 @@ export class Game {
     return {
       top: (parseFloat(cs.paddingTop) || 0) / this.cssScale,
       bottom: (parseFloat(cs.paddingBottom) || 0) / this.cssScale,
+      left: (parseFloat(cs.paddingLeft) || 0) / this.cssScale,
+      right: (parseFloat(cs.paddingRight) || 0) / this.cssScale,
       toolbarH: toolbarCss ? toolbarCss / this.cssScale : HUD_TOOLBAR_H,
     };
   }
