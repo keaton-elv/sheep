@@ -46,7 +46,7 @@ const ENTRIES: Entry[] = [
   {
     icons: [sprite("ui.icon.chest"), sprite("item.forage.acorn", 1, "ui.icon.chest")],
     title: "Forage.",
-    text: "Tap to pick it up. Shake a tree, then grab what falls. It all goes in the chest. Fill a bundle, get cloth.",
+    text: "Shake a tree, then grab what falls. It all goes in the chest. Fill a bundle, get cloth.",
   },
   { icons: [sprite("ui.icon.calendar"), sprite("ui.icon.mail")], title: "Calendar & mail.", text: "Dated plans. Letters from Snickers, Otto & the sheep." },
   { icons: [sprite("ui.heart.full", 2), sprite("ui.heart.full", 2)], title: "One farm, two farmers.", text: "Everything shows up live." },

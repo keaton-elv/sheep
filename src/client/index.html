@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#5a8f3c" />
     <script>
+      // A fresh farm forgets this device's notes about the old one (read letters, today's pets, the
+      // KitKat clock...) before any of it is read. Settings stay. Bump the epoch with the next reset.
+      (function () {
+        var EPOCH = "2026-10-13";
+        var KEEP = ["farm.epoch", "farm.deviceId", "farm.muted", "farm.music", "farm.labels", "farm.flock.sort"];
+        try {
+          if (localStorage.getItem("farm.epoch") === EPOCH) return;
+          for (var i = localStorage.length - 1; i >= 0; i--) {
+            var k = localStorage.key(i);
+            if (k && k.indexOf("farm.") === 0 && KEEP.indexOf(k) < 0) localStorage.removeItem(k);
+          }
+          localStorage.setItem("farm.epoch", EPOCH);
+        } catch (e) {}
+      })();
+    </script>
+    <script>
       // The season's color from the very first paint (iOS keeps the bar tint it sees first); main.ts keeps it in sync.
       (function () {
         var bg = { spring: "#64a33f", summer: "#4c8c2e", fall: "#cf8f3e", winter: "#d9e6ee" };

@@ -81,7 +81,7 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
 
   if (!(await isAuthed(request, env))) return error(401, "Who goes there?");
 
-  const farm = env.FARM.getByName("farm");
+  const farm = env.FARM.getByName(FARM_NAME);
   const origin = request.headers.get("X-Client-Id")?.slice(0, 64) ?? null;
 
   if (route === "/me" && method === "GET") return json({ ok: true });
@@ -148,6 +148,12 @@ function weatherKind(code: number, windKmh: number): WeatherKind {
 }
 
 /** The farm is in San Francisco (IP geolocation can guess a neighboring city). */
+/**
+ * The one farm everyone shares. A new name is a brand-new, empty farm (the reset before sharing it,
+ * Oct 2026); the old test farm still lives on under "farm", untouched.
+ */
+const FARM_NAME = "papa-snickers-farm";
+
 const FARM_LOCATION = { lat: 37.7749, lon: -122.4194, city: "San Francisco" } as const;
 
 async function weather(_request: Request): Promise<Weather> {
