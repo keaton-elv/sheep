@@ -108,6 +108,23 @@ and desktop works great too.
 - **The Bumblesteed:** a ladybug knight riding a bumblebee. A rare sighting drifts across the pasture,
   and Otto sometimes writes in about spotting one.
 
+## Lore (personal references; use with restraint, as winks)
+
+- **San Francisco:** parks, bakeries (Tartine, Arsicault...), coffee (Blue Bottle, Sightglass, Ritual, Philz),
+  hikes (Muir Woods, Mt. Tam, Point Reyes...), Karl the Fog, Muni & BART, the wild parrots of Telegraph Hill,
+  banana slugs, a light Mayor Daniel Lurie mention, Bay to Breakers, Outside Lands, Fleet Week, Hardly Strictly
+  Bluegrass. Never San Jose.
+- **Washington roots:** Sumner (Rhubarb Pie Capital of the World) and Bonney Lake. Lavender. Coffee.
+- **Snickers:** says "Mow", loves string, Fancy Feast and Whisker Lickins, would eat salmon for every meal; his
+  brother **KitKat** lives in Arizona (sends the occasional postcard).
+- **Couple jokes:** he's secretly a hundred raccoons / a hundred hedgehogs / ten thousand mosquitoes in a trench
+  coat (the Trench Coat easter egg); she goes to sketching meetups all the time; nobody wants to go to karaoke;
+  Wine Wednesday; sometimes Thursday is THURSDAY!!!!!; they always end up on the ORIGINAL PLAN.
+- **ORIGINAL PLAN** covers the plan's name and its date (moving the date away and back counts too).
+- **Chest & bundles:** forage, tree seeds and dug-up artifacts go into the shared chest; Community Center–style
+  bundles (seasonal foraging, tree seeds, treasure) trade one of each item for cloth.
+- **Economy (short sessions):** the loom takes 4 wool; 10% of sheep are golden (2 wool).
+
 ## Mobile & accessibility rules
 
 - Designed for 360–430 px portrait first; desktop landscape gets its own layout.
