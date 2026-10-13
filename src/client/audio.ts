@@ -851,7 +851,8 @@ function requestFile(name: Sfx): Promise<AudioBuffer | null> {
   let p = fileLoad.get(name);
   if (p) return p;
   const known = FILES[name];
-  p = (known ? fetchBuffer(`${BASE}sounds/${known}`) : probe(name)).then((b) => {
+  // Only fetch recordings we know exist (listed in FILES); everything else is synthesized.
+  p = (known ? fetchBuffer(`${BASE}sounds/${known}`) : Promise.resolve(null)).then((b) => {
     fileBuf.set(name, b);
     fileLoad.delete(name);
     return b;

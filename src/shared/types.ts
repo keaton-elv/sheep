@@ -21,6 +21,12 @@ export const RETIRE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 /** Wool needed per loom batch, and how long the loom takes (4 in-game hours = 168 real seconds). */
 export const LOOM_WOOL_COST = 5;
 export const LOOM_DURATION_MS = 168 * 1000;
+/** A newly bought sheep is a lamb for its first day, then grows up. */
+export const LAMB_MS = 24 * 60 * 60 * 1000;
+/** Cloth it costs to put a hat on a sheep (taking a hat off is free). */
+export const HAT_COST = 1;
+/** Hat ids are indexes into the animal hats sheet; the server accepts 0..MAX_HAT_ID. */
+export const MAX_HAT_ID = 255;
 
 export const LIMITS = {
   name: 80,
@@ -52,6 +58,8 @@ export interface Sheep {
   golden: boolean;
   /** Stable random seed (0..2^31) for spawn position, personality, idle quirks. */
   seed: number;
+  /** Hat id (index into the animal hats sheet), or null for bare-headed. */
+  hat: number | null;
 }
 
 export const DECOR_KINDS = [
@@ -102,7 +110,7 @@ export interface LoomState {
   readyAt: number;
 }
 
-export type FarmEventKind = "bought" | "sheared" | "unsheared" | "sold" | "loomed" | "decorated" | "renamed";
+export type FarmEventKind = "bought" | "sheared" | "unsheared" | "sold" | "loomed" | "decorated" | "renamed" | "hatted";
 
 /** Things that happened on the farm, shown as letters in the mailbox. */
 export interface FarmEvent {
@@ -156,7 +164,13 @@ export interface PetResult {
 }
 
 export interface ShearInput {
+  /** Omit to keep the sheep's existing memory. */
   memory?: string;
+}
+
+export interface SetHatInput {
+  /** Hat id, or null to take the hat off. */
+  hat: number | null;
 }
 
 export interface BuyDecorInput {

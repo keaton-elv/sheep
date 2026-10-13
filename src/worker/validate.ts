@@ -3,6 +3,7 @@ import {
   CATEGORIES,
   DECOR_KINDS,
   LIMITS,
+  MAX_HAT_ID,
   type BuyDecorInput,
   type Category,
   type DecorKind,
@@ -95,9 +96,19 @@ export function petInput(body: unknown): PetInput {
   return { deviceId, day: d };
 }
 
-export function memory(body: unknown): string {
-  if (body === null || body === undefined) return "";
-  return str(obj(body).memory, "memory", LIMITS.memory);
+/** Shear payload: undefined memory means "keep the existing one". */
+export function memory(body: unknown): string | undefined {
+  if (body === null || body === undefined) return undefined;
+  const b = obj(body);
+  if (!("memory" in b) || b.memory === undefined || b.memory === null) return undefined;
+  return str(b.memory, "memory", LIMITS.memory);
+}
+
+export function hat(body: unknown): number | null {
+  const v = obj(body).hat;
+  if (v === null || v === undefined) return null;
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v > MAX_HAT_ID) throw new BadInput("That's not a hat we have.");
+  return v;
 }
 
 export function buyDecor(body: unknown): Required<BuyDecorInput> {

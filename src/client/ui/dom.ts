@@ -106,6 +106,7 @@ export type MenuName =
   | "decor" // a placed decoration. arg: decoration id
   | "mailbox"
   | "farmSign" // rename the farm
+  | "flock" // list of every sheep (find one fast on a phone)
   | "help"; // how the farm works
 
 const menus = new Map<MenuName, (arg?: any) => void>();
@@ -170,6 +171,28 @@ export function isDialogOpen(): boolean {
 export function closeAllDialogs(): void {
   while (stack.length) stack[stack.length - 1]!.close();
 }
+
+// Phones: when the on-screen keyboard opens, the *visual* viewport shrinks but fixed elements
+// don't. Mirror the visual viewport into CSS vars so dialogs stay centered in what's visible.
+(() => {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const sync = () => {
+    const root = document.documentElement.style;
+    root.setProperty("--vv-top", `${vv.offsetTop}px`);
+    root.setProperty("--vv-h", `${vv.height}px`);
+  };
+  vv.addEventListener("resize", sync);
+  vv.addEventListener("scroll", sync);
+  sync();
+})();
+
+// Keep the focused field visible inside a scrolling dialog once the keyboard has opened.
+document.addEventListener("focusin", (ev) => {
+  const t = ev.target as HTMLElement | null;
+  if (!t?.matches?.("input, textarea, select") || !t.closest(".sv-dialog")) return;
+  setTimeout(() => t.scrollIntoView({ block: "center", behavior: "smooth" }), 280);
+});
 
 addEventListener("keydown", (ev) => {
   if (ev.key !== "Escape" || !stack.length) return;
@@ -316,6 +339,8 @@ export function typewriter(target: HTMLElement, text: string, opts: { speed?: nu
     };
     target.closest(".sv-dialog")?.addEventListener("pointerdown", finish, { once: true });
     timer = window.setInterval(() => {
+      // Dialog closed mid-sentence: stop typing (and blipping).
+      if (!target.isConnected) return finish();
       i++;
       target.textContent = text.slice(0, i);
       if (!opts.silent && i % 3 === 0 && text[i - 1] !== " ") sfx("blip");

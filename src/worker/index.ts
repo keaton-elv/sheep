@@ -103,7 +103,7 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     return fromResult(await farm.addSheep(v.newSheep(await readJson(request)), origin));
   }
 
-  const sheepMatch = /^\/sheep\/([0-9a-f-]{36})(?:\/(pet|shear|unshear))?$/.exec(route);
+  const sheepMatch = /^\/sheep\/([0-9a-f-]{36})(?:\/(pet|shear|unshear|hat))?$/.exec(route);
   if (sheepMatch) {
     const [, id, action] = sheepMatch as unknown as [string, string, string | undefined];
     if (!action && method === "PATCH") return fromResult(await farm.updateSheep(id, v.sheepPatch(await readJson(request)), origin));
@@ -114,6 +114,7 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     }
     if (action === "shear" && method === "POST") return fromResult(await farm.shear(id, v.memory(await readJson(request)), origin));
     if (action === "unshear" && method === "POST") return fromResult(await farm.unshear(id, origin));
+    if (action === "hat" && method === "POST") return fromResult(await farm.setHat(id, v.hat(await readJson(request)), origin));
   }
 
   if (route === "/loom/start" && method === "POST") return fromResult(await farm.startLoom(origin));

@@ -2,6 +2,7 @@
 
 import { dayKey } from "../shared/calendar";
 import {
+  LAMB_MS,
   RETIRE_AFTER_MS,
   type BuyDecorInput,
   type Decoration,
@@ -103,6 +104,11 @@ export function barnSheep(state = store.state): Sheep[] {
   return state ? state.sheep.filter((s) => isRetired(s)) : [];
 }
 
+/** Still a lamb (bought less than LAMB_MS ago). */
+export function isLamb(s: Sheep, now = serverNow()): boolean {
+  return now - s.createdAt < LAMB_MS;
+}
+
 export function doneSheep(state = store.state): Sheep[] {
   return state ? state.sheep.filter((s) => s.shearedAt !== null) : [];
 }
@@ -190,8 +196,9 @@ export const api = {
     return r;
   },
 
-  async shear(id: string, memory = ""): Promise<FarmState> {
-    const s = await call<FarmState>("POST", `/sheep/${id}/shear`, { memory });
+  /** Omit `memory` to keep whatever memory the sheep already has. */
+  async shear(id: string, memory?: string): Promise<FarmState> {
+    const s = await call<FarmState>("POST", `/sheep/${id}/shear`, memory === undefined ? {} : { memory });
     store.set(s);
     return s;
   },
@@ -199,6 +206,13 @@ export const api = {
   async unshear(id: string): Promise<FarmState> {
     const s = await call<FarmState>("POST", `/sheep/${id}/unshear`);
     store.set(s);
+    return s;
+  },
+
+  /** Put a hat on (costs HAT_COST cloth) or take it off with null (free). */
+  async setHat(id: string, hat: number | null): Promise<Sheep> {
+    const s = await call<Sheep>("POST", `/sheep/${id}/hat`, { hat });
+    await refreshIfOffline();
     return s;
   },
 

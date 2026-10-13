@@ -58,16 +58,36 @@ export interface Layout {
 
 /** Game-pixel sizes the DOM HUD occupies (it scales with --px, so these stay true). */
 export const HUD_CLOCK_SIZE = { w: 76, h: 62 };
+/** Default toolbar height in game px, until the toolbar reports its real size (--toolbar-h). */
 export const HUD_TOOLBAR_H = 30;
 
-export function computeLayout(w: number, h: number): Layout {
+export interface LayoutInsets {
+  /** Safe-area inset at the top (status bar / notch), in game px. */
+  top: number;
+  /** Safe-area inset at the bottom (home indicator), in game px. */
+  bottom: number;
+  /** Real toolbar height in game px (from the toolbar's --toolbar-h). */
+  toolbarH: number;
+}
+
+const NO_INSETS: LayoutInsets = { top: 0, bottom: 0, toolbarH: HUD_TOOLBAR_H };
+
+export function computeLayout(w: number, h: number, insets: LayoutInsets = NO_INSETS): Layout {
   const portrait = w < h * 1.1;
   const m = 6;
-  const barn: Rect = { x: portrait ? 2 : 6, y: 2, w: 112, h: 112 };
-  const barnDoor: Point = { x: barn.x + 56, y: barn.y + barn.h + 2 };
-  const hudClock: Rect = { x: w - HUD_CLOCK_SIZE.w - 2, y: 2, w: HUD_CLOCK_SIZE.w, h: HUD_CLOCK_SIZE.h };
+  const top = Math.round(insets.top);
+  const toolbarH = Math.max(HUD_TOOLBAR_H, Math.round(insets.toolbarH));
+  const barn: Rect = { x: portrait ? 2 : 6, y: 2 + top, w: 112, h: 112 };
+  // The Deluxe Barn's doorway is right of center in the sprite.
+  const barnDoor: Point = { x: barn.x + 80, y: barn.y + barn.h + 2 };
+  const hudClock: Rect = { x: w - HUD_CLOCK_SIZE.w - 2, y: 2 + top, w: HUD_CLOCK_SIZE.w, h: HUD_CLOCK_SIZE.h };
   const toolbarW = Math.min(w - 8, 260);
-  const hudToolbar: Rect = { x: Math.round((w - toolbarW) / 2), y: h - HUD_TOOLBAR_H - 4, w: toolbarW, h: HUD_TOOLBAR_H };
+  const hudToolbar: Rect = {
+    x: Math.round((w - toolbarW) / 2),
+    y: h - toolbarH - Math.round(insets.bottom) - 3,
+    w: toolbarW,
+    h: toolbarH,
+  };
 
   let fence: Rect;
   let loom: Point, chest: Point, mailbox: Point, billboard: Point, sign: Point;
@@ -87,17 +107,17 @@ export function computeLayout(w: number, h: number): Layout {
     sign = { x: barn.x + barn.w + 2, y: fenceTop - 2 };
   } else {
     const colW = barn.x + barn.w + 8;
-    fence = { x: colW, y: m, w: w - colW - m, h: hudToolbar.y - 4 - m };
+    fence = { x: colW, y: m + top, w: w - colW - m, h: hudToolbar.y - 4 - m - top };
     // 2x2 grid of farm objects under the barn.
     const gx0 = barn.x + 28;
     const gx1 = barn.x + 84;
     const gy0 = barn.y + barn.h + 40;
-    const gy1 = Math.min(h - HUD_TOOLBAR_H - 10, gy0 + 44);
+    const gy1 = Math.min(hudToolbar.y - 8, gy0 + 44);
     loom = { x: gx0, y: gy0 };
     chest = { x: gx1, y: gy0 };
     mailbox = { x: gx0, y: gy1 };
     billboard = { x: gx1, y: gy1 };
-    sign = { x: colW - 4, y: barn.y + barn.h + 8 };
+    sign = { x: colW - 4, y: 0 }; // placed below the gate once the gate is known
   }
 
   // The pasture is the fence interior, with room for fence posts and sheep sprites.
@@ -106,7 +126,9 @@ export function computeLayout(w: number, h: number): Layout {
   const gate: Layout["gate"] = portrait
     ? { x: Math.max(fence.x + gateW, barnDoor.x), y: fence.y, w: gateW, side: "top" }
     : { x: fence.x, y: Math.min(fence.y + fence.h - gateW, barnDoor.y), w: gateW, side: "left" };
-  const critterCorner: Rect = { x: pasture.x + pasture.w - 60, y: pasture.y + pasture.h - 34, w: 60, h: 34 };
+  if (!portrait) sign = { x: fence.x - 4, y: gate.y + gate.w / 2 + 22 };
+  // Lifted clear of the bottom fence rail so the fox & hedgehog aren't hidden behind it.
+  const critterCorner: Rect = { x: pasture.x + pasture.w - 60, y: pasture.y + pasture.h - 48, w: 60, h: 34 };
 
   const blocked: Rect[] = [critterCorner, inflate(hudClock, 4), inflate(hudToolbar, 4)];
 

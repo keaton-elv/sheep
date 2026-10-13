@@ -22,7 +22,8 @@ function frame(key: string, size: number, border: number, colors: { inner: strin
         const d = Math.min(x, y, size - 1 - x, size - 1 - y);
         const corner = Math.min(x, size - 1 - x) + Math.min(y, size - 1 - y);
         if (corner < 2) continue; // chamfer
-        const topLeft = x <= y ? x < size / 2 : y < size / 2;
+        // Light on the top/left edges, dark on the bottom/right (whichever edge is nearest).
+        const topLeft = d === x || d === y;
         let c: string;
         if (corner === 2 || d === 0) c = UI.outline;
         else if (d === 1) c = topLeft ? UI.woodLight : UI.woodDark;

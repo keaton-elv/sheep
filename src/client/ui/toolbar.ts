@@ -319,7 +319,12 @@ export function initToolbar(g: Game): void {
     nav.style.height = `calc(var(--px) * ${barH})`;
     const cssW = barW * cs;
     nav.style.left = `${Math.round(((window.innerWidth - cssW) / 2) * dpr) / dpr}px`;
-    rootStyle.setProperty("--toolbar-h", `${Math.round((barH + 4) * cs)}px`);
+    const toolbarH = `${Math.round((barH + 4) * cs)}px`;
+    if (rootStyle.getPropertyValue("--toolbar-h") !== toolbarH) {
+      rootStyle.setProperty("--toolbar-h", toolbarH);
+      // The farm layout reserves room for the toolbar; re-run it with the real height.
+      queueMicrotask(() => g.relayout());
+    }
   };
   layout();
   g.on("resize", layout);

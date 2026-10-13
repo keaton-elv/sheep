@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import {
   DECOR_COST,
+  HAT_COST,
   LOOM_DURATION_MS,
   LOOM_WOOL_COST,
   MAX_PETS,
@@ -43,6 +44,7 @@ type SheepRow = {
   memory: string;
   golden: number;
   seed: number;
+  hat: number | null;
 };
 
 type DecorRow = { id: string; kind: string; fx: number; fy: number; variant: number; created_at: number };
@@ -63,6 +65,7 @@ function toSheep(r: SheepRow): Sheep {
     memory: r.memory,
     golden: r.golden === 1,
     seed: r.seed,
+    hat: r.hat ?? null,
   };
 }
 
@@ -129,6 +132,9 @@ export class Farm extends DurableObject<Env> {
         value TEXT NOT NULL
       );
     `);
+    // v2: hats. SQLite has no "ADD COLUMN IF NOT EXISTS", so check the schema first.
+    const cols = this.sql.exec<{ name: string }>(`PRAGMA table_info(sheep)`).toArray();
+    if (!cols.some((c) => c.name === "hat")) this.sql.exec(`ALTER TABLE sheep ADD COLUMN hat INTEGER`);
     this.sql.exec(
       `INSERT OR IGNORE INTO meta (key, value) VALUES ('farm_name', ?), ('founded_at', ?), ('wool', '0'), ('cloth', '0'), ('total_wool', '0')`,
       DEFAULT_FARM_NAME,
@@ -288,12 +294,13 @@ export class Farm extends DurableObject<Env> {
     return ok({ petted: true, sheep: this.findSheep(id)! });
   }
 
-  async shear(id: string, memory: string, origin: string | null): Promise<Result<FarmState>> {
+  /** `memory` undefined = keep whatever memory the sheep already has. */
+  async shear(id: string, memory: string | undefined, origin: string | null): Promise<Result<FarmState>> {
     const existing = this.findSheep(id);
     if (!existing) return fail(404, "That sheep wandered off.");
     if (existing.shearedAt !== null) return fail(409, "Already sheared! Its wool needs time to grow back.");
     const woolGained = existing.golden ? 2 : 1;
-    this.sql.exec(`UPDATE sheep SET sheared_at = ?, memory = ? WHERE id = ?`, Date.now(), memory, id);
+    this.sql.exec(`UPDATE sheep SET sheared_at = ?, memory = ? WHERE id = ?`, Date.now(), memory ?? existing.memory, id);
     this.setMeta("wool", this.getNum("wool") + woolGained);
     this.setMeta("total_wool", this.getNum("total_wool") + woolGained);
     return ok(this.changed(this.logEvent("sheared", existing.name, id), origin));
@@ -308,6 +315,21 @@ export class Farm extends DurableObject<Env> {
     this.setMeta("wool", Math.max(0, this.getNum("wool") - woolLost));
     this.setMeta("total_wool", Math.max(0, this.getNum("total_wool") - woolLost));
     return ok(this.changed(this.logEvent("unsheared", existing.name, id), origin));
+  }
+
+  /** Put a hat on a sheep (costs HAT_COST cloth) or take it off (free). */
+  async setHat(id: string, hat: number | null, origin: string | null): Promise<Result<Sheep>> {
+    const existing = this.findSheep(id);
+    if (!existing) return fail(404, "That sheep wandered off.");
+    if (existing.hat === hat) return ok(existing);
+    if (hat !== null) {
+      const cloth = this.getNum("cloth");
+      if (cloth < HAT_COST) return fail(409, `A hat costs ${HAT_COST} cloth.`);
+      this.setMeta("cloth", cloth - HAT_COST);
+    }
+    this.sql.exec(`UPDATE sheep SET hat = ? WHERE id = ?`, hat, id);
+    this.changed(hat === null ? null : this.logEvent("hatted", existing.name, id), origin);
+    return ok(this.findSheep(id)!);
   }
 
   // ---------- RPC: loom ----------

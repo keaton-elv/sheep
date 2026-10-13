@@ -637,13 +637,13 @@ export class SkyWeather {
     if (this.thunderIn >= 0) {
       this.thunderIn -= dt;
       if (this.thunderIn < 0) {
-        sfx("thud", { volume: 0.2, pitch: 0.45 });
+        sfx("thunder", { volume: 0.5 });
         this.rumbleIn = 0.22;
       }
     }
     if (this.rumbleIn >= 0) {
       this.rumbleIn -= dt;
-      if (this.rumbleIn < 0) sfx("thud", { volume: 0.12, pitch: 0.36 });
+      if (this.rumbleIn < 0) sfx("thunder", { volume: 0.25, pitch: 0.8 });
     }
   }
 

@@ -1,5 +1,6 @@
 import "./style.css";
 import { registerCoreArt } from "./art/core";
+import "./art/regions";
 import { unlockAudio } from "./audio";
 import { Game } from "./engine/game";
 import { loadSprites } from "./engine/sprites";

@@ -3,7 +3,7 @@
 
 import { seasonOf, type Season } from "../../shared/calendar";
 import type { WeatherKind } from "../../shared/types";
-import { computeLayout, type Layout } from "../world/layout";
+import { computeLayout, HUD_TOOLBAR_H, type Layout, type LayoutInsets } from "../world/layout";
 
 export interface Entity {
   /** World position of the entity's feet, in game pixels. Entities are drawn sorted by y. */
@@ -54,8 +54,11 @@ export type GroundTapHandler = (wx: number, wy: number) => boolean | void;
 type Listener = (...args: any[]) => void;
 
 /** When darkness starts creeping in, per season (Stardew: 6pm in winter, 8pm otherwise-ish). */
-const DUSK_HOUR: Record<Season, number> = { spring: 19.5, summer: 20.5, fall: 18.5, winter: 17.5 };
-const DAWN_HOUR = 6;
+export const DUSK_HOUR: Record<Season, number> = { spring: 19.5, summer: 20.5, fall: 18.5, winter: 17.5 };
+export const DAWN_HOUR = 6;
+
+/** The running game, for menu code that needs the farm's env (time/season/weather overrides). */
+export let currentGame: Game | null = null;
 
 const params = new URLSearchParams(location.search);
 
@@ -84,12 +87,14 @@ export class Game {
   private last = 0;
   private bootClock = Date.now();
   private weatherKind: WeatherKind = "sunny";
+  private insetProbe: HTMLDivElement | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) throw new Error("No 2D canvas?!");
     this.ctx = ctx;
+    currentGame = this;
     this.layout = computeLayout(this.w, this.h);
     this.env = this.computeEnv();
     this.resize();
@@ -104,6 +109,8 @@ export class Game {
     const dpr = Math.max(1, Math.round((window.devicePixelRatio || 1) * 100) / 100);
     const cssW = window.innerWidth;
     const cssH = window.innerHeight;
+    // Mid-rotation / hidden-tab moments can report a 0x0 viewport; keep the last good layout.
+    if (cssW < 1 || cssH < 1) return;
     const devW = Math.round(cssW * dpr);
     const devH = Math.round(cssH * dpr);
     // Aim for roughly 240+ game pixels on the short side (Stardew at 1080p is 480x270).
@@ -115,9 +122,33 @@ export class Game {
     this.canvas.style.height = `${cssH}px`;
     this.w = Math.ceil(devW / this.scale);
     this.h = Math.ceil(devH / this.scale);
-    this.layout = computeLayout(this.w, this.h);
+    this.layout = computeLayout(this.w, this.h, this.insets());
     document.documentElement.style.setProperty("--px", `${this.cssScale}px`);
     this.emit("resize", this);
+  }
+
+  /** Re-run layout (e.g. after the toolbar sets --toolbar-h). Emits "resize". */
+  relayout(): void {
+    this.resize();
+  }
+
+  /** Safe-area insets and the toolbar's real height, converted to game px. */
+  private insets(): LayoutInsets {
+    const probe = (this.insetProbe ??= (() => {
+      const el = document.createElement("div");
+      el.style.cssText =
+        "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
+        "padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)";
+      document.body.appendChild(el);
+      return el;
+    })());
+    const cs = getComputedStyle(probe);
+    const toolbarCss = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--toolbar-h")) || 0;
+    return {
+      top: (parseFloat(cs.paddingTop) || 0) / this.cssScale,
+      bottom: (parseFloat(cs.paddingBottom) || 0) / this.cssScale,
+      toolbarH: toolbarCss ? toolbarCss / this.cssScale : HUD_TOOLBAR_H,
+    };
   }
 
   // ---------- entities & passes ----------

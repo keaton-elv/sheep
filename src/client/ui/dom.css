@@ -26,7 +26,11 @@
 
 .sv-backdrop {
   position: fixed;
-  inset: 0;
+  left: 0;
+  right: 0;
+  /* Follows the visual viewport (see dom.ts) so the phone keyboard never covers a dialog. */
+  top: var(--vv-top, 0px);
+  height: var(--vv-h, 100%);
   z-index: 50;
   display: grid;
   place-items: center;
@@ -41,7 +45,7 @@
 
 .sv-dialog {
   width: min(560px, 100%);
-  max-height: min(86vh, 86dvh);
+  max-height: calc(var(--vv-h, 100dvh) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   padding: 10px 14px 12px;
