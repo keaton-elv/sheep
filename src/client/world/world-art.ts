@@ -465,6 +465,9 @@ function buildObjects(): void {
 
 // ---------- forage ----------
 
+/** Rare forage that can turn up in any season. */
+export const COFFEE_BEAN = "Coffee Bean";
+
 export interface ForageDef {
   name: string;
   key: string;
@@ -501,6 +504,7 @@ const FORAGE_IDS: Record<string, number> = {
   Acorn: 309,
   "Maple Seed": 310,
   "Pine Cone": 311,
+  [COFFEE_BEAN]: 433,
 };
 
 export const FORAGE_BY_SEASON: Record<Season, string[]> = {

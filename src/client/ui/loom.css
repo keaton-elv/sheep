@@ -196,7 +196,6 @@
 button.fm-slot {
   cursor: pointer;
 }
-button.fm-slot:hover,
 button.fm-slot:focus-visible {
   filter: brightness(1.08);
   outline: none;
@@ -214,8 +213,23 @@ button.fm-slot:focus-visible {
 .fm-slot .fm-slot__icon {
   transition: transform 80ms;
 }
-button.fm-slot:hover .fm-slot__icon {
-  transform: scale(1.1);
+/* Only real hover devices get the hover (touch would leave it stuck on); a slot is small. */
+@media (hover: hover) {
+  button.fm-slot:hover {
+    filter: brightness(1.08);
+  }
+  button.fm-slot:hover .fm-slot__icon {
+    transform: scale(1.1);
+  }
+}
+/* An item whose sprite never registered. */
+.fm-item-glyph {
+  display: grid;
+  place-items: center;
+  width: calc(var(--fm-px) * 16);
+  height: calc(var(--fm-px) * 16);
+  font-weight: 700;
+  color: #8a3c0e;
 }
 .fm-slot__count {
   position: absolute;
@@ -256,6 +270,31 @@ button.fm-slot:hover .fm-slot__icon {
   color: var(--ink-soft);
   font-style: italic;
 }
+.fm-chest__for {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: #8a3c0e;
+}
+/* "A bundle is ready!": jumps down to it. */
+.fm-chest__nudge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 2px 4px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ok-ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  touch-action: manipulation;
+}
 .fm-chest__lifetime {
   margin: 10px 0 0;
   flex-wrap: wrap;
@@ -265,11 +304,323 @@ button.fm-slot:hover .fm-slot__icon {
   color: var(--ink-soft);
 }
 
+/* ---------- bundles (Community Center style) ---------- */
+
+.fm-bundles {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 2px dashed rgba(201, 147, 90, 0.6);
+}
+.fm-bundles__title {
+  text-align: center;
+}
+.fm-bundles__list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+/* Each bundle wears its sack's color on a little ribbon along the top. */
+.fm-bundle {
+  --bc: #9a6a3a;
+  --bc-dark: #5e3e1e;
+  --bc-soft: #f3e2c2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px 8px;
+  background: #fff4dc;
+  box-shadow:
+    inset 0 0 0 2px #d9a866,
+    0 2px 0 rgba(60, 28, 8, 0.2);
+}
+.fm-bundle.is-spring {
+  --bc: #5fae3a;
+  --bc-dark: #2f6a1e;
+  --bc-soft: #e2f3cf;
+}
+.fm-bundle.is-summer {
+  --bc: #e8a51e;
+  --bc-dark: #8a5208;
+  --bc-soft: #fff0c4;
+}
+.fm-bundle.is-fall {
+  --bc: #d0602a;
+  --bc-dark: #7a2c10;
+  --bc-soft: #fde0cc;
+}
+.fm-bundle.is-winter {
+  --bc: #5a8fd8;
+  --bc-dark: #2a4c88;
+  --bc-soft: #dde9fb;
+}
+.fm-bundle.is-seeds {
+  --bc: #9a6a3a;
+  --bc-dark: #5e3e1e;
+  --bc-soft: #f1e2cc;
+}
+.fm-bundle.is-junk {
+  --bc: #9a62c8;
+  --bc-dark: #52307a;
+  --bc-soft: #efe2fa;
+}
+.fm-bundle.is-ready {
+  background: #fff9e6;
+  box-shadow:
+    inset 0 0 0 2px #e8a92c,
+    0 0 0 2px rgba(255, 214, 90, 0.7),
+    0 2px 0 rgba(60, 28, 8, 0.2);
+}
+
+.fm-bundle__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: -2px -4px 0;
+  padding: 0 4px 2px;
+  background: linear-gradient(transparent 70%, var(--bc-soft) 70%);
+  border-bottom: 2px solid var(--bc);
+}
+.fm-bundle__sack {
+  flex: none;
+  transform-origin: 50% 100%;
+}
+.fm-bundle.is-ready .fm-bundle__sack {
+  animation: fm-bundle-wiggle 1.4s steps(1, end) infinite;
+}
+@keyframes fm-bundle-wiggle {
+  0%,
+  60%,
+  100% {
+    transform: none;
+  }
+  70% {
+    transform: rotate(-8deg);
+  }
+  80% {
+    transform: rotate(8deg);
+  }
+  90% {
+    transform: translateY(calc(var(--fm-px) * -1));
+  }
+}
+.fm-bundle__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--bc-dark);
+  overflow-wrap: anywhere;
+}
+.fm-bundle__times {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: #8a5208;
+}
+
+.fm-bundle__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.fm-bundle__slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-width: 0;
+}
+.fm-bslot {
+  display: grid;
+  place-items: center;
+  /* A 16px item plus its frame, and never smaller than a fingertip. */
+  width: max(42px, calc(var(--fm-px) * 22));
+  height: max(42px, calc(var(--fm-px) * 22));
+  padding: 0;
+  font: inherit;
+  background: none;
+  cursor: pointer;
+  border-style: solid;
+  border-width: calc(var(--fm-px) * 3);
+  border-color: transparent;
+  border-image: var(--img-slot) 5 fill / calc(var(--fm-px) * 3) stretch;
+  image-rendering: pixelated;
+  touch-action: manipulation;
+}
+/* Missing items are dark silhouettes, like the Community Center's empty bundle slots. */
+.fm-bslot.is-missing .fm-bslot__icon {
+  filter: brightness(0) opacity(0.3);
+}
+.fm-bslot.is-missing .fm-item-glyph {
+  opacity: 0.4;
+}
+.fm-bslot.is-peek,
+.fm-bslot:focus-visible {
+  outline: 3px solid var(--bc);
+  outline-offset: -2px;
+}
+@media (hover: hover) {
+  .fm-bslot:hover {
+    filter: brightness(1.08);
+  }
+}
+.fm-bundle__reward {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding: 1px 4px 1px 7px;
+  font-weight: 700;
+  color: var(--ok-ink);
+  background: #f6e7c4;
+  box-shadow: inset 0 0 0 1px #d9a866;
+}
+.fm-bundle__peek {
+  margin: 0;
+  font-size: 0.85em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.fm-bundle__peek.is-hint {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.fm-bundle__go {
+  width: 100%;
+  margin-top: 2px;
+  animation: fm-loom-glow 1.1s ease-in-out infinite alternate;
+}
+
+/* ---------- the "bundle complete!" burst (its own layer above the dialog) ---------- */
+
+.fm-burst {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  overflow: hidden;
+  pointer-events: none;
+}
+.fm-burst > * {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+/* Each item hops up out of its slot, then drops into the sack. */
+.fm-burst__item {
+  animation: fm-burst-in 460ms cubic-bezier(0.45, 0, 0.75, 1) both;
+}
+@keyframes fm-burst-in {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: translate(calc(-50% + var(--dx) * 0.4), calc(-50% + var(--dy) * 0.4 - 26px)) scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.35);
+    opacity: 0;
+  }
+}
+/* The sack puffs up, catches everything, hops for joy, and fades. */
+.fm-burst__sack {
+  transform-origin: 50% 100%;
+  animation: fm-burst-sack 1500ms ease-out both;
+}
+@keyframes fm-burst-sack {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+  }
+  8%,
+  46% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  52% {
+    transform: translate(-50%, -50%) scale(1.2, 0.8);
+  }
+  64% {
+    transform: translate(-50%, -95%) scale(0.9, 1.12);
+  }
+  76% {
+    transform: translate(-50%, -50%) scale(1.15, 0.85);
+  }
+  84% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+.fm-burst__star {
+  color: #ffc93a;
+  animation: fm-burst-star 700ms ease-out both;
+}
+@keyframes fm-burst-star {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1);
+    opacity: 0;
+  }
+}
+.fm-burst__plus {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 1.25em;
+  font-weight: 700;
+  color: #fff;
+  text-shadow:
+    1px 0 0 #3b2316,
+    -1px 0 0 #3b2316,
+    0 1px 0 #3b2316,
+    0 -1px 0 #3b2316,
+    1px 2px 0 #3b2316;
+  white-space: nowrap;
+  animation: fm-burst-plus 1000ms ease-out both;
+}
+@keyframes fm-burst-plus {
+  0% {
+    transform: translate(-50%, -50%);
+    opacity: 0;
+  }
+  15%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, calc(-50% - 56px));
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fm-loom__art.is-working .fm-loom__machine,
   .fm-loom__bubble,
   .fm-loom__collect,
-  .fm-slot.is-selected {
+  .fm-slot.is-selected,
+  .fm-bundle.is-ready .fm-bundle__sack,
+  .fm-bundle__go {
     animation: none;
+  }
+  .fm-burst {
+    display: none;
   }
 }

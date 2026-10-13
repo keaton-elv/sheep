@@ -376,11 +376,16 @@
   cursor: pointer;
   touch-action: manipulation;
 }
-.an-linkbtn:hover,
 .an-linkbtn:focus-visible {
   color: #1b3f80;
   text-decoration-style: solid;
   outline: none;
+}
+@media (hover: hover) {
+  .an-linkbtn:hover {
+    color: #1b3f80;
+    text-decoration-style: solid;
+  }
 }
 
 /* ---------- the ORIGINAL PLAN ---------- */
@@ -401,13 +406,21 @@
 .an-orig__was b {
   color: var(--ink);
 }
+/* "· Fall 12, Year 1": the original date, kept in one piece. */
+.an-orig__date {
+  white-space: nowrap;
+}
 .an-orig__go {
   color: #b3261e;
   text-decoration-color: rgba(179, 38, 30, 0.6);
 }
-.an-orig__go:hover,
 .an-orig__go:focus-visible {
   color: #8a1a14;
+}
+@media (hover: hover) {
+  .an-orig__go:hover {
+    color: #8a1a14;
+  }
 }
 .an-orig__go:disabled {
   opacity: 0.6;

@@ -178,14 +178,15 @@
   image-rendering: pixelated;
   transition: transform 80ms ease-out;
 }
+/* Full-width rows lift (never grow or slide sideways), so they can't poke past the list's edge. */
 @media (hover: hover) {
   .fl-row:hover {
     border-image-source: var(--img-button-hover);
-    transform: translateX(2px);
+    transform: translateY(-1px);
   }
 }
 .fl-row:active {
-  transform: scale(0.99);
+  transform: translateY(1px);
 }
 .fl-row:focus-visible {
   outline: none;
@@ -344,11 +345,16 @@
   cursor: pointer;
   touch-action: manipulation;
 }
-.fl-barnlink:hover,
 .fl-barnlink:focus-visible {
   color: #1b3f80;
   text-decoration-style: solid;
   outline: none;
+}
+@media (hover: hover) {
+  .fl-barnlink:hover {
+    color: #1b3f80;
+    text-decoration-style: solid;
+  }
 }
 
 /* ---------- sizes ---------- */

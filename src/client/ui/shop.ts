@@ -68,6 +68,7 @@ function shopLine(cloth: number, owned: number): string {
   if (cloth === 0) return "CLOTH ONLY. No credit...";
   if (owned === 0) return "First visit? Scarecrows are a classic. Gnomes are a lifestyle.";
   if (hour >= 20 || hour < 6) return "OPEN LATE. Night owls welcome...";
+  if (farmNow().getDay() === 3) return "WINE WEDNESDAY. (Cloth only, sadly.)";
   const lines = [
     "Built while you wait. (Valley magic.)",
     "Decorations improve sheep morale. That's just science.",

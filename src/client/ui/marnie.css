@@ -59,9 +59,15 @@
   margin: 0 0 4px;
   color: var(--ink-soft);
 }
-/* "Changing the plan? Bold." */
+/* "Changing the plan? Bold." Pops in under the date row when the name or date changes. */
 .mr-tease {
   color: #a0332a;
+}
+.mr-form .mr-tease {
+  margin: -2px 2px 0;
+}
+.mr-tease[hidden] {
+  display: none;
 }
 .mr-soft {
   font-weight: 400;

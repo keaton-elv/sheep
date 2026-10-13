@@ -9,7 +9,7 @@ import { hatName } from "../entities/sheep-hats";
 import { api, isLamb, isRetired, serverNow, store } from "../net";
 import { dayKey, daysBetween, parseDayKey, stardewDate } from "../../shared/calendar";
 import { CATEGORY_LABELS, LIMITS, MAX_PETS, RETIRE_AFTER_MS, type Sheep } from "../../shared/types";
-import { crispPx, farmMoment, friendlyError, hostLabel, lambGrowsUp, originalStamps, realDateLabel, renamedFrom, safeLink } from "./animal-common";
+import { crispPx, farmMoment, friendlyError, hostLabel, lambGrowsUp, offOriginal, originalStamps, realDateLabel, safeLink, type OffPlan } from "./animal-common";
 import { openHatPicker } from "./animal-hats";
 import { moodLine } from "./animal-mood";
 import { SheepSprite, hatTileIcon, lookOf } from "./animal-sprite";
@@ -253,13 +253,20 @@ function openAnimalCard(id: string): void {
       }
     }
 
-    // --- the ORIGINAL PLAN ---
-    const original = renamedFrom(s);
-    const orig = original
+    // --- the ORIGINAL PLAN (its first name, and its first date once it had one) ---
+    const off = offOriginal(s);
+    const firstDate = off?.dateChanged && off.date ? parseDayKey(off.date) : null;
+    const orig = off
       ? el(
           "div",
           { class: "an-orig" },
-          el("p", { class: "an-orig__was" }, "Original plan: ", el("b", null, original)),
+          el(
+            "p",
+            { class: "an-orig__was" },
+            "Original plan: ",
+            el("b", null, off.name),
+            firstDate ? el("span", { class: "an-orig__date" }, ` · ${stardewDate(firstDate, founded)}`) : null,
+          ),
           el(
             "button",
             {
@@ -267,7 +274,7 @@ function openAnimalCard(id: string): void {
               type: "button",
               disabled: busy,
               dataset: { focus: "original" },
-              on: { click: () => void backToOriginal(s, original) },
+              on: { click: () => void backToOriginal(s, off) },
             },
             "Go back to the ",
             el("span", { class: "an-orig__caps" }, "ORIGINAL PLAN"),
@@ -328,11 +335,14 @@ function openAnimalCard(id: string): void {
       });
   }
 
-  /** Rename it back to its first name. The server logs "original"; the stamp dedupes event + response. */
-  async function backToOriginal(s: Sheep, original: string): Promise<void> {
+  /**
+   * Back to its first name and its first date (a plan that never had a date keeps today's). The
+   * server logs "original"; the stamp dedupes event + response.
+   */
+  async function backToOriginal(s: Sheep, off: OffPlan): Promise<void> {
     const before = s.originalReturns || 0;
     await action(async () => {
-      const updated = await api.updateSheep(id, { name: original });
+      const updated = await api.updateSheep(id, { name: off.name, date: off.date ?? s.date });
       if ((updated.originalReturns || 0) > before) showOriginalPlanStamp(updated.name);
     });
   }

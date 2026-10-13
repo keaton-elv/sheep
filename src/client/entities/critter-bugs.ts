@@ -16,7 +16,7 @@ import { draw } from "../engine/sprites";
 import type { Layout } from "../world/layout";
 import { dayKey } from "../../shared/calendar";
 import { toast } from "../ui/dom";
-import { hangout } from "./critter-fox";
+import { hangout, wineDay } from "./critter-fox";
 import { decorPoints, freePosts, onLayoutChange, openGrass, pastureSpot, wildflowers } from "./critter-place";
 import { addSafe, chance, drawShadow, inBox, lsGet, lsSet, onAnyTap, onTick, params, rand, report, sparkleBurst } from "./critter-util";
 
@@ -227,19 +227,19 @@ class Ladybug implements Entity {
       lsSet(GOLDEN_KEY, today);
       sfx("secret");
       sparkleBurst(this.px, this.py - 2, 8, 14);
-      toast("A golden ladybug!! Extra lucky.", { icon: "critter.goldbug.icon" });
+      toast("A golden ladybug!! Rarer than a sunny day in the Sunset.", { icon: "critter.goldbug.icon" });
       return;
     }
     if (lsGet(LUCKY_KEY) !== today) {
       lsSet(LUCKY_KEY, today);
-      toast("A ladybug! Lucky day 🍀", { icon: "critter.ladybug.icon" });
+      toast(chance(0.5) ? "A ladybug! Lucky day 🍀" : "A ladybug! Luckier than parking in the Mission 🍀", { icon: "critter.ladybug.icon" });
     }
   }
 }
 
 // ---------- bumblebees ----------
 
-interface Target {
+export interface Target {
   x: number;
   y: number;
   /** Sort line while resting there. */
@@ -248,8 +248,8 @@ interface Target {
   hover?: boolean;
 }
 
-/** Every flower-ish thing a bee might visit right now. */
-function flowerTargets(g: Game, l: Layout): Target[] {
+/** Every flower-ish thing a bee (or a hummingbird) might visit right now. */
+export function flowerTargets(g: Game, l: Layout): Target[] {
   const out: Target[] = [];
   const s = g.env.season;
   for (const d of decorPoints(l, ["flowers", "pumpkin", "tree"])) {
@@ -258,10 +258,11 @@ function flowerTargets(g: Game, l: Layout): Target[] {
     else if (s === "spring" || s === "summer") out.push({ x: d.x + rand(-10, 10), y: d.y - rand(24, 36), sortY: d.y + 1 });
   }
   if (s === "spring" || s === "summer") {
-    // The corner's wildflowers (two blooms at corner-local (3, 31), two more at (57, 30) in spring).
+    // The corner's wildflowers (two blooms at corner-local (3, 31), two more at (57, 30) in spring,
+    // except on Wine Wednesdays: that's where the wine goes).
     const c = hangout(l);
     out.push({ x: c.x - 1, y: c.y + 24, sortY: c.y + 32 }, { x: c.x + 6, y: c.y + 24, sortY: c.y + 32 });
-    if (s === "spring") out.push({ x: c.x + 53, y: c.y + 23, sortY: c.y + 31 }, { x: c.x + 60, y: c.y + 23, sortY: c.y + 31 });
+    if (s === "spring" && !wineDay(g)) out.push({ x: c.x + 53, y: c.y + 23, sortY: c.y + 31 }, { x: c.x + 60, y: c.y + 23, sortY: c.y + 31 });
   }
   for (const w of wildflowers(l)) out.push({ x: w.x, y: w.y - 2, sortY: w.y + 1 });
   return out;
@@ -508,7 +509,7 @@ export function initBugs(g: Game): void {
   let ladybugs: Ladybug[] = [];
   let bees: Bee[] = [];
   let steed: Bumblesteed | null = null;
-  let ladyIn = forceLady || forceGolden ? 1.5 : rand(5, 15);
+  let ladyIn = forceLady || forceGolden ? 1.5 : rand(2, 8);
   let beeIn = 1;
   let steedIn = forceSteed ? 2 : rand(60, 120);
 
@@ -519,16 +520,16 @@ export function initBugs(g: Game): void {
     if (ladybugs.some((b) => b.dead)) ladybugs = ladybugs.filter((b) => !b.dead);
     if (bees.some((b) => b.dead)) bees = bees.filter((b) => !b.dead);
 
-    // Ladybugs: a couple in spring & summer, one in fall.
+    // Ladybugs: a few in spring & summer, a couple in fall.
     let ladyWant = 0;
-    if (bugTime(g)) ladyWant = season === "spring" || season === "summer" ? 2 : season === "fall" ? 1 : 0;
+    if (bugTime(g)) ladyWant = season === "spring" || season === "summer" ? 3 : season === "fall" ? 2 : 0;
     if (forceLady) ladyWant = Math.max(ladyWant, 1) + 1;
     else if (forceGolden) ladyWant = Math.max(ladyWant, 1);
     const crawling = ladybugs.filter((b) => !b.leaving).length;
     if (crawling < ladyWant) {
       ladyIn -= dt;
       if (ladyIn <= 0) {
-        ladyIn = forceLady ? rand(3, 6) : rand(10, 25);
+        ladyIn = forceLady ? rand(3, 6) : rand(5, 12);
         const today = dayKey(env.now);
         const golden = forceGolden || (lsGet(GOLDEN_SEEN_KEY) !== today && lsGet(GOLDEN_KEY) !== today && chance(GOLDEN_CHANCE));
         if (golden) lsSet(GOLDEN_SEEN_KEY, today);
@@ -556,7 +557,7 @@ export function initBugs(g: Game): void {
     // 3-5 bees per bee house in spring & summer (each house has its own number), 2 in fall.
     const perHive = (id: string) => (!ok ? 0 : busy ? 3 + (hashId(id) % 3) : season === "fall" ? 2 : forceBees ? 3 : 0);
     const flowers = decorPoints(l, ["flowers"]).length;
-    const wildWant = !ok ? 0 : busy ? 3 + Math.min(2, flowers) : season === "fall" ? 1 : forceBees ? 3 : 0;
+    const wildWant = !ok ? 0 : busy ? 4 + Math.min(2, flowers) : season === "fall" ? 2 : forceBees ? 3 : 0;
     // Leavers first: bees whose hive is gone, and anyone over the count.
     const hiveIds = new Set(hives.map((h) => h.id));
     for (const b of bees) if (b.hive && !hiveIds.has(b.hive.id)) b.leave();
@@ -576,7 +577,7 @@ export function initBugs(g: Game): void {
         spawned = true;
       }
     }
-    if (!spawned && wild.length < wildWant && bees.length < 20 && chance(0.25)) {
+    if (!spawned && wild.length < wildWant && bees.length < 20 && chance(0.5)) {
       const fromLeft = chance(0.5);
       bees.push(addSafe(g, new Bee(g, null, fromLeft ? -8 : l.w + 8, l.pasture.y + rand(10, l.pasture.h * 0.7)), "bee"));
     }

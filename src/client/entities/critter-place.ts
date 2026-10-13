@@ -154,9 +154,31 @@ export function railStretch(l: Layout, len: number, h = 16, w = 12): { rail: Rai
   return null;
 }
 
+// ---------- who's sitting where on the fence ----------
+
+/** Something perched on a rail (a songbird flock, the parrots): its spot is taken until it's done. */
+export interface Percher {
+  readonly done: boolean;
+}
+
+let railClaims: { rail: Rail; x0: number; x1: number; who: Percher }[] = [];
+
+/** Is [x0, x1] on `rail` clear of every flock still perched there (with a little elbow room)? */
+function railFree(rail: Rail, x0: number, x1: number): boolean {
+  if (railClaims.some((c) => c.who.done)) railClaims = railClaims.filter((c) => !c.who.done);
+  for (const c of railClaims) if (c.rail === rail && x0 < c.x1 + 4 && x1 > c.x0 - 4) return false;
+  return true;
+}
+
+/** Mark stretches of a rail as taken by `who` (so the parrots don't land on top of the sparrows). */
+export function claimRail(rail: Rail, spans: readonly (readonly [number, number])[], who: Percher): void {
+  for (const [x0, x1] of spans) railClaims.push({ rail, x0, x1, who });
+}
+
 /**
- * Up to `n` neighbouring gaps between posts on one run, each clear of the HUD: a free stretch of
- * top rail [x0, x1] per gap (posts are 8px wide, so a gap is ~11px: room for one little bird).
+ * Up to `n` neighbouring gaps between posts on one run, each clear of the HUD and of other perched
+ * flocks: a free stretch of top rail [x0, x1] per gap (posts are 8px wide, so a gap is ~11px: room
+ * for one little bird). Claim them with claimRail once something actually lands there.
  */
 export function railGaps(l: Layout, n: number, h = 16): { rail: Rail; gaps: [number, number][] } | null {
   const runs = fenceRuns(l).rails.filter((r) => r.posts.length > 1);
@@ -169,7 +191,7 @@ export function railGaps(l: Layout, n: number, h = 16): { rail: Rail; gaps: [num
       const x0 = rail.posts[i]! + 5;
       const x1 = rail.posts[i + 1]! - 5;
       // The bird may hop anywhere in its gap, so the whole gap has to be clear.
-      all.push(x1 - x0 >= 4 && perchClear(l, x0, feet, 12, h) && perchClear(l, x1, feet, 12, h) ? [x0, x1] : null);
+      all.push(x1 - x0 >= 4 && perchClear(l, x0, feet, 12, h) && perchClear(l, x1, feet, 12, h) && railFree(rail, x0, x1) ? [x0, x1] : null);
     }
     const start = Math.floor(Math.random() * all.length);
     const gaps: [number, number][] = [];
@@ -183,13 +205,13 @@ export function railGaps(l: Layout, n: number, h = 16): { rail: Rail; gaps: [num
   return null;
 }
 
-/** `n` neighbouring free post tops on one run (or fewer, if that's all there is). */
+/** `n` neighbouring free post tops on one run (or fewer, if that's all there is), clear of other perched flocks. */
 export function postRow(l: Layout, n: number, h = 16): { rail: Rail; xs: number[] } | null {
   const runs = fenceRuns(l).rails;
   for (let tries = 0; tries < 8; tries++) {
     const rail = pick(runs);
     if (!rail) return null;
-    const ok = rail.posts.filter((x) => perchClear(l, x, rail.feet - POST_TOP, 12, h));
+    const ok = rail.posts.filter((x) => perchClear(l, x, rail.feet - POST_TOP, 12, h) && railFree(rail, x - 6, x + 6));
     if (!ok.length) continue;
     const start = Math.floor(Math.random() * ok.length);
     const xs: number[] = [];
@@ -288,4 +310,23 @@ export function wildflowers(l: Layout): Point[] {
   }
   wildCache.set(l, w);
   return w;
+}
+
+// ---------- the strip along the bottom fence ----------
+
+let bottomLane: { dead?: boolean } | null = null;
+
+/**
+ * The bunny, the opossum and a certain trench coat all walk the strip along the bottom fence.
+ * One at a time: claim it before spawning (false = someone's already out there).
+ */
+export function claimBottomLane(who: { dead?: boolean }): boolean {
+  if (bottomLane && !bottomLane.dead && bottomLane !== who) return false;
+  bottomLane = who;
+  return true;
+}
+
+/** Is anyone walking the bottom strip right now? */
+export function bottomLaneBusy(): boolean {
+  return !!bottomLane && !bottomLane.dead;
 }

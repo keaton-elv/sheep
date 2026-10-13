@@ -1,5 +1,5 @@
-// ORIGINAL PLAN: a big red rubber stamp slams onto the screen when a plan gets renamed right back
-// to its very first name. (They always change plans, then stick to the original.)
+// ORIGINAL PLAN: a big red rubber stamp slams onto the screen when a plan goes right back to its
+// very first name and date. (They always change plans, then stick to the original.)
 //
 // Self-registering: importing this module subscribes to store.events, so an "original" event from
 // either farmer stamps the screen. Local callers may also call showOriginalPlanStamp() straight

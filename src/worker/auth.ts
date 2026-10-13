@@ -23,7 +23,7 @@ function base64url(buf: ArrayBuffer): string {
 }
 
 function normalizePassword(p: string): string {
-  // Phones love to capitalize the first letter; "Baaaaah" should still get you in.
+  // Phones love to capitalize the first letter; "Goopy" should still get you in.
   return p.trim().toLowerCase();
 }
 

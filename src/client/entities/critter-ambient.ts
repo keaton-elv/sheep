@@ -11,7 +11,7 @@ import { pastureSheep, store } from "../net";
 import { sheepPosition } from "./sheep";
 import { BUTTERFLY_COLORS } from "./critter-art";
 import { critterReact, hangout } from "./critter-fox";
-import { FENCE_HIDE, onLayoutChange, pastureSpot, RAIL_TOP, railStretch, type Rail } from "./critter-place";
+import { claimBottomLane, FENCE_HIDE, onLayoutChange, pastureSpot, RAIL_TOP, railStretch, type Rail } from "./critter-place";
 import { addSafe, chance, drawShadow, Emote, inBox, onTick, params, rand } from "./critter-util";
 
 const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
@@ -551,9 +551,10 @@ export function initAmbient(g: Game): void {
   const frogs: Frog[] = [];
   const forceBunny = params.has("bunny");
   const forceSquirrel = params.has("squirrel");
-  let butterflyIn = rand(1, 4);
-  let bunnyIn = forceBunny ? 3 : rand(80, 200);
-  let squirrelIn = forceSquirrel ? 2 : rand(40, 120);
+  // Short visits deserve wildlife: things show up quickly after the farm loads.
+  let butterflyIn = rand(0.5, 3);
+  let bunnyIn = forceBunny ? 3 : rand(15, 60);
+  let squirrelIn = forceSquirrel ? 2 : rand(8, 30);
   let frogIn = 2;
   let bunny: Bunny | null = null;
   let squirrel: Squirrel | null = null;
@@ -570,13 +571,13 @@ export function initAmbient(g: Game): void {
 
     // Butterflies: spring & summer, sunny-ish days.
     for (let i = butterflies.length - 1; i >= 0; i--) if (butterflies[i]!.dead) butterflies.splice(i, 1);
-    const want = (season === "spring" || season === "summer") && niceDay(g) ? (season === "summer" ? 4 : 3) : 0;
+    const want = (season === "spring" || season === "summer") && niceDay(g) ? (season === "summer" ? 5 : 4) : 0;
     if (butterflies.length > want) {
       for (const b of butterflies) b.leave();
     } else if (butterflies.length < want) {
       butterflyIn -= dt;
       if (butterflyIn <= 0) {
-        butterflyIn = rand(4, 12);
+        butterflyIn = rand(2, 6);
         const l = g.layout;
         const fromLeft = chance(0.5);
         butterflies.push(addSafe(g, new Butterfly(g, fromLeft ? -10 : l.w + 10, l.pasture.y + Math.random() * l.pasture.h * 0.7), "butterfly"));
@@ -587,7 +588,7 @@ export function initAmbient(g: Game): void {
     if (squirrel?.dead) squirrel = null;
     squirrelIn -= dt;
     if (squirrelIn <= 0) {
-      squirrelIn = forceSquirrel ? 25 : season === "fall" ? rand(50, 120) : rand(110, 260);
+      squirrelIn = forceSquirrel ? 25 : season === "fall" ? rand(25, 60) : rand(55, 130);
       const dry = env.weather !== "rain" && env.weather !== "storm" && env.weather !== "snow";
       const ok = env.darkness < 0.3 && dry && (season !== "winter" || chance(0.3));
       if (!squirrel && (ok || forceSquirrel)) squirrel = spawnSquirrel(g);
@@ -597,9 +598,13 @@ export function initAmbient(g: Game): void {
     if (bunny?.dead) bunny = null;
     bunnyIn -= dt;
     if (bunnyIn <= 0) {
-      bunnyIn = forceBunny ? 30 : rand(120, 300);
+      bunnyIn = forceBunny ? 30 : rand(60, 150);
       const ok = env.darkness < 0.6 && env.weather !== "rain" && env.weather !== "storm";
-      if (!bunny && (ok || forceBunny)) bunny = addSafe(g, new Bunny(g), "bunny");
+      if (!bunny && (ok || forceBunny)) {
+        const b = new Bunny(g);
+        // (It shares the bottom strip with the night walkers: one at a time.)
+        if (claimBottomLane(b)) bunny = addSafe(g, b, "bunny");
+      }
     }
 
     // Frogs come out in the rain (they sleep through the winter).

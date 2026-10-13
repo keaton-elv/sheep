@@ -2,15 +2,22 @@
 // pass-out, Stardrops for every 10 wool, holiday surprises, and a soft "new day" banner.
 // (More live with the critters: five quick knocks on the stump, the golden ladybug, the Bumblesteed...)
 //
+// The new-day banner knows a few local things: Wine Wednesdays, the occasional THURSDAY!!!!!,
+// Karl the Fog, and the Bay Area days on the calendar (Bay to Breakers, Fleet Week...).
+//
 // Debug: ?star=1 ?stardrop=1 ?raccoon=1 ?birds=1 ?crow=1 ?woodpecker=1 ?owl=1 ?ladybug=1 ?golden=1
-// ?bees=1 ?bumblesteed=1 ?squirrel=1 ?bunny=1 (plus the engine's ?date= ?time= ?season= ?weather=).
+// ?bees=1 ?bumblesteed=1 ?squirrel=1 ?bunny=1 ?parrots=1 ?gulls=1 ?hummingbird=1 ?slug=1 ?opossum=1
+// ?mosquitoes=1 ?trenchcoat=1 (or =raccoons / =hedgehogs / =mosquitoes)
+// (plus the engine's ?date= ?time= ?season= ?weather=).
 
 import { sfx } from "../audio";
 import type { Entity, Game } from "../engine/game";
 import { draw } from "../engine/sprites";
 import { store } from "../net";
 import { clockDateLabel, dayKey, farmYear, seasonOf, capitalize, type Season } from "../../shared/calendar";
-import type { FarmState } from "../../shared/types";
+import type { FarmState, WeatherKind } from "../../shared/types";
+import { isBigThursday, THURSDAY } from "../ui/animal-lore";
+import { festivalsOn } from "../ui/calendar-festivals";
 import { el, isDialogOpen, say, spriteIcon, toast, uiRoot } from "../ui/dom";
 import { critterParty } from "./critter-fox";
 import { FENCE_HIDE } from "./critter-place";
@@ -258,32 +265,58 @@ function initStardrops(): void {
 
 // ---------- a soft "new day" banner on the first visit of each day ----------
 
-function dayFlavor(now: Date, season: Season, hour: number): string {
+const pickLine = (lines: readonly string[]): string => lines[Math.floor(Math.random() * lines.length)]!;
+
+/** The Bay Area days the calendar knows about (same dates, so the billboard and the banner agree). */
+const SF_DAYS: Record<string, string> = {
+  "Bay to Breakers": "Bay to Breakers! The salmon are running upstream. Snickers is very interested.",
+  "Fleet Week": "Fleet Week! The Blue Angels are buzzing the Bay.",
+  "Outside Lands": "Outside Lands weekend! The sheep can hear it from here.",
+  "Hardly Strictly Bluegrass": "Hardly Strictly Bluegrass weekend. Otto is practicing his banjo.",
+};
+
+function sfDay(now: Date): string | null {
+  try {
+    for (const f of festivalsOn(now)) if (f.sf && SF_DAYS[f.name]) return SF_DAYS[f.name]!;
+  } catch (err) {
+    report("banner.festivals", err);
+  }
+  return null;
+}
+
+function dayFlavor(now: Date, season: Season, hour: number, weather: WeatherKind): string {
   const m = now.getMonth();
   const d = now.getDate();
+  const dow = now.getDay();
   if (m === 9 && d === 31) return "Happy Spirit's Eve!";
   if (m === 11 && d === 25) return "Feast of the Winter Star!";
   if (m === 11 && d === 24) return "The Winter Star is tomorrow!";
   if (m === 1 && d === 14) return "A good day for bouquets.";
   if (d === 1 && (m === 2 || m === 5 || m === 8 || m === 11)) return `It's the first day of ${capitalize(seasonOf(now))}!`;
-  if (now.getDay() === 5 && hour >= 15 && chance(0.5)) return "The Stardrop Saloon is lively tonight.";
+  const sf = sfDay(now);
+  if (sf) return sf;
+  if (dow === 3 && chance(0.6)) return "It's Wine Wednesday 🍷";
+  if (dow === 5 && hour >= 15 && chance(0.5)) return "The Stardrop Saloon is lively tonight.";
+  if (weather === "fog" && chance(0.7)) return "Karl the Fog is visiting. He may stay a while.";
+  if ((weather === "rain" || weather === "storm") && chance(0.5)) return "Rain! The banana slugs are thrilled.";
+  if (weather === "sunny" && hour < 16 && chance(0.25)) return "Sunny! A Bi-Rite cone kind of day.";
   const hello = hour < 12 ? "good morning" : hour < 18 ? "hello" : "good evening";
-  const lines = [
+  return pickLine([
     `Baa... (The sheep say ${hello}.)`,
     "The sheep look extra fluffy today.",
-    "The spirits are in good humor today.",
     `Otto and Milo say ${hello}.`,
-    hour < 11 ? "Snickers is up early. Tongue out, as usual..." : "Snickers says hi. Tongue out, as usual...",
+    hour < 11 ? "Snickers is up early. Mow." : "Snickers says Mow. Tongue out, as usual...",
+    "Somewhere in Sumner, a rhubarb pie is cooling.",
+    "Ding ding! The cable cars are running.",
     ...SEASON_LINES[season],
-  ];
-  return lines[Math.floor(Math.random() * lines.length)]!;
+  ]);
 }
 
 const SEASON_LINES: Record<Season, string[]> = {
-  spring: ["The bees are busy today.", "Somewhere, a bird is singing...", "A lucky day for ladybugs."],
+  spring: ["The bees are busy today.", "A lucky day for ladybugs."],
   summer: ["The bees are busy today.", "A good day for a nap in the sun... Zzz..."],
-  fall: ["The squirrels are hiding acorns everywhere.", "The leaves are turning..."],
-  winter: ["The cardinals are out today.", "Bundle up, farmers!"],
+  fall: ["Fall: San Francisco's secret summer.", "The squirrels are hiding acorns everywhere."],
+  winter: ["Rainy season. Slug season.", "Bundle up, farmers!"],
 };
 
 function initDayBanner(g: Game): void {
@@ -293,11 +326,15 @@ function initDayBanner(g: Game): void {
     if (lsGet("farm.lastDay") === key) return;
     lsSet("farm.lastDay", key);
     setTimeout(() => {
+      const date = `${clockDateLabel(now)} — Year ${farmYear(s.foundedAt, now)}`;
+      // Sometimes Thursday is just Thursday. Sometimes it's THURSDAY!!!!! (Decided per date, so the
+      // banner agrees with the sheep, and with the other phone.)
+      const thursday = isBigThursday(now);
       const banner = el(
         "div",
         { class: "cr-day", role: "status" },
-        el("div", { class: "cr-day__date" }, `${clockDateLabel(now)} — Year ${farmYear(s.foundedAt, now)}`),
-        el("div", { class: "cr-day__flavor" }, dayFlavor(now, g.env.season, g.env.hour)),
+        el("div", { class: "cr-day__date" }, thursday ? THURSDAY : date),
+        el("div", { class: "cr-day__flavor" }, thursday ? date : dayFlavor(now, g.env.season, g.env.hour, g.env.weather)),
       );
       uiRoot.appendChild(banner);
       setTimeout(() => banner.remove(), 4800);

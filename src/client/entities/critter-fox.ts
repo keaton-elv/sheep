@@ -1,5 +1,6 @@
 // The critter corner: Otto the fox and Milo the hedgehog, best friends, with their mossy stump
-// and gingham blanket, and (very rarely) a raccoon peeking out of the stump.
+// and gingham blanket, and (very rarely) a raccoon peeking out of the stump. On Wednesdays there's
+// a bottle of wine and two glasses on the blanket (Wine Wednesday).
 //
 // Corner-local coordinates (0..60 x 0..31) are used for everything here, so the hangout
 // follows layout.critterCorner around on resize.
@@ -7,9 +8,10 @@
 import { sfx } from "../audio";
 import type { Entity, Game } from "../engine/game";
 import { draw, has, REGIONS, SHEETS, size } from "../engine/sprites";
-import { say } from "../ui/dom";
+import { say, toast } from "../ui/dom";
 import type { Layout } from "../world/layout";
 import type { EmoteKind } from "./emotes";
+import { WINE } from "./critter-lore-art";
 import { NameTag } from "./critter-tag";
 import { addSafe, chance, dotPuff, drawAnchored, drawPart, drawShadow, Emote, heartFloat, inBox, onTick, params, rand } from "./critter-util";
 
@@ -33,6 +35,17 @@ const NUZZLE = { x: FOX_HOME.x - 15, y: FOX_HOME.y - 3 };
 const POUNCE = { x: 48, y: 29 };
 /** Where the hedgehog sleeps, tucked against the curled-up fox. */
 const SNUGGLE = { x: FOX_HOME.x - 15, y: FOX_HOME.y + 1 };
+/** Wine Wednesday: the bottle and two glasses, on the front of the blanket. */
+const WINE_SPOT = { x: 52, y: 28 };
+const GLASS_SPOTS = [
+  { x: 41, y: 27 },
+  { x: 45, y: 28 },
+];
+
+/** Wednesdays are Wine Wednesdays. */
+export function wineDay(g: Game): boolean {
+  return g.env.now.getDay() === 3;
+}
 
 /**
  * Top-left of the hangout in world px: simply the layout's critter corner (the layout keeps it
@@ -58,20 +71,18 @@ const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.len
 
 const FOX_LINES = [
   'Otto swishes his tail. That\'s fox for "hello..."',
+  "Otto hiked Mt. Tam this morning. He'd like a nap now.",
   "Otto yawns a big fox yawn. So many tiny teeth...",
   "Otto would like you to know this is HIS blanket. (Milo may borrow it.)",
   "Otto sniffs your hand. You smell like sheep...",
-  "Otto makes a noise like a squeaky gate. Foxes are weird.",
   "Otto is watching the sheep. Not hungrily. Just... supervising.",
-  "Otto tilts his head. One ear flops.",
-  "Otto went foraging this morning. He found one (1) acorn.",
   'Otto blinks at you slowly. In fox, that means "I trust you."',
   "Otto pretends he didn't just pounce on a leaf...",
-  "You found: 1 fox. Not for sale.",
-  "Otto's favorite season is whichever one has Milo in it.",
+  "Otto has heard about karaoke. Otto is not going to karaoke.",
   "Otto swears he saw a ladybug knight riding a bumblebee. Milo believes him.",
-  "Otto rolls onto his back... then remembers he's dignified.",
+  "Otto's favorite season is whichever one has Milo in it.",
 ];
+const FOX_FOG_LINE = "Otto loves Karl the Fog. Perfect sneaking weather.";
 const FOX_SLEEP_LINES = [
   "Otto and Milo are fast asleep. Shhh...",
   "Zzz... Otto's paw twitches. He's dreaming about butterflies.",
@@ -80,14 +91,13 @@ const FOX_SLEEP_LINES = [
 ];
 const HOG_LINES = [
   "Milo curls into a spiky little ball... then peeks at you.",
-  "Milo snuffles like a tiny teakettle.",
   "Milo would like you to know he is NOT a chestnut.",
-  "Milo waddles in a small, determined circle.",
   "Milo's nose wiggles. He smells... a beetle.",
-  "Milo and Otto were friends before the farm was a farm.",
   "You try not to boop Milo. You fail. Boop.",
-  "Milo found a blueberry. Happiest hedgehog in the valley.",
+  "Milo found a crumb of Arsicault croissant. Best day ever.",
+  "Milo went to a sketching meetup. He drew Otto. (It's a circle.)",
   "Milo is guarding the stump. The raccoon owes him a favor.",
+  "Milo snuffles like a tiny teakettle.",
   "Milo unrolls with great dignity, as if nothing happened.",
 ];
 const HOG_SLEEP_LINES = [
@@ -99,15 +109,17 @@ const STUMP_LINES = [
   "A hollow stump. It smells like berries... and trash.",
   "You knock. Something inside knocks back...",
   'A tiny sign: "RACCOON RESIDENCE. NO SOLICITING."',
-  "Two little eyes peek out of the stump... then they're gone.",
+  "There's a tiny coat hook on the stump. It's empty...",
   'Tiny letters in the bark: "knock five times, quickly." Hmm...',
 ];
 const RACCOON_LINES: string[][] = [
   ["A raccoon pops out of the stump!", "It nods at your sheep approvingly... and ducks back inside."],
-  ["A raccoon eyes the wool chest hopefully...", "...then waves a tiny paw instead."],
+  ["A raccoon eyes the shared chest hopefully...", "...then waves a tiny paw instead."],
   ["A second, rounder raccoon peeks out.", "You hear tiny furniture being rearranged..."],
   ["Something inside the stump goes clunk.", "The raccoon peeks out to see if you noticed. You did."],
 ];
+/** Every so often, a peek at how many raccoons actually live in there. */
+const TRENCH_RACCOON_LINES = ["A raccoon pops out of the stump!", "Behind it: ninety-nine more raccoons... and a trench coat on a tiny hook."];
 /** What five quick knocks gets you (the raccoon always answers those). */
 const SECRET_KNOCK_LINES = ["Knock-knock-knock-knock-knock!", "A raccoon pops out, delighted. Nobody knocks properly anymore..."];
 
@@ -453,6 +465,7 @@ class Fox implements Entity {
       const season = g.env.season;
       let line = pick(FOX_LINES);
       if (this.state === "sunbathe") line = "Otto is sunbathing. Very cool shades.";
+      else if (g.env.weather === "fog" && chance(0.5)) line = FOX_FOG_LINE;
       else if (season === "winter" && chance(0.3)) line = "Otto's little red scarf was a gift from Milo.";
       void say(line);
     }
@@ -733,6 +746,8 @@ class Prop implements Entity {
     private lx: number,
     private ly: number,
     private tap?: (g: Game) => void,
+    /** A tighter tap box (feet-anchored), so a small prop doesn't steal taps from Otto behind it. */
+    private box?: { w: number; h: number },
   ) {}
 
   update(_dt: number, g: Game): void {
@@ -752,6 +767,7 @@ class Prop implements Entity {
 
   hit(wx: number, wy: number): boolean {
     if (!this.key || !this.tap) return false;
+    if (this.box) return inBox(wx, wy, this.x - this.box.w / 2, this.y - this.box.h, this.box.w, this.box.h + 1);
     return inBox(wx, wy, this.x - this.w / 2 - 2, this.y - this.h - 2, this.w + 4, this.h + 4);
   }
 
@@ -852,7 +868,7 @@ class Raccoon implements Entity {
     if (!this.active) return;
     sfx("squeak", { pitch: 0.8 });
     this.hold = Math.min(this.hold, this.t - 0.45 + 0.3);
-    const lines = this.lines ?? (this.mrs ? RACCOON_LINES[2]! : pick([RACCOON_LINES[0]!, RACCOON_LINES[1]!, RACCOON_LINES[3]!]));
+    const lines = this.lines ?? (this.mrs ? RACCOON_LINES[2]! : chance(1 / 8) ? TRENCH_RACCOON_LINES : pick([RACCOON_LINES[0]!, RACCOON_LINES[1]!, RACCOON_LINES[3]!]));
     void say(lines);
     this.corner.fox.react("question", this.x);
   }
@@ -872,6 +888,7 @@ export class Corner {
   private knocks = 0;
   private knockTimes: number[] = [];
   private knockLine: ReturnType<typeof setTimeout> | undefined;
+  private wineToast = -99;
   private g: Game;
 
   constructor(g: Game) {
@@ -886,10 +903,11 @@ export class Corner {
     // Seasonal bits around the hangout.
     addSafe(g, new Prop((g) => (g.env.season === "fall" || g.env.season === "spring" ? "critter.mushroom" : null), -2, STUMP.y + 3), "mushroom");
     addSafe(g, new Prop((g) => (g.env.season === "spring" || g.env.season === "summer" ? "critter.flowers" : null), 3, 31), "flowers");
-    addSafe(g, new Prop((g) => (g.env.season === "spring" ? "critter.flowers" : null), 57, 30), "flowers2");
+    // (The right end of the blanket is the wine's spot on Wednesdays: the seasonal bits there step aside.)
+    addSafe(g, new Prop((g) => (g.env.season === "spring" && !wineDay(g) ? "critter.flowers" : null), 57, 30), "flowers2");
     addSafe(
       g,
-      new Prop((g) => (g.env.season === "fall" ? "critter.leaves" : null), 50, 31, () => {
+      new Prop((g) => (g.env.season === "fall" && !wineDay(g) ? "critter.leaves" : null), 50, 31, () => {
         sfx("rustle");
         const c = hangout(this.g.layout);
         dotPuff(c.x + 50, c.y + 27, ["#e8742a", "#ffad45", "#f2c84a", "#b5421c"], 10);
@@ -898,12 +916,16 @@ export class Corner {
     );
     addSafe(
       g,
-      new Prop((g) => (g.env.season === "winter" ? "critter.snowman" : null), 55, 31, () => {
+      new Prop((g) => (g.env.season === "winter" && !wineDay(g) ? "critter.snowman" : null), 55, 31, () => {
         sfx("pop");
         void say("A tiny snowman in a red scarf... just like Otto's.");
       }),
       "snowman",
     );
+    // Wine Wednesday.
+    const cheers = () => this.cheers();
+    addSafe(g, new Prop((g) => (wineDay(g) && has(WINE) ? WINE : null), WINE_SPOT.x, WINE_SPOT.y, cheers, { w: 14, h: 14 }), "wine");
+    GLASS_SPOTS.forEach((p, i) => addSafe(g, new Prop((g) => (wineDay(g) ? "critter.wineglass" : null), p.x, p.y, cheers, { w: 9, h: 11 }), `wineglass${i}`));
     addSafe(g, this.fox, "fox");
     addSafe(g, this.hog, "hedgehog");
 
@@ -939,8 +961,19 @@ export class Corner {
     }
   }
 
-  /** Is the patch of grass in front of the fox free for a pounce? */
+  private cheers(): void {
+    sfx("chime", { volume: 0.5, pitch: 1.6 });
+    const now = this.g.time;
+    if (now - this.wineToast < 8) return;
+    this.wineToast = now;
+    toast("Wine Wednesday 🍷 Otto and Milo poured you two a glass.", { icon: has(WINE) ? WINE : "critter.wineglass" });
+    this.fox.react("happy", null);
+    this.hog.react("heart", null);
+  }
+
+  /** Is the patch of grass in front of the fox free for a pounce? (Not on Wednesdays: that's where the wine is.) */
   pounceClear(): boolean {
+    if (wineDay(this.g)) return false;
     return this.fox.atHome && Math.hypot(this.hog.lx - POUNCE.x, this.hog.ly - POUNCE.y) > 14 && this.hog.next !== "nuzzle";
   }
 

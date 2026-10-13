@@ -48,7 +48,8 @@ function openFarmSign(): void {
     }
     await friendly(api.renameFarm(name));
     sfx("chime");
-    toast(`Welcome to ${name}!`, { icon: "ui.star" });
+    // Papa Snickers approves of any farm named after him.
+    toast(/snickers/i.test(name) && !/snickers/i.test(current) ? "Papa Snickers approves. Mow." : `Welcome to ${name}!`, { icon: "ui.star" });
     return true;
   };
 

@@ -7,7 +7,8 @@ import { pick } from "../engine/game";
 import { api, pastureSheep, store } from "../net";
 import { daysBetween, parseDayKey, stardewDate } from "../../shared/calendar";
 import { CATEGORIES, CATEGORY_LABELS, LIMITS, type Category, type Sheep, type SheepPatch } from "../../shared/types";
-import { checkLink, crispPx, farmMoment, friendlyError, realDateLabel } from "./animal-common";
+import { checkLink, crispPx, farmMoment, friendlyError, realDateLabel, samePlanName } from "./animal-common";
+import { SF_PARKS, THURSDAY, isBigThursday, isWineWednesday } from "./animal-lore";
 import { SheepSprite } from "./animal-sprite";
 import { el, openDialog, registerMenu, relativeDays, spriteIcon, toast, typewriter, type DialogHandle } from "./dom";
 import { categoryIcon } from "./marnie-art";
@@ -26,11 +27,21 @@ export function initMarnie(): void {
 
 const GREETINGS = [
   "Baa... (This lamb would like a plan, please.)",
-  "Freshly fluffed. Ready for an adventure.",
-  "Fluffy, friendly, slightly judgmental.",
   "Baa? Baa!",
   "This lamb practiced its baa all morning...",
+  "Snickers already sniffed this one. Approved.",
+  "Raised in the fog. Extra fluffy.",
+  "This lamb heard you two always end up on the ORIGINAL PLAN...",
+  "Fluffy, friendly, slightly judgmental.",
 ];
+
+/** What the lamb says about a date picked on the calendar. */
+function dateLine(d: Date): string {
+  const label = realDateLabel(d);
+  if (isWineWednesday(d)) return `${label}? Wine Wednesday! Baa!`;
+  if (isBigThursday(d)) return `${label}? ${THURSDAY}`;
+  return `${label}? Baa! A date!`;
+}
 
 function greetingFor(date: string | null): string {
   const m = farmMoment();
@@ -40,10 +51,13 @@ function greetingFor(date: string | null): string {
   const special: string[] = [];
   if (date) {
     const d = parseDayKey(date);
-    if (d) special.push(`${realDateLabel(d)}? Baa! A date!`);
+    if (d) special.push(dateLine(d));
   }
   if (h >= 22 || h < 5) special.push("Shh... everyone's asleep. This one stayed up for you.");
-  if (h >= 5 && h < 9) special.push("Up early? So is this lamb...");
+  if (h >= 5 && h < 9) special.push("Up early? So is this lamb... coffee first?");
+  if (isWineWednesday(now) && h >= 16) special.push("Wine Wednesday? This lamb will have grape juice.");
+  if (isBigThursday(now)) special.push(`${THURSDAY} (This lamb picked a good day to be born.)`);
+  if (m.weather === "fog") special.push("Found this one wandering in the fog...");
   if (m.weather === "rain" || m.weather === "storm") special.push("Baa... (peeking out of the rain at you)");
   if (m.weather === "snow" || m.season === "winter") special.push("Brr! Good thing sheep come with built-in sweaters.");
   if (m.season === "spring") special.push("Spring lambs are the bounciest lambs.");
@@ -54,35 +68,18 @@ function greetingFor(date: string | null): string {
   return special.length && Math.random() < 0.55 ? pick(special) : pick(GREETINGS);
 }
 
-const PRICES = ["Free with one hug.", "Free with one hug. Two if it's raining.", "Payment accepted in forehead kisses.", "Free! It goes on your tab of hugs."];
+const PRICES = ["Free with one hug.", "Free with one hug. Two if it's raining.", "Payment accepted in forehead kisses.", "Free! (Snickers takes his cut in Whisker Lickins.)"];
 
-// The name placeholder: always the same plan, somewhere new. (Real San Francisco parks.)
-const SF_PARKS = [
-  "Dolores Park",
-  "Golden Gate Park",
-  "Alamo Square",
-  "Lands End",
-  "Crissy Field",
-  "Bernal Heights Park",
-  "Buena Vista Park",
-  "Corona Heights Park",
-  "Precita Park",
-  "Duboce Park",
-  "Lafayette Park",
-  "Alta Plaza Park",
-  "Washington Square",
-  "Huntington Park",
-  "Stern Grove",
-  "McLaren Park",
-  "Glen Canyon Park",
-  "Fort Funston",
-  "Presidio Tunnel Tops",
-  "Twin Peaks",
-  "Sutro Heights Park",
-  "Mountain Lake Park",
-  "Holly Park",
-  "Salesforce Park",
-];
+// The name placeholder: always one of two plans, somewhere new each time (real San Francisco
+// parks). It takes turns: pizza, then sketching, then pizza... The edit form doesn't take a turn:
+// clear a sheep's name there and the faint text is its ORIGINAL PLAN instead.
+let pizzaNext = Math.random() < 0.5;
+function namePlaceholder(initial: Partial<Sheep>): string {
+  const original = (initial.originalName ?? initial.name ?? "").trim();
+  if (original) return original;
+  pizzaNext = !pizzaNext;
+  return `${pizzaNext ? "Eat pizza" : "Sketch"} in ${pick(SF_PARKS)}`;
+}
 
 // ---------- the sheep form (shared by "buy" and "edit") ----------
 
@@ -106,7 +103,18 @@ interface SheepForm {
 
 let formSeq = 0;
 
-function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: () => void; onCategory?: (c: Category) => void }): SheepForm {
+function buildForm(
+  initial: Partial<Sheep>,
+  opts: {
+    memory: boolean;
+    onSubmit: () => void;
+    onCategory?: (c: Category) => void;
+    /** The name or date was edited (trimmed name, valid date or null). */
+    onPlanChange?: (v: { name: string; date: string | null }) => void;
+    /** Shown right under the date + link row (the edit form's tease lives here, so nothing above it jumps). */
+    afterWhen?: HTMLElement;
+  },
+): SheepForm {
   const id = `sf${++formSeq}`;
   let category: Category = initial.category ?? "date";
 
@@ -124,12 +132,17 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     id: `${id}-name`,
     type: "text",
     maxLength: LIMITS.name,
-    placeholder: `Eat pizza in ${pick(SF_PARKS)}`,
+    placeholder: namePlaceholder(initial),
     autocomplete: "off",
     enterKeyHint: "done",
   });
   nameInput.value = initial.name ?? "";
-  nameInput.addEventListener("input", () => setErr("name", null));
+  // The plan (its name and date) changed: the edit form's tease listens.
+  const planChanged = () => opts.onPlanChange?.({ name: nameInput.value.trim(), date: parseDayKey(dateInput.value) ? dateInput.value : null });
+  nameInput.addEventListener("input", () => {
+    setErr("name", null);
+    planChanged();
+  });
   nameInput.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && !ev.isComposing) {
       ev.preventDefault();
@@ -187,13 +200,16 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     const days = daysBetween(farmMoment().now, d);
     const founded = store.state?.foundedAt ?? Date.now();
     const when = stardewDate(d, founded);
+    // The week has opinions.
+    const wink = days < 0 ? "" : isWineWednesday(d) ? " · Wine Wednesday" : isBigThursday(d) ? ` · ${THURSDAY}` : "";
     dateHint.hidden = false;
     dateHint.textContent =
-      days < 0 ? `${when} · in the past... time machine?` : `${when} · ${relativeDays(days)}${days === 0 ? "!" : ""}`;
+      days < 0 ? `${when} · in the past... time machine?` : `${when} · ${relativeDays(days)}${days === 0 ? "!" : ""}${wink}`;
   };
   const onDate = () => {
     setErr("date", null);
     updateDateHint();
+    planChanged();
   };
   dateInput.addEventListener("input", onDate);
   dateInput.addEventListener("change", onDate);
@@ -209,6 +225,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     sfx("blip");
     dateInput.value = "";
     updateDateHint();
+    planChanged();
     // Keyboard users land back on the field; taps don't (focusing a date input can pop the picker).
     if (ev.detail === 0) dateInput.focus({ preventScroll: true });
   });
@@ -256,7 +273,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     id: `${id}-notes`,
     rows: 3,
     maxLength: LIMITS.notes,
-    placeholder: pick(["Who brings snacks...", "Bring a jacket. And snacks.", "Times, places, little details..."]),
+    placeholder: pick(["Who brings snacks...", "Bring a jacket. It's San Francisco.", "Times, places, little details..."]),
   });
   notesInput.value = initial.notes ?? "";
   const notesField = el(
@@ -284,7 +301,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
       )
     : null;
 
-  const root = el("div", { class: "mr-form", style: `--ipx: ${crispPx(1.25, 2)}` }, nameField, catField, el("div", { class: "mr-grid" }, dateField, linkField), notesField, memoryField);
+  const root = el("div", { class: "mr-form", style: `--ipx: ${crispPx(1.25, 2)}` }, nameField, catField, el("div", { class: "mr-grid" }, dateField, linkField), opts.afterWhen ?? null, notesField, memoryField);
 
   const form: SheepForm = {
     root,
@@ -420,6 +437,9 @@ function openBuySheep(arg?: { date?: string }): void {
 
 // ---------- edit a sheep ----------
 
+const NAME_TEASES = ["Changing the plan? Bold... (The sheep remember the original.)", "A new plan? The sheep have heard this one before..."];
+const DATE_TEASES = ["Moving the date? Bold... (The sheep remember the original.)", "A new date? The sheep wrote the old one down..."];
+
 function openEditSheep(id: string, focus?: "date"): void {
   const s = store.sheep(id);
   if (!s) {
@@ -428,9 +448,19 @@ function openEditSheep(id: string, focus?: "date"): void {
   }
   let dialog: DialogHandle | undefined;
   const sheared = s.shearedAt !== null;
-  const form = buildForm(s, { memory: sheared, onSubmit: submitVia(() => dialog) });
-  // Sometimes (1 in 3) the form reminds you the sheep are keeping score.
-  const tease = Math.random() < 1 / 3 ? el("p", { class: "mr-intro mr-tease" }, "Changing the plan? Bold... (The sheep remember the original.)") : null;
+  // Change the plan (its name or its date) and the form reminds you the sheep are keeping score.
+  const teaseName = pick(NAME_TEASES);
+  const teaseDate = pick(DATE_TEASES);
+  const tease = el("p", { class: "mr-intro mr-tease", hidden: true, "aria-live": "polite" });
+  const onPlanChange = (v: { name: string; date: string | null }) => {
+    const renamed = !!v.name && !samePlanName(v.name, s.name);
+    // Giving a plan its very first date isn't changing it; moving or dropping one is.
+    const moved = s.date !== null && v.date !== s.date;
+    const text = renamed ? teaseName : moved ? teaseDate : "";
+    tease.hidden = !text;
+    if (tease.textContent !== text) tease.textContent = text;
+  };
+  const form = buildForm(s, { memory: sheared, onSubmit: submitVia(() => dialog), onPlanChange, afterWhen: tease });
 
   // Sold on the other phone while we were editing? Don't leave a form for a sheep that's gone.
   const unsubscribe = store.changed.on(() => {
@@ -442,7 +472,7 @@ function openEditSheep(id: string, focus?: "date"): void {
   dialog = openDialog({
     title: "Edit",
     className: "mr-dialog mr-dialog--edit",
-    body: tease ? [tease, form.root] : form.root,
+    body: form.root,
     onClose: () => unsubscribe(),
     buttons: [
       { label: "Cancel", kind: "plain" },
@@ -472,13 +502,20 @@ function openEditSheep(id: string, focus?: "date"): void {
           } catch (err) {
             return showError(dialog, err);
           }
-          // Renamed right back to its first name: ORIGINAL PLAN! (stamp.ts dedupes this against the matching event.)
+          // Right back to its first name (and first date): ORIGINAL PLAN! (stamp.ts dedupes this against the matching event.)
           if ((updated.originalReturns ?? 0) > returnsBefore) {
             showOriginalPlanStamp(updated.name);
             return;
           }
           sfx("select");
-          toast(patch.name ? `${v.name}? New name, same sheep.` : `${v.name} is all spruced up.`, { icon: categoryIcon(v.category) });
+          const said = patch.name
+            ? `${v.name}? New name, same sheep.`
+            : patch.date !== undefined
+              ? v.date
+                ? `${v.name}: new date, same sheep.`
+                : `${v.name}: no date for now.`
+              : `${v.name} is all spruced up.`;
+          toast(said, { icon: categoryIcon(v.category) });
         },
       },
     ],

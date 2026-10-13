@@ -19,7 +19,7 @@ import type { Season } from "../../shared/calendar";
 import { sheepPosition } from "./sheep";
 import { snickersPosition } from "./snickers";
 import { critterReact } from "./critter-fox";
-import { fenceRuns, freePosts, hasScarecrow, onLayoutChange, openGrass, pastureSpot, perchClear, POST_TOP, postRow, RAIL_TOP, railGaps, type Rail, type Side } from "./critter-place";
+import { claimRail, fenceRuns, freePosts, hasScarecrow, onLayoutChange, openGrass, pastureSpot, perchClear, POST_TOP, postRow, RAIL_TOP, railGaps, type Rail, type Side } from "./critter-place";
 import { addSafe, chance, drawShadow, Emote, inBox, onAnyTap, onTick, params, rand, report } from "./critter-util";
 
 // ---------- frames (critters.png, 320x640) ----------
@@ -519,6 +519,7 @@ function spawnFlock(g: Game, species: Species): Flock | null {
     if (!row || byCat(row.rail, row.gaps.flat())) return spawnGround(g, f, n, add);
     const feet = row.rail.feet - RAIL_TOP + 1;
     row.gaps.forEach(([x0, x1], i) => add((x0 + x1) / 2 + rand(-1, 1), feet, row.rail.feet + 0.5, x0, x1, i));
+    claimRail(row.rail, row.gaps, f);
     return f;
   }
   if (mode === "post") {
@@ -526,6 +527,7 @@ function spawnFlock(g: Game, species: Species): Flock | null {
     if (!row || byCat(row.rail, row.xs)) return spawnGround(g, f, n, add);
     const feet = row.rail.feet - POST_TOP + 1;
     row.xs.forEach((x, i) => add(x, feet, row.rail.feet + 0.5, x, x, i));
+    claimRail(row.rail, row.xs.map((x) => [x - 6, x + 6] as const), f);
     return f;
   }
   return spawnGround(g, f, n, add);
@@ -921,12 +923,16 @@ export function initBirds(g: Game): void {
   const forceOwl = params.has("owl");
   let flocks: Flock[] = [];
   const returns: { species: Species; in: number }[] = [];
-  let nextIn = fastBirds || forceCrow ? 1.5 : rand(3, 10);
+  // The first flock drops in within a few seconds (even in light rain or snow): short visits deserve birds.
+  let nextIn = fastBirds || forceCrow ? 1.5 : rand(1.5, 6);
+  let firstFlock = true;
   let sheepIn = 0;
   let woodpecker: Woodpecker | null = null;
-  let woodIn = forceWood ? 2 : rand(50, 120);
+  let woodIn = forceWood ? 2 : rand(25, 60);
   let owl: Owl | null = null;
-  let owlIn = forceOwl ? 2 : rand(40, 100);
+  // At night, a good chance the owl is the first one to say hello.
+  let owlIn = forceOwl ? 2 : rand(6, 16);
+  let owlFirst = true;
   let firstCrow = forceCrow;
 
   const songbirdsReal = () => isReal(SONGBIRDS.sparrow.stand[0]!);
@@ -978,7 +984,7 @@ export function initBirds(g: Game): void {
     // New arrivals: lots in the morning, fewer later, few in the rain, none at night.
     if (!night && !storm) {
       const morning = hour >= DAWN_HOUR && hour < 11;
-      const max = wet ? 1 : morning ? 3 : 2;
+      const max = wet ? 1 : morning ? 4 : 3;
       const live = flocks.filter((f) => f.mode !== "flyover").length;
       for (let i = returns.length - 1; i >= 0; i--) {
         const r = returns[i]!;
@@ -990,8 +996,9 @@ export function initBirds(g: Game): void {
       }
       nextIn -= dt;
       if (nextIn <= 0) {
-        const base = morning ? rand(7, 16) : hour < 16 ? rand(16, 36) : rand(26, 50);
-        nextIn = fastBirds ? rand(4, 8) : base * (wet ? 3 : 1);
+        const base = morning ? rand(4, 8) : hour < 16 ? rand(8, 18) : rand(13, 25);
+        nextIn = fastBirds ? rand(4, 8) : base * (wet && !firstFlock ? 3 : 1);
+        firstFlock = false;
         if (live < max) {
           const crowsOut = flocks.some((f) => f.species === "crow");
           const species: Species = firstCrow ? "crow" : pickSpecies(env.season, !crowsOut);
@@ -1011,8 +1018,8 @@ export function initBirds(g: Game): void {
     // The woodpecker: now and then on dry days.
     woodIn -= dt;
     if (woodIn <= 0) {
-      woodIn = forceWood ? 25 : rand(60, 150);
-      const ok = (!night && !wet && !storm && chance(0.3)) || forceWood;
+      woodIn = forceWood ? 25 : rand(30, 75);
+      const ok = (!night && !wet && !storm && chance(0.35)) || forceWood;
       if (!woodpecker && ok && isReal(WOODPECKER.cling[0]!)) woodpecker = spawnWoodpecker(g);
     }
 
@@ -1022,7 +1029,9 @@ export function initBirds(g: Game): void {
     if (owlIn <= 0) {
       owlIn = forceOwl ? 30 : rand(60, 120);
       const deep = env.darkness > 0.75 && !wet && !storm;
-      if (!owl && ((deep && chance(0.06)) || forceOwl)) owl = spawnOwl(g);
+      const p = owlFirst ? 0.3 : 0.1;
+      owlFirst = false;
+      if (!owl && ((deep && chance(p)) || forceOwl)) owl = spawnOwl(g);
     }
   });
 

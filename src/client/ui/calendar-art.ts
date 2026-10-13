@@ -1,6 +1,7 @@
 // Art for the billboard calendar: the real Stardew billboard (wooden board, pinned paper, the
 // grey pin, waving festival flags) cut from sprites/billboard.png, plus tiny hand-drawn sheep
-// faces for plans. Without the sheet, the menus fall back to their CSS paper and these faces.
+// faces for plans, a Golden Gate for Bay Area days and a Wine Wednesday glass. Without the sheet,
+// the menus fall back to their CSS paper and these faces.
 
 import { pixelArt } from "../engine/pixelart";
 import { REGIONS, SHEETS } from "../engine/sprites";
@@ -75,6 +76,26 @@ export function registerCalendarArt(): void {
     ["...o...", "..oYo..", "ooYYYoo", "oYYYYYo", ".oYYYo.", ".oYoYo.", ".oo.oo."],
     { o: "#7a3a0a", Y: "#ffc93a" },
   );
+
+  // 17x9 Golden Gate Bridge in International Orange, for the real Bay Area days.
+  pixelArt(
+    "ui.sfday",
+    [
+      "....HR.....HR....",
+      "....HR.....HR....",
+      "...cHRc...cHRc...",
+      "..c.HR.c.c.HR.c..",
+      ".c..HR..c..HR..c.",
+      "c...HR.....HR...c",
+      "DDDDDDDDDDDDDDDDD",
+      "....HR.....HR....",
+      ".wwwwwwwwwwwwwww.",
+    ],
+    { R: "#a8341f", H: "#e0603a", c: "#c8442c", D: "#7a2214", w: "#6a9ad8" },
+  );
+
+  // 5x7 glass of red, for Wine Wednesday.
+  pixelArt("ui.wineglass", ["g...g", "gWRRg", "gRRRg", ".gRg.", "..g..", "..g..", ".ggg."], { g: "#8e7fa6", R: "#9a1e44", W: "#f0b0c8" });
 }
 
 // ---------- the real billboard, as CSS pieces ----------

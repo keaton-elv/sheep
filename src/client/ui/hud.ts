@@ -8,7 +8,7 @@
 // smoothly (like the game draws it at 4x) while everything else stays crisp pixel art.
 
 import { setAmbience } from "../audio";
-import { capitalize, clockDateLabel, clockTimeLabel, daysBetween, parseDayKey, stardewDate } from "../../shared/calendar";
+import { capitalize, clockDateLabel, clockTimeLabel, dayKey, daysBetween, parseDayKey, stardewDate } from "../../shared/calendar";
 import type { Season } from "../../shared/calendar";
 import type { FarmState, WeatherKind } from "../../shared/types";
 import type { Game } from "../engine/game";
@@ -40,13 +40,13 @@ const WEATHER_NAMES: Record<WeatherKind, string> = {
 
 // The TV's weather channel: one of these sometimes stands in for the trivia line.
 const WEATHER_REPORT: Record<WeatherKind, string[]> = {
-  sunny: ["Clear skies. Perfect sheep-napping weather...", "Sunny all day! Adventure weather."],
+  sunny: ["Clear skies. Perfect sheep-napping weather...", "Sunny! Dolores Park is going to be packed."],
   cloudy: ["A bit cloudy. The sheep don't mind.", "Grey skies. Cozy-blanket weather..."],
-  rain: ["Rain today! No need to water the crops.", "Rainy... the sheep smell like wet wool."],
+  rain: ["Rain today! No need to water the crops.", "Rainy... the sheep smell like wet wool.", "Rain! Very Washington of it."],
   storm: ["Thunderstorms! Maybe put up a lightning rod.", "Stormy... the sheep are huddled up."],
   snow: ["Snow! Bundle up, farmers.", "Snowing... hot cocoa and trip-planning weather."],
   fog: ["Foggy out there. Spooky...", "Thick fog. Even the crows got lost."],
-  windy: ["Windy! Leaves (and a bit of fluff) are flying.", "Breezy today. Hold onto your hat!"],
+  windy: ["Windy! Leaves (and a bit of fluff) are flying.", "Breezy. Kite weather at Crissy Field!"],
 };
 
 /** "Livin' Off The Land" for sheep people: Stardew references and little jokes. */
@@ -64,15 +64,62 @@ const TRIVIA = [
   "Every Stardrop raises your max energy.",
   "Crows won't land near a scarecrow. Rarecrows are just showing off.",
   "Ladybugs are lucky. A golden one is luckier...",
-  "Sheep love being talked to. Probably. They haven't said.",
   "Lambs grow up in a day. Blink and you'll miss it...",
   "Shooting stars are rare. Look up on clear nights...",
   "Snickers naps on the barn doorstep most afternoons. Zzz...",
   "Otto and Milo nap curled up together. Zzz...",
   "Legend says a tiny knight rides a bumblebee over the pasture...",
   "Plans change. The ORIGINAL PLAN usually wins.",
+  // The local news.
+  "In the news: Mayor Lurie has not visited the farm yet. The sheep remain hopeful.",
+  "Muni update: the N is running late. The sheep decided to walk.",
+  "Wildlife report: the parrots of Telegraph Hill are loud today. As usual.",
+  "Sumner, WA: still the Rhubarb Pie Capital of the World.",
+  "Bonney Lake forecast: drizzle, with a chance of drizzle.",
   "Baa...",
 ];
+
+// Some days get their own news.
+const WINE_WEDNESDAY = ["It's Wine Wednesday. You know what to do."];
+const THURSDAY = ["It's Thursday. No, wait: it's THURSDAY!!!!!", "Today's forecast: THURSDAY!!!!!"];
+
+// ---------- date flair ----------
+// Some Wednesdays the date box just says "Wine". Some Thursdays it's THURSDAY!!!!! (the window
+// only fits "THU!!"). Decided once a day, about one day in three, and kept all day on this device.
+const FLAIR_KEY = "farm.hud.flair";
+const FLAIR_CHANCE = 1 / 3;
+let flairMemo: { day: string; on: boolean } | null = null;
+
+function flairDay(now: Date): boolean {
+  const dow = now.getDay();
+  if (dow !== 3 && dow !== 4) return false;
+  const day = dayKey(now);
+  if (flairMemo?.day === day) return flairMemo.on;
+  let on: boolean | null = null;
+  try {
+    const raw = localStorage.getItem(FLAIR_KEY);
+    const v = raw ? (JSON.parse(raw) as { day?: unknown; on?: unknown } | null) : null;
+    if (v && v.day === day && typeof v.on === "boolean") on = v.on;
+  } catch {
+    /* no storage: decide once per visit instead */
+  }
+  if (on === null) {
+    on = Math.random() < FLAIR_CHANCE;
+    try {
+      localStorage.setItem(FLAIR_KEY, JSON.stringify({ day, on }));
+    } catch {
+      /* fine: it just won't survive a reload */
+    }
+  }
+  flairMemo = { day, on };
+  return on;
+}
+
+/** What the date window shows: "Mon. 12", or now and then "Wine 15" / "THU!! 16". */
+function dateBoxLabel(now: Date): string {
+  if (!flairDay(now)) return clockDateLabel(now);
+  return `${now.getDay() === 3 ? "Wine" : "THU!!"} ${now.getDate()}`;
+}
 
 const SEASON_NAMES: Record<Season, string> = { spring: "Spring", summer: "Summer", fall: "Fall", winter: "Winter" };
 
@@ -309,7 +356,7 @@ export function initHud(g: Game): void {
       const day = now.getDate();
       if (day !== lastDay) {
         lastDay = day;
-        dateEl.textContent = clockDateLabel(now);
+        dateEl.textContent = dateBoxLabel(now);
         fitText(dateEl);
         special = specialDay(now, store.state);
         lastWeather = ""; // re-pick the icon (festival days)
@@ -485,7 +532,12 @@ function stat(icon: string, label: string, value: string | number): HTMLElement 
 }
 
 /** One line from the TV: usually a tip or a joke, sometimes today's weather channel. */
-function tvLine(kind: WeatherKind): string {
+function tvLine(kind: WeatherKind, now: Date): string {
+  const dow = now.getDay();
+  if (dow === 3 || dow === 4) {
+    // When the clock's already saying "Wine" / "THU!!", the TV is in on it too.
+    if (Math.random() < (flairDay(now) ? 0.5 : 0.2)) return pick(dow === 3 ? WINE_WEDNESDAY : THURSDAY);
+  }
   if (Math.random() < 0.3) return weatherLine(kind);
   let i = Math.floor(Math.random() * TRIVIA.length);
   if (i === lastTrivia) i = (i + 1) % TRIVIA.length;
@@ -539,7 +591,7 @@ function buildReport(g: Game): HTMLElement {
     stats = el("p", { class: "hud-report__say" }, "Counting sheep...");
   }
 
-  const tv = el("p", { class: "hud-report__tv" }, spriteIcon("ui.icon.tv", { class: "hud-report__tvicon" }), el("span", null, tvLine(kind)));
+  const tv = el("p", { class: "hud-report__tv" }, spriteIcon("ui.icon.tv", { class: "hud-report__tvicon" }), el("span", null, tvLine(kind, now)));
 
   const live = el(
     "p",
@@ -567,6 +619,9 @@ function nextPlan(s: FarmState, now: Date): { name: string; when: string } | nul
 
 // Exported for other modules that want the same wording (e.g. a TV easter egg).
 export function weatherLine(kind: WeatherKind): string {
-  const lines = WEATHER_REPORT[kind] ?? WEATHER_REPORT.sunny;
+  return pick(WEATHER_REPORT[kind] ?? WEATHER_REPORT.sunny);
+}
+
+function pick(lines: string[]): string {
   return lines[Math.floor(Math.random() * lines.length)]!;
 }

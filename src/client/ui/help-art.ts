@@ -1,12 +1,15 @@
 // Little icons for the "How it works" journal that nobody else draws.
 
+import { objectRegion } from "../art/regions";
 import { pixelArt } from "../engine/pixelart";
-import { SHEETS } from "../engine/sprites";
+import { REGIONS, SHEETS } from "../engine/sprites";
 
 // The journal shows a lamb and a hat from the real sheets. Their owners register these too; this
 // just makes sure they load even if the journal is the only thing that needs them.
 SHEETS.sheepBaby ??= "sprites/sheep_baby.png";
 SHEETS.animalHats ??= "sprites/animal_hats.png";
+// A bottle of wine (object #348) for the Wine Wednesday hint.
+REGIONS["ui.icon.wine"] ??= objectRegion(348);
 
 let registered = false;
 

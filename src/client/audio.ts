@@ -1,6 +1,6 @@
 // Sound effects.
 // Plays the real Stardew recordings in public/sounds (see FILES) and, for anything without a
-// recording (baa, meow, yip, pet, lick), synthesizes a little Stardew-ish sound with WebAudio
+// recording (baa, Snickers's "mow", yip, pet, lick), synthesizes a little Stardew-ish sound with WebAudio
 // (oscillators, noise, filters, envelopes). Only files listed in FILES / AMBIENCE_FILES are ever
 // fetched: nothing probes the server for recordings that might not exist.
 // Also runs a quiet ambience bed (the real Stardew loops in public/sounds/ambience: seasonal days,
@@ -33,7 +33,8 @@ export type Sfx =
   | "woosh"
   | "splash"
   | "chime" // gentle notification (new mail)
-  | "meow" // Snickers
+  | "meow" // Snickers (who actually says "Mow": that's how it's synthesized)
+  | "mow" // the same "Mow", by its proper name
   // Extras that have real Stardew recordings (free for any module to use):
   | "chest" // opening a chest
   | "croak" // a frog
@@ -743,32 +744,67 @@ const SYNTHS: Record<Sfx, Synth> = {
   },
 
   meow(d, t, p) {
+    // Snickers doesn't meow. He says "Mow": short, low and round. A hummed "m" with the mouth
+    // shut, opening into an "o" that rounds off into a "w" (both formants and the lowpass fall).
     const c = ctx!;
-    const dur = 0.5;
-    const osc = c.createOscillator();
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(520 * p, t);
-    osc.frequency.linearRampToValueAtTime(820 * p, t + 0.12);
-    osc.frequency.linearRampToValueAtTime(760 * p, t + 0.25);
-    osc.frequency.linearRampToValueAtTime(470 * p, t + dur);
-    const bp = c.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.Q.value = 3;
-    bp.frequency.setValueAtTime(600, t);
-    bp.frequency.linearRampToValueAtTime(1600, t + 0.15);
-    bp.frequency.linearRampToValueAtTime(850, t + dur);
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 3200;
+    const dur = 0.34;
+    const f0 = rand(285, 315) * p;
     const env = c.createGain();
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.linearRampToValueAtTime(0.7, t + 0.06);
-    env.gain.setValueAtTime(0.6, t + 0.3);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(bp).connect(lp).connect(env).connect(d);
+    env.gain.linearRampToValueAtTime(0.35, t + 0.035); // "m..."
+    env.gain.linearRampToValueAtTime(0.85, t + 0.1); // "...o..."
+    env.gain.setValueAtTime(0.78, t + 0.16);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur); // "...w"
+    env.connect(d);
+    // The voice: a little lift on the "o", then it settles (a statement, not a question).
+    const osc = c.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(f0 * 0.92, t);
+    osc.frequency.linearRampToValueAtTime(f0 * 1.1, t + 0.09);
+    osc.frequency.linearRampToValueAtTime(f0 * 1.02, t + 0.17);
+    osc.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + dur);
+    // The mouth: nearly shut for the "m", open for the "o", rounding off for the "w".
+    const mouth = c.createBiquadFilter();
+    mouth.type = "lowpass";
+    mouth.Q.value = 0.9;
+    mouth.frequency.setValueAtTime(420, t);
+    mouth.frequency.linearRampToValueAtTime(450, t + 0.04);
+    mouth.frequency.linearRampToValueAtTime(2000, t + 0.11);
+    mouth.frequency.exponentialRampToValueAtTime(600, t + dur);
+    osc.connect(mouth);
+    // Two vowel formants gliding nasal "m" -> "ah" -> "oo".
+    const formant = (from: number, open: number, to: number, q: number, level: number) => {
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.Q.value = q;
+      bp.frequency.setValueAtTime(from, t);
+      bp.frequency.linearRampToValueAtTime(open, t + 0.11);
+      bp.frequency.exponentialRampToValueAtTime(to, t + dur);
+      const g = c.createGain();
+      g.gain.value = level;
+      mouth.connect(bp).connect(g).connect(env);
+    };
+    formant(320, 740, 400, 3.5, 1);
+    formant(950, 1250, 820, 5, 0.45);
     osc.start(t);
     osc.stop(t + dur + 0.05);
+    // A soft sine on the fundamental underneath: that's what makes it round instead of whiny.
+    tone(d, t + 0.01, {
+      f: f0 * 0.95,
+      path: [
+        [0.08, f0 * 1.1],
+        [0.16, f0 * 1.02],
+        [dur - 0.03, f0 * 0.82],
+      ],
+      dur: dur - 0.02,
+      vol: 0.16,
+      attack: 0.04,
+    });
     return dur;
+  },
+
+  mow(d, t, p) {
+    return SYNTHS.meow(d, t, p);
   },
 
   // ---- extras (normally played from their real recordings) ----
@@ -840,7 +876,7 @@ const SYNTHS: Record<Sfx, Synth> = {
 };
 
 // Some sounds would be annoying if they stacked up (typing blips, menu clicks).
-const MIN_GAP: Partial<Record<Sfx, number>> = { blip: 0.04, select: 0.03, menuOpen: 0.06, menuClose: 0.06, baa: 0.12, pop: 0.03, lick: 0.05 };
+const MIN_GAP: Partial<Record<Sfx, number>> = { blip: 0.04, select: 0.03, menuOpen: 0.06, menuClose: 0.06, baa: 0.12, pop: 0.03, lick: 0.05, meow: 0.2, mow: 0.2 };
 const lastPlayed = new Map<Sfx, number>();
 
 // ---------- real sound files ----------

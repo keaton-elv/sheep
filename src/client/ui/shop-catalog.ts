@@ -10,16 +10,16 @@ export interface DecorInfo {
 }
 
 export const DECOR_INFO: Record<DecorKind, DecorInfo> = {
-  scarecrow: { name: "Scarecrow", desc: "Keeps the crows away. The sheep think he's their friend.", glyph: "☺" },
+  scarecrow: { name: "Scarecrow", desc: "Keeps the crows away. The Telegraph Hill parrots are another story...", glyph: "☺" },
   rarecrow: { name: "Rarecrow", desc: "A very unusual scarecrow. Collect all 8!", glyph: "★" },
-  flowers: { name: "Flower Patch", desc: "Smells like the Flower Dance...", glyph: "✿" },
-  lamppost: { name: "Lamp-post", desc: "So nobody trips over a sheep at night.", glyph: "☼" },
-  campfire: { name: "Campfire", desc: "Cozy crackle for stargazing. Marshmallows not included.", glyph: "♨" },
+  flowers: { name: "Flower Patch", desc: "Not lavender, but it's trying its best.", glyph: "✿" },
+  lamppost: { name: "Lamp-post", desc: "For foggy nights. (Hi, Karl.)", glyph: "☼" },
+  campfire: { name: "Campfire", desc: "Ocean Beach bonfire, minus the wind. Marshmallows not included.", glyph: "♨" },
   haybale: { name: "Hay Bale", desc: "Snack and sofa in one. The sheep fully approve.", glyph: "▦" },
   beehouse: { name: "Bee House", desc: "Home for some very busy bees. Bzzz...", glyph: "⬢" },
-  pumpkin: { name: "Pumpkin", desc: "A giant pumpkin. Spirit's Eve vibes all year round.", glyph: "●" },
-  tree: { name: "Tree", desc: "A shady spot for naps... Zzz...", glyph: "♣" },
-  pond: { name: "Pond", desc: "A little pond. Might be home to a legendary fish...", glyph: "≈" },
+  pumpkin: { name: "Pumpkin", desc: "A giant pumpkin. Half Moon Bay would be proud.", glyph: "●" },
+  tree: { name: "Tree", desc: "Not quite Muir Woods. The sheep nap under it anyway.", glyph: "♣" },
+  pond: { name: "Pond", desc: "Might hold a legendary fish. Snickers is keeping a close eye on it...", glyph: "≈" },
   gnome: { name: "Garden Gnome", desc: "He's watching the sheep. Lovingly. Constantly...", glyph: "♠" },
   sheepstatue: { name: "Sheep Statue", desc: "A grand monument to fluff.", glyph: "♛" },
 };

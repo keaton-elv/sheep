@@ -8,11 +8,16 @@
 // days, naps on the barn doorstep, sleeps curled up there at night, and shelters by the barn wall
 // when it rains.
 //
-// Tap his head (front half): a pet. Heart, happy squint, a meow and his name tag.
+// Tap his head (front half): a pet. Heart, happy squint, a "Mow" (never "meow") and his name tag.
 // Tap THE SPOT (his lower back / tail end): LICK FRENZY. Tongue flicking, head bobbing, mlems
 // everywhere, and more taps make it worse. The very first time: "You found his lick button."
 //
+// His Fancy Feast dish sits by the barn doorstep. Now and then he crouches over it and eats (nom
+// nom, or crunch crunch when it's Whisker Lickins), says "Mow." and gives himself a wash. Tap the
+// dish to fill it (or just to rattle it): he comes running, even out of a nap.
+//
 // Art: snickers-art.ts (hand-drawn data). Yard spots: snickers-spots.ts. DOM bits: snickers-ui.ts.
+// The dish: snickers-bowl.ts.
 
 import { sfx } from "../audio";
 import type { Entity, Game } from "../engine/game";
@@ -38,6 +43,7 @@ import {
   type PartName,
   type PoseKind,
 } from "./snickers-art";
+import { Bowl, registerBowlIcon, type Food } from "./snickers-bowl";
 import { computeYard, findSpot, pathTo, type Spot, type Yard } from "./snickers-spots";
 import { nameTagVisible, positionTag, showNameTag, spawnMlem } from "./snickers-ui";
 
@@ -47,10 +53,49 @@ const FOUND_KEY = "farm.snickers.found";
 export const LICK_BUTTON_LINE = "You found his lick button.";
 const FRENZY_TOAST = "Snickers licks the air uncontrollably...";
 
-type State = "sit" | "side" | "loaf" | "groom" | "nap" | "sleep" | "walk" | "pet" | "frenzy" | "watch";
+/** Every few pets, a toast. He's a cat: short and dry. */
+const PET_LINES = [
+  "Mow.",
+  "Mow. (He means salmon.)",
+  "Papa Snickers allows it.",
+  "Snickers is thinking about string again.",
+  "Snickers misses his brother KitKat, way out in Arizona.",
+  "His tongue is out. His tongue is always out.",
+];
+/** What the name tag says, now and then, instead of his name. */
+const TAG_MOW = "Mow!";
+const TAG_PAPA = "Papa Snickers";
+
+/** Tapping an empty dish fills it. */
+const FILL_LINES: Record<Food, string> = {
+  salmon: "Fancy Feast, salmon. In the good crystal.",
+  treats: "Whisker Lickins! He heard the bag from across the farm.",
+};
+/** Tapping a full one. */
+const FULL_LINES = [
+  "He'd eat salmon for every meal. He'd like that in writing.",
+  "It's full. He'd like it fuller.",
+  "Whisker Lickins are a treat, not dinner. Snickers disagrees.",
+];
+/** Rattling a full dish: a joke now and then, not every tap. */
+const FULL_TOAST_GAP = 12;
+/** Tapping it while he's eating. */
+const EATING_LINE = "Mow. (He's eating.)";
+const NOMS: Record<Food, readonly string[]> = {
+  salmon: ["nom", "nom nom", "nom...", "mrrf"],
+  treats: ["crunch", "crunch crunch", "crunch!", "crunch"],
+};
+
+type State = "sit" | "side" | "loaf" | "groom" | "nap" | "sleep" | "walk" | "pet" | "frenzy" | "watch" | "eat" | "beg";
 
 const WALK_SPEED = 13; // game px per second: an unhurried cat stroll
 const WALK_FRAME = 0.15;
+/** Called to his dish: a trot. */
+const HURRY = 2.2;
+/** He won't wander over to eat again sooner than this (s), and the dish refills itself after a while. */
+const MEAL_GAP = 240;
+const REFILL_MIN = 180;
+const REFILL_MAX = 360;
 const PET_TIME = 1.9;
 const FRENZY_START = 2.5;
 const FRENZY_EXTEND = 1.1;
@@ -67,6 +112,7 @@ const SHADOW_W: Record<PoseKind, number> = { front: 20, side: 22, walk: 22, loaf
 
 const rand = (lo: number, hi: number) => lo + Math.random() * (hi - lo);
 const chance = (p: number) => Math.random() < p;
+const pick = <T>(list: readonly T[]): T => list[Math.floor(Math.random() * list.length)]!;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 const reducedMotion: boolean = (() => {
@@ -184,7 +230,7 @@ class Snickers implements Entity {
   /** A lick frenzy where sitting up won't fit: he licks away lying down. */
   private frenzyLoaf = false;
   /** Where to pick up after a pet or a frenzy. */
-  private resumeState: "sleep" | "nap" | null = null;
+  private resumeState: "sleep" | "nap" | "eat" | null = null;
   private resumeWalk: string | null = null;
 
   private frenzy = { left: 0, level: 1, flickT: 0, flick: 0, mlemIn: 0, side: 1 };
@@ -192,7 +238,33 @@ class Snickers implements Entity {
   private foundThisSession = false;
   private placed = false;
 
-  constructor(private readonly g: Game) {}
+  /** His Fancy Feast dish (its own entity, placed with the yard). */
+  readonly bowl: Bowl;
+  /** When he last finished a meal (game seconds), and when the empty dish refills itself. */
+  private lastMeal = -1e9;
+  private refillAt = 0;
+  /** Trotting over because someone rattled the dish. */
+  private hurry = false;
+  private nomIn = 0;
+  private begMowed = false;
+  private pets = 0;
+  private lastPetToast = -1e9;
+  private petDeck: string[] = [];
+  private lastBowlToast = -1e9;
+  private fullDeck: string[] = [];
+
+  constructor(private readonly g: Game) {
+    this.bowl = new Bowl(g, {
+      tap: () => this.onBowlTap(),
+      onCat: (wx, wy) => this.onSprite(wx, wy, 0),
+      eating: () => this.state === "eat",
+    });
+    // Usually there's dinner waiting; sometimes it's up to you two.
+    if (chance(0.3)) {
+      this.bowl.empty();
+      this.refillAt = rand(60, 200);
+    }
+  }
 
   // ---------- layout ----------
 
@@ -201,10 +273,13 @@ class Snickers implements Entity {
       const yard = computeYard(l);
       this.yard = yard;
       this.yardOf = l;
+      this.bowl.place(yard.dish);
       if (this.spot) {
         this.spot = findSpot(yard, this.spot.id) ?? yard.door;
         // Resized so that only loafing fits here now: settle down rather than cover the farm things.
-        if (this.spot.low && (this.state === "sit" || this.state === "side" || this.state === "watch" || this.state === "groom")) this.set("loaf", rand(6, 12));
+        if (this.spot.low && (this.state === "sit" || this.state === "side" || this.state === "watch" || this.state === "groom" || this.state === "beg")) this.set("loaf", rand(6, 12));
+        // (And if the dish has nowhere to go any more, dinner's over.)
+        if ((this.state === "eat" || this.state === "beg") && this.spot.id !== "eat") this.set("loaf", rand(4, 8));
       } else if (this.placed && this.offYard(l)) {
         // Rotated mid-walk (or mid-fuss): don't stroll across the flock, just be where he was going.
         const s = findSpot(yard, this.state === "walk" ? this.targetId : this.resumeWalk) ?? yard.door;
@@ -253,13 +328,14 @@ class Snickers implements Entity {
     this.set("watch", rand(8, 16));
   }
 
-  private walkTo(spot: Spot): void {
+  private walkTo(spot: Spot, hurry = false): void {
     const yard = this.yard;
     if (!yard) return;
     this.targetId = spot.id;
     this.path = pathTo(yard, this.x, this.y, spot);
     this.spot = null;
     this.walkT = 0;
+    this.hurry = hurry;
     this.set("walk");
   }
 
@@ -336,6 +412,9 @@ class Snickers implements Entity {
       this.tailT = 0.45;
     }
 
+    // Somebody tops up the dish now and then (nobody ever sees who).
+    if (!this.bowl.full && this.state !== "eat" && g.time > this.refillAt) this.bowl.fill(chance(0.75) ? "salmon" : "treats");
+
     switch (this.state) {
       case "sit":
       case "side":
@@ -369,6 +448,21 @@ class Snickers implements Entity {
         break;
       case "pet":
         if (this.t > this.dur) this.resume(yard, l);
+        break;
+      case "eat":
+        this.updateMeal(dt, g);
+        if (this.wet) this.dur = Math.min(this.dur, this.t + 1.2);
+        if (this.t > this.dur) this.finishMeal(yard, l);
+        break;
+      case "beg":
+        // Sitting by an empty dish, staring at whoever's nearest. Then, pointedly: "Mow."
+        if (!this.begMowed && this.t > 1.4) {
+          this.begMowed = true;
+          sfx("mow", { volume: 0.7, pitch: rand(0.95, 1.08) });
+          this.mow("Mow.");
+        }
+        if (this.bowl.full && this.t > 0.6) this.startMeal();
+        else if (this.t > this.dur || this.sleepy || this.wet) this.next(yard, l);
         break;
       case "frenzy":
         this.updateFrenzy(dt, g);
@@ -417,6 +511,21 @@ class Snickers implements Entity {
       this.walkTo(yard.door);
       return;
     }
+    // Dinner (likelier if he hasn't eaten yet). Or, if the dish is empty, a pointed sit beside it.
+    const eat = yard.eat;
+    const hungry = this.g.time - this.lastMeal > MEAL_GAP;
+    if (eat && here.id !== eat.id && hungry && chance(!this.bowl.full ? 0.06 : this.lastMeal < 0 ? 0.3 : 0.12)) {
+      this.walkTo(eat);
+      return;
+    }
+    // Done at the dish: wander off.
+    if (here.id === "eat" && chance(0.7)) {
+      const s = this.otherSpot(yard);
+      if (s) {
+        this.walkTo(s);
+        return;
+      }
+    }
     // Sunny days: he keeps drifting back to the warm spot.
     const sun = this.sunny ? yard.sun : null;
     if (sun && here.id !== sun.id && r < 0.18) {
@@ -456,6 +565,13 @@ class Snickers implements Entity {
     this.spot = spot;
     this.targetId = null;
     this.path = [];
+    const hurried = this.hurry;
+    this.hurry = false;
+    // At the dish: dinner (he'll even get up for it at night), or a pointed stare at the empty dish.
+    if (spot.id === "eat" && !this.wet && (this.bowl.full || !this.sleepy || hurried)) {
+      this.startMeal();
+      return;
+    }
     if (this.sleepy) {
       if (spot.id === yard.door.id) this.set("sleep");
       else this.walkTo(yard.door);
@@ -478,8 +594,8 @@ class Snickers implements Entity {
   }
 
   private updateWalk(dt: number, yard: Yard, l: Layout): void {
-    this.walkT += dt;
-    let budget = WALK_SPEED * dt;
+    this.walkT += dt * (this.hurry ? 1.6 : 1);
+    let budget = WALK_SPEED * (this.hurry ? HURRY : 1) * dt;
     // (A loop so a short segment doesn't eat a whole frame's worth of walking.)
     for (let i = 0; i < 4 && budget > 0; i++) {
       const p = this.path[0];
@@ -513,7 +629,7 @@ class Snickers implements Entity {
   /** Remember what he was up to, so he can go back to it after the fuss. */
   private interrupt(): void {
     if (this.state === "pet" || this.state === "frenzy") return;
-    this.resumeState = this.state === "sleep" || this.state === "nap" ? this.state : null;
+    this.resumeState = this.state === "sleep" || this.state === "nap" || this.state === "eat" ? this.state : null;
     if (this.state === "walk") {
       this.resumeWalk = this.targetId;
       this.path = [];
@@ -537,7 +653,13 @@ class Snickers implements Entity {
     }
     const back = this.resumeState;
     this.resumeState = null;
-    if (back && (this.sleepy || back === "nap")) {
+    if (back === "eat") {
+      // Back to dinner, if it's still there.
+      if (this.spot.id === "eat" && this.bowl.full && !this.wet) {
+        this.set("eat", rand(3, 6));
+        return;
+      }
+    } else if (back && (this.sleepy || back === "nap")) {
       this.set(back, rand(12, 25));
       this.zzzIn = 2.5;
       return;
@@ -553,22 +675,37 @@ class Snickers implements Entity {
 
   private pet(): void {
     const asleep = this.state === "sleep" || this.state === "nap";
-    sfx("meow", asleep ? { volume: 0.45, pitch: 0.82 } : { pitch: rand(0.94, 1.12) });
+    sfx("mow", asleep ? { volume: 0.45, pitch: 0.82 } : { pitch: rand(0.94, 1.12) });
     this.showEmote("heart");
-    showNameTag();
     buzz(8);
     if (asleep) {
       // Still asleep, just purring a little louder.
+      showNameTag();
       this.zzzIn = 2.2;
       const a = this.headAnchor();
       spawnMlem(this.g, a.x + (this.isFlipped() ? -13 : 13), a.y + 3, "purr...");
       return;
     }
+    this.pets++;
+    if (this.pets % 4 === 0 && this.g.time - this.lastPetToast > 25) {
+      this.lastPetToast = this.g.time;
+      showNameTag();
+      toast(this.petLine(), { icon: "snickers.icon" });
+    } else {
+      const r = Math.random();
+      showNameTag(r < 0.2 ? TAG_MOW : r < 0.3 ? TAG_PAPA : "Snickers");
+    }
     if (this.state === "frenzy") return; // he's busy (licking)
-    const loafing = this.state === "loaf" || (this.state === "pet" && this.petLoaf) || this.lowHere();
+    const loafing = this.state === "loaf" || this.state === "eat" || (this.state === "pet" && this.petLoaf) || this.lowHere();
     this.interrupt();
     this.petLoaf = loafing;
     this.set("pet", PET_TIME);
+  }
+
+  /** The next pet line (shuffled, no repeats until they've all come up). */
+  private petLine(): string {
+    if (!this.petDeck.length) this.petDeck = [...PET_LINES].sort(() => Math.random() - 0.5);
+    return this.petDeck.pop() ?? "Mow.";
   }
 
   private lickButton(g: Game): void {
@@ -581,7 +718,8 @@ class Snickers implements Entity {
       this.mlem(g, f.level >= 3);
       return;
     }
-    this.frenzyLoaf = this.lowHere();
+    // (Crouched over his dish, he licks away crouched.)
+    this.frenzyLoaf = this.lowHere() || this.state === "eat";
     this.interrupt();
     this.petLoaf = false;
     this.set("frenzy");
@@ -656,6 +794,107 @@ class Snickers implements Entity {
     }
   }
 
+  // ---------- his dish ----------
+
+  /** A little bubble from his mouth ("Mow.", "nom"). */
+  private mow(text: string, big = false): void {
+    const a = this.headAnchor();
+    spawnMlem(this.g, a.x + (this.isFlipped() ? -12 : 12), a.y + 6, text, big);
+  }
+
+  /** Settled in at the dish: eat, or (if it's empty) sit and stare until something is done about it. */
+  private startMeal(): void {
+    this.hurry = false;
+    if (!this.bowl.full) {
+      this.showEmote("dots");
+      this.begMowed = false;
+      this.frontFlip = chance(0.3);
+      // (Where sitting up won't fit, he makes his point lying down.)
+      if (this.lowHere()) this.set("loaf", rand(5, 8));
+      else this.set("beg", rand(5, 8));
+      return;
+    }
+    this.set("eat", rand(6, 10));
+    this.nomIn = rand(0.7, 1.1);
+  }
+
+  /** Mid-meal, he lifts his head out of the dish to chew for a moment. */
+  private lookingUp(): boolean {
+    return this.state === "eat" && this.t % 2.6 > 1.95;
+  }
+
+  private updateMeal(dt: number, g: Game): void {
+    this.nomIn -= dt;
+    if (this.nomIn > 0) return;
+    this.nomIn = rand(1.3, 2.2) * (reducedMotion ? 1.6 : 1);
+    if (!this.lookingUp()) {
+      const f = this.frenzy;
+      f.side = -f.side;
+      const x = this.x + 0.5 + f.side * rand(8, 12);
+      spawnMlem(g, x, this.y - 13 - rand(0, 4), pick(NOMS[this.bowl.food]));
+    }
+  }
+
+  private finishMeal(yard: Yard, l: Layout): void {
+    this.bowl.empty();
+    this.lastMeal = this.g.time;
+    this.refillAt = this.g.time + rand(REFILL_MIN, REFILL_MAX);
+    sfx("mow", { volume: 0.55, pitch: rand(0.9, 1) });
+    this.mow("Mow.");
+    // Then a wash, as is only proper (sitting up, where he fits).
+    if (!this.wet && !this.sleepy && !this.lowHere()) {
+      this.frontFlip = chance(0.3);
+      this.set("groom", rand(2.5, 4));
+    } else this.next(yard, l);
+  }
+
+  /** The dish was tapped: fill it (or rattle it), and he comes running. */
+  private onBowlTap(): void {
+    const g = this.g;
+    const b = this.bowl;
+    const eating = this.state === "eat";
+    let line: string | null = null;
+    if (!b.full) {
+      // Filling it always says so.
+      const food: Food = chance(0.7) ? "salmon" : "treats";
+      b.fill(food);
+      sfx("pop");
+      line = FILL_LINES[food];
+    } else if (g.time - this.lastBowlToast > FULL_TOAST_GAP) {
+      // Rattling a full one: a joke now and then, not every tap.
+      if (eating) line = EATING_LINE;
+      else {
+        if (!this.fullDeck.length) this.fullDeck = [...FULL_LINES].sort(() => Math.random() - 0.5);
+        line = this.fullDeck.pop() ?? "Mow.";
+      }
+    }
+    buzz(6);
+    if (line) {
+      this.lastBowlToast = g.time;
+      toast(line, { icon: "snickers.bowl" });
+    }
+    if (!eating) this.callToDish();
+  }
+
+  /** Someone rattled the dish. He's on his way (unless it's raining, or he's mid-fuss). */
+  private callToDish(): void {
+    const eat = this.yard?.eat;
+    if (!eat || !this.bowl.full || this.wet) return;
+    if (this.state === "frenzy" || this.state === "pet") return;
+    if (this.spot?.id === eat.id) {
+      if (this.state !== "eat") this.startMeal();
+      return;
+    }
+    if (this.state === "walk" && this.targetId === eat.id) {
+      this.hurry = true;
+      return;
+    }
+    this.showEmote("exclaim");
+    sfx("mow", { pitch: rand(1.04, 1.18), volume: 0.8 });
+    this.mow("Mow!");
+    this.walkTo(eat, true);
+  }
+
   // ---------- the barn door ----------
 
   /** A sheep is coming through the barn door: if he's on the doorstep, he notices. */
@@ -679,7 +918,8 @@ class Snickers implements Entity {
   /** Join a party (the farm's "baaaaah" easter egg): a happy little lick-fest. */
   party(): void {
     if (this.state === "frenzy") return;
-    if (this.state === "sleep" || this.state === "nap") {
+    // Asleep, or eating: he's not getting up for a party.
+    if (this.state === "sleep" || this.state === "nap" || this.state === "eat") {
       this.showEmote("music");
       return;
     }
@@ -706,7 +946,10 @@ class Snickers implements Entity {
         return this.frenzyLoaf ? "loaf" : "front";
       case "sit":
       case "groom":
+      case "beg":
         return "front";
+      case "eat":
+        return "loaf";
       case "watch":
         return this.watchSide ? "side" : "front";
       case "side":
@@ -758,7 +1001,18 @@ class Snickers implements Entity {
     const blink = this.blinkT > 0;
     switch (this.state) {
       case "sit":
+      case "beg":
         return this.front(blink ? "headBlink" : "headFront");
+      case "eat": {
+        // Crouched over the dish, face in it, nodding away; every couple of seconds he looks up to chew.
+        const tail: Layer = ["loafTail", this.tailT > 0 ? 1 : 0, 0];
+        if (this.lookingUp()) {
+          const chomp = Math.floor(this.t / 0.18) % 2;
+          return [["loafBody", 0, 0], [blink ? "headBlink" : "headLickIn", HEAD_LOAF.dx, HEAD_LOAF.dy + chomp], tail];
+        }
+        const nod = Math.floor(this.t / 0.24) % 2;
+        return [["loafBody", 0, 0], [nod ? "headLickCurl" : "headLickIn", HEAD_LOAF.dx, HEAD_LOAF.dy + 2 + (nod ? 0 : 1)], tail];
+      }
       case "watch":
         return this.watchSide ? this.side(blink) : this.front(blink ? "headBlink" : "headFront");
       case "pet":
@@ -902,6 +1156,9 @@ class Snickers implements Entity {
         // Head on top; the lower back and the tail plume (on his right) are the spot.
         return rel > 9 || up < 11;
       case "loaf":
+        // Face down in his dish, his head is where a loaf's lick spot would be: then it's only
+        // his back end (right of his head: the tail side).
+        if (this.state === "eat") return rel > 7;
         return (rel > 5 && up < 10) || up < 7;
       case "side":
       case "walk":
@@ -924,36 +1181,35 @@ class Snickers implements Entity {
 let snickers: Snickers | null = null;
 
 /** Wrap update/draw/hit/onTap in try/catch, so a bug here can never freeze the farm. */
-function guard(s: Snickers): Entity {
-  const e = s as Entity;
+function guard(e: Entity, name: string): Entity {
   const { update, draw, hit, onTap } = e;
   e.update = (dt, g) => {
     try {
-      update?.call(s, dt, g);
+      update?.call(e, dt, g);
     } catch (err) {
-      report("update", err);
+      report(`${name} update`, err);
     }
   };
   e.draw = (ctx, g) => {
     try {
-      draw.call(s, ctx, g);
+      draw.call(e, ctx, g);
     } catch (err) {
-      report("draw", err);
+      report(`${name} draw`, err);
     }
   };
   e.hit = (wx, wy) => {
     try {
-      return hit?.call(s, wx, wy) ?? false;
+      return hit?.call(e, wx, wy) ?? false;
     } catch (err) {
-      report("hit", err);
+      report(`${name} hit`, err);
       return false;
     }
   };
   e.onTap = (g, wx, wy) => {
     try {
-      onTap?.call(s, g, wx, wy);
+      onTap?.call(e, g, wx, wy);
     } catch (err) {
-      report("onTap", err);
+      report(`${name} onTap`, err);
     }
   };
   return e;
@@ -1019,12 +1275,14 @@ export function initSnickers(g: Game): void {
   try {
     buildAllParts();
     registerIcons();
+    registerBowlIcon();
   } catch (err) {
     report("art", err);
   }
   const s = new Snickers(g);
   snickers = s;
-  g.add(guard(s));
+  g.add(guard(s, "snickers"));
+  g.add(guard(s.bowl, "dish"));
   g.on("barnDoor", () => {
     try {
       s.onBarnDoor();

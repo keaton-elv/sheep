@@ -1,6 +1,7 @@
 // Art for the loom & chest menus: the real Stardew loom (a spinning wheel!) and chest from
-// craftables.png when it's there, a hand-drawn loom as the fallback, and the piece of string
-// Snickers keeps hidden in the chest (hand-drawn: Stardew has no string).
+// craftables.png when it's there, a hand-drawn loom as the fallback, the piece of string
+// Snickers keeps hidden in the chest (hand-drawn: Stardew has no string), and the little
+// Community Center bundle sacks.
 
 import { pixelArt } from "../engine/pixelart";
 import { registerArt, REGIONS, SHEETS } from "../engine/sprites";
@@ -96,4 +97,43 @@ export function registerLoomArt(): void {
     },
   );
   registerArt("ui.menu.loom.working", loom);
+
+  // 16x16 Community Center bundles: a little drawstring sack tied with red string, one color per
+  // bundle (hand-drawn: the junimo note sheet isn't in the pack). Light from the top-left.
+  const SACK = [
+    "................",
+    ".....o.oo.o.....",
+    "....oKoKKoKo....",
+    "....oKKHKKKo....",
+    ".....okKKko.....",
+    ".....oTTTto.....",
+    "....oBBBBBBo....",
+    "...oBHBBBBBbo...",
+    "..oBHHBBBBBBbo..",
+    ".oBHHBBBBBBBBbo.",
+    ".oBHBBBBBBBBBbo.",
+    ".oBBBBBBBBBBBbo.",
+    ".obBBBBBBBBBbbo.",
+    "..obbBBBBBbbbo..",
+    "...oobbbbbbbo...",
+    ".....ooooooo....",
+  ];
+  for (const [id, [B, H, b, K, k]] of Object.entries(SACK_COLORS)) {
+    pixelArt(`ui.bundle.${id}`, SACK, { o: "#3b2a1a", T: "#c0503a", t: "#7a2a1a", B, H, b, K, k });
+  }
+}
+
+/** Sack colors per bundle id: body, highlight, shade, ruffle, ruffle shade. */
+const SACK_COLORS: Record<string, readonly [string, string, string, string, string]> = {
+  spring: ["#5fae3a", "#a6e070", "#3c7a28", "#7cc84a", "#4f9a2c"],
+  summer: ["#e8a51e", "#ffe07a", "#a8650e", "#f5c440", "#c8861a"],
+  fall: ["#d0602a", "#f5a060", "#8e3414", "#e88040", "#b04a1c"],
+  winter: ["#5a8fd8", "#a8d0ff", "#33589a", "#7aaef0", "#4672b8"],
+  seeds: ["#9a6a3a", "#d0a070", "#5e3e1e", "#b8844a", "#7a522a"],
+  junk: ["#9a62c8", "#d0a8f0", "#5e3488", "#b484e0", "#7a4aa8"],
+};
+
+/** The sack sprite for a bundle (a plain brown one for any bundle without its own color). */
+export function bundleSackKey(id: string): string {
+  return Object.hasOwn(SACK_COLORS, id) ? `ui.bundle.${id}` : "ui.bundle.seeds";
 }

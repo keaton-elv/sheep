@@ -234,11 +234,16 @@
   touch-action: manipulation;
   transition: transform 80ms;
 }
-.fm-cal__nav:hover,
 .fm-cal__nav:focus-visible {
-  transform: scale(1.08);
   border-image-source: var(--img-button-hover);
   outline: none;
+}
+/* Only real hover devices get the hover (touch would leave it stuck on); the arrows are small. */
+@media (hover: hover) {
+  .fm-cal__nav:hover {
+    transform: scale(1.08);
+    border-image-source: var(--img-button-hover);
+  }
 }
 .fm-cal__nav:active {
   transform: scale(0.94);
@@ -258,6 +263,44 @@
 }
 .fm-cal__dow .is-weekend {
   color: var(--season);
+}
+.fm-cal__dow > span {
+  min-width: 0;
+  white-space: nowrap;
+}
+/* Wine Wednesday: a tiny glass by the column name. */
+.fm-cal__wed {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+}
+.fm-cal__wine {
+  opacity: 0.85;
+}
+.fm-cal__dayname .fm-cal__wine {
+  margin-left: 4px;
+  vertical-align: baseline;
+}
+/* Some weeks Thursday is THURSDAY!!!!! */
+.fm-cal__thu {
+  color: #d8342c;
+  letter-spacing: 0;
+  display: inline-block;
+  animation: fm-cal-thu 1.6s steps(1, end) infinite;
+}
+@keyframes fm-cal-thu {
+  0%,
+  70%,
+  100% {
+    transform: none;
+  }
+  78% {
+    transform: rotate(-6deg);
+  }
+  86% {
+    transform: rotate(6deg);
+  }
 }
 
 .fm-cal__grid {
@@ -343,6 +386,10 @@
   position: absolute;
   top: 2px;
   right: 2px;
+}
+.fm-cal__flag.is-sf {
+  top: 3px;
+  right: 1px;
 }
 .fm-cal__heads {
   flex: 1;
@@ -432,6 +479,14 @@
   flex: none;
   margin-top: 2px;
 }
+/* Real Bay Area days: fog-and-bridge colors instead of festival pink. */
+.fm-cal__fest.is-sf {
+  background: #fdeadf;
+  box-shadow: inset 0 0 0 1px #e0907a;
+}
+.fm-cal__fest.is-sf .fm-cal__festicon {
+  margin-top: 4px;
+}
 .fm-cal__fest > span:last-child {
   flex: 1;
   min-width: 0;
@@ -471,11 +526,6 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* The button grows a little on hover; keep that inside the note on phones. */
-.fm-cal__add:hover:not(:disabled),
-.fm-cal__add:focus-visible {
-  transform: scale(1.02);
-}
 
 @media (max-width: 380px) {
   .fm-cal__title {
@@ -492,7 +542,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .fm-cal__cell.is-today::after,
-  .fm-flag {
+  .fm-flag,
+  .fm-cal__thu {
     animation: none;
   }
 }

@@ -15,6 +15,9 @@ import { LOGO, registerPasswordArt, TITLE_ART, TITLE_BIRD, TITLE_SHEETS, type Re
 import "./password.css";
 
 const GREETING = "Hold it! Only true sheep fans behind this gate. What's the password?";
+/** Once in a while, the gatekeeper is the cat on the logo. */
+const GREETING_RARE = "Mow. Papa Snickers is guarding the gate today. What's the password?";
+const RARE_CHANCE = 1 / 10;
 
 // Wrong answers get a little reaction from the farm. (No hints, ever.)
 const TEASES = [
@@ -616,7 +619,7 @@ export function showPasswordGate(): Promise<void> {
 
     uiRoot.inert = true;
     document.body.appendChild(gate);
-    type(GREETING);
+    type(catSpot && Math.random() < RARE_CHANCE ? GREETING_RARE : GREETING);
     requestAnimationFrame(() => {
       // Phones only open the keyboard on a real tap, so this is mostly for laptops.
       try {

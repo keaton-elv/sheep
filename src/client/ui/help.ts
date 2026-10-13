@@ -20,7 +20,8 @@ interface Entry {
   stamp?: true;
 }
 
-const sprite = (key: string, scale = 1) => () => spriteIcon(iconKey(key), { scale });
+/** A sprite icon (single 16px icons read best at 1.5); `fallback` if its sheet didn't load. */
+const sprite = (key: string, scale = 1, fallback?: string) => () => spriteIcon(iconKey(key, fallback), { scale });
 /** A critter's own sprite if it has one, otherwise a fallback icon. */
 const critter = (key: string, fallback: string) => () => spriteIcon(has(key) ? key : iconKey(fallback), { class: "help-critter" });
 const sheep = () => frameIcon("sheep", 12, 32, 32, { class: "help-sheep" });
@@ -42,6 +43,11 @@ const ENTRIES: Entry[] = [
     title: "Wool → cloth.",
     text: `${LOOM_WOOL_COST} wool in the loom. Spend cloth at the carpenter's shop.`,
   },
+  {
+    icons: [sprite("ui.icon.chest"), sprite("item.forage.acorn", 1, "ui.icon.chest")],
+    title: "Forage.",
+    text: "Tap to pick it up. Shake a tree, then grab what falls. It all goes in the chest. Fill a bundle, get cloth.",
+  },
   { icons: [sprite("ui.icon.calendar"), sprite("ui.icon.mail")], title: "Calendar & mail.", text: "Dated plans. Letters from Snickers, Otto & the sheep." },
   { icons: [sprite("ui.heart.full", 2), sprite("ui.heart.full", 2)], title: "One farm, two farmers.", text: "Everything shows up live." },
   {
@@ -55,6 +61,13 @@ const ENTRIES: Entry[] = [
     icons: [sprite("ui.star", 2)],
     title: "Psst...",
     text: "Tap the grass a bunch. Knock on the stump. Look up at night. Sheep love a good baaaaah...",
+    secret: true,
+  },
+  { icons: [sprite("ui.icon.wine", 1.5)], title: "Wine Wednesday.", text: "Keep an eye on the clock. (Thursdays too!!!!!)", secret: true },
+  {
+    icons: [sprite("critter.raccoon.peek", 1.5)],
+    title: "Overheard...",
+    text: "one of you two is a hundred raccoons in a trench coat.",
     secret: true,
   },
 ];

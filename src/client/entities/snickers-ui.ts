@@ -1,6 +1,7 @@
-// Snickers' little DOM bits: the parchment "Snickers" name tag that pops up when you pet him,
-// and the "mlem" bubbles that fly off during a lick frenzy. Real DOM text, so it's crisp at any
-// zoom. Everything lives in one pointer-events:none layer, so taps always reach the farm.
+// Snickers' little DOM bits: the parchment "Snickers" name tag that pops up when you pet him (now
+// and then it just says "Mow!"), and the "mlem" bubbles that fly off during a lick frenzy (and the
+// "nom"s at his dish). Real DOM text, so it's crisp at any zoom. Everything lives in one
+// pointer-events:none layer, so taps always reach the farm.
 
 import type { Game } from "../engine/game";
 import { uiRoot } from "../ui/dom";
@@ -132,8 +133,8 @@ function toScreen(g: Game, wx: number, wy: number): { x: number; y: number; s: n
   return { x: r.left + wx * s, y: r.top + wy * s, s };
 }
 
-/** Pop the "Snickers" name tag; call positionTag() every frame while it's up. */
-export function showNameTag(): void {
+/** Pop the name tag ("Snickers", or what he has to say); call positionTag() every frame while it's up. */
+export function showNameTag(text = "Snickers"): void {
   try {
     const root = ensureLayer();
     if (!tag) {
@@ -141,10 +142,11 @@ export function showNameTag(): void {
       tag.className = "snk-tag";
       const inner = document.createElement("span");
       inner.className = "snk-tag__in";
-      inner.textContent = "Snickers";
       tag.appendChild(inner);
       root.appendChild(tag);
     }
+    const inner = tag.firstElementChild;
+    if (inner && inner.textContent !== text) inner.textContent = text;
     tag.hidden = false;
     tag.classList.remove("is-out", "is-in");
     // (Reading the size also restarts the pop animation.)

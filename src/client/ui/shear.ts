@@ -6,7 +6,8 @@ import { pick } from "../engine/game";
 import { playShear, shearFailed } from "../entities/sheep";
 import { ApiError, api, store } from "../net";
 import { LIMITS, LOOM_WOOL_COST } from "../../shared/types";
-import { friendlyError } from "./animal-common";
+import { farmMoment, friendlyError, originalStamps } from "./animal-common";
+import { THURSDAY, isBigThursday, planLore } from "./animal-lore";
 import { closeAllDialogs, confirmDialog, promptDialog, registerMenu, say, toast } from "./dom";
 
 export function initShear(): void {
@@ -18,7 +19,34 @@ const inFlight = new Set<string>();
 
 const MEMORY_PLACEHOLDERS = ["The best part was...", "We laughed so hard when...", "Next time, let's...", "10/10 would shear again because..."];
 
-const GOLDEN_LINES = ["Golden wool! Two for the chest. Even the stars are jealous.", "The wool is... glowing? Two for the chest!"];
+const GOLDEN_LINES = [
+  "Golden wool! Two for the chest. Even the stars are jealous.",
+  "The wool is... glowing? Two for the chest!",
+  "Golden wool! Two for the chest. Snickers would like to nap on it.",
+];
+
+type Lore = ReturnType<typeof planLore>;
+
+/** The memory prompt's placeholder: about the plan when it's about something, else a classic. */
+function memoryPlaceholder(lore: Lore, stuckToOriginal: boolean): string {
+  const about = lore.pool("memory");
+  if (stuckToOriginal && Math.random() < 0.5) return "We stuck to the ORIGINAL PLAN because...";
+  if (about.length && Math.random() < 0.7) return pick(about);
+  return pick(MEMORY_PLACEHOLDERS);
+}
+
+/** A little wink after the snip, for the plans that earn one. */
+function shearWink(lore: Lore, stuckToOriginal: boolean): string | null {
+  if (lore.has("karaoke")) return "Karaoke: survived. Legends.";
+  if (stuckToOriginal) return "Stuck to the ORIGINAL PLAN. Classic.";
+  if (lore.has("sketch") && Math.random() < 0.5) return "Another sketching meetup, done!";
+  try {
+    if (isBigThursday(farmMoment().now)) return `Done on a ${THURSDAY}`;
+  } catch {
+    // no wink today
+  }
+  return null;
+}
 
 /** Run the whole shear flow for one sheep. Exported so other modules can trigger it directly. */
 export async function shearFlow(id: string): Promise<void> {
@@ -42,7 +70,9 @@ async function runShear(id: string): Promise<void> {
     return;
   }
 
-  const yes = await confirmDialog(`Shear ${s.name}?\n(Only if you did it!)`, { yes: "We did it!", no: "Not yet" });
+  const lore = planLore(s, pick);
+  const asked = lore.has("karaoke") ? "(You actually went to karaoke?!)" : "(Only if you did it!)";
+  const yes = await confirmDialog(`Shear ${s.name}?\n${asked}`, { yes: "We did it!", no: "Not yet" });
   if (!yes) return;
 
   // The other farmer might have sheared it while we were deciding.
@@ -62,6 +92,8 @@ async function runShear(id: string): Promise<void> {
   const woolBefore = store.state?.wool ?? 0;
   // Un-sheared earlier? Its old memory is still on it, and shearing without a memory keeps it.
   const prevMemory = fresh.memory;
+  // Changed the plan, went back, and did the ORIGINAL PLAN after all.
+  const stuckToOriginal = originalStamps(fresh) > 0;
 
   // Animation and request run side by side; the sheep entity follows store state afterwards.
   const [, result] = await Promise.all([
@@ -101,12 +133,14 @@ async function runShear(id: string): Promise<void> {
   if (woolBefore < LOOM_WOOL_COST && woolNow >= LOOM_WOOL_COST) {
     setTimeout(() => toast(`${LOOM_WOOL_COST} wool! Loom time...`, { icon: "item.cloth", ms: 4200 }), 900);
   }
+  const wink = shearWink(lore, stuckToOriginal);
+  if (wink) setTimeout(() => toast(wink, { icon: "ui.sheep", ms: 3800 }), 500);
 
   const memory = await promptDialog({
     title: "A little memory?",
     label: "For the barn...",
     value: prevMemory,
-    placeholder: pick(MEMORY_PLACEHOLDERS),
+    placeholder: memoryPlaceholder(lore, stuckToOriginal),
     multiline: true,
     maxLength: LIMITS.memory,
     ok: "Save memory",

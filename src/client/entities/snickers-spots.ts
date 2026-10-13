@@ -7,10 +7,14 @@
 // barn wall, and a row of seats right of the sign, in the gaps between the loom/chest/mailbox/
 // billboard (one of them is his sunny spot). Wide phones get seats in the farm-object row too.
 // Landscape: the doorstep, the barn wall, between the farm things, and a seat by the left fence.
+//
+// Plus his Fancy Feast dish, just left of the doorstep (never in the sheep's way through the door
+// and the gate), and the spot right behind it where he crouches to eat.
 
 import type { Layout, Point, Rect } from "../world/layout";
 import { signFeet } from "../world/world-zones";
 import { REST_LAYERS, silhouette, type Layer, type SilhouetteRow } from "./snickers-art";
+import { DISH_H, DISH_W } from "./snickers-bowl";
 
 export type SpotKind = "door" | "shelter" | "yard" | "fence" | "sun";
 /** Which way he sits there: facing you (front), or sideways toward the pasture. */
@@ -26,12 +30,21 @@ export interface Spot {
   low?: boolean;
 }
 
+/** Where his dish sits (its feet = its bottom row, centered on x). */
+export interface DishSpot {
+  x: number;
+  y: number;
+}
+
 export interface Yard {
   spots: Spot[];
   door: Spot;
   shelter: Spot;
   /** Where he basks on sunny days (null when there's no room for one). */
   sun: Spot | null;
+  /** His dish, and where he eats from it (a pixel behind it). Null when there's no room. */
+  dish: DishSpot | null;
+  eat: Spot | null;
   /** Tap areas of the farm things and the barn: there, only his actual pixels count as a hit. */
   objects: Rect[];
   /** Portrait: every walk goes along this row (the yard strip in front of the barn). */
@@ -157,6 +170,69 @@ function gaps(l: Layout, from: number, to: number): { x: number; w: number }[] {
   return out;
 }
 
+/** The dish's footprint with its feet at (x, y) (as snickers-bowl.ts draws it). */
+const DISH_HALF = DISH_W / 2;
+function dishRect(x: number, y: number): Rect {
+  return { x: x - DISH_HALF, y: y - DISH_H + 1, w: DISH_HALF * 2, h: DISH_H };
+}
+
+/**
+ * Portrait: the dish sits on the yard strip, just in front of the top fence, so it has to go in a
+ * gap between the posts. (The posts are spaced the way world-fence.ts spaces them along the run
+ * left of the gate; each is 8px wide.) Returns the gap's center nearest to `want`, or null.
+ */
+function postGap(l: Layout, want: number, need: number): { x: number; w: number } | null {
+  const xa = l.fence.x;
+  const xb = l.gate.x - l.gate.w / 2;
+  if (xb - xa < 8) return null;
+  const n = Math.max(1, Math.round((xb - xa) / 20));
+  const posts: number[] = [];
+  for (let i = 0; i <= n; i++) posts.push(Math.round(xa + ((xb - xa) * i) / n));
+  let best: { x: number; w: number } | null = null;
+  for (let i = 0; i < n; i++) {
+    const a = posts[i]! + 4;
+    const b = posts[i + 1]! - 5;
+    const w = b - a + 1;
+    if (w < need) continue;
+    const x = Math.floor((a + b + 1) / 2);
+    if (!best || Math.abs(x - want) < Math.abs(best.x - want)) best = { x, w };
+  }
+  return best;
+}
+
+/** Where he eats: right behind the dish, crouched over it (low if he couldn't sit up there). */
+function eatSpot(rm: Room, x: number, y: number): Spot {
+  const sx = Math.round(x);
+  const sy = Math.round(y);
+  if (fits(rm, sx, sy, TALL)) return { id: "eat", kind: "yard", x: sx, y: sy, face: "front" };
+  return { id: "eat", kind: "yard", x: sx, y: sy, face: "front", low: true };
+}
+
+/**
+ * His dish (and eating spot), just left of the doorstep: clear of the sheep's path through the door
+ * and the gate, the farm things, the HUD, and wherever he naps (the doorstep and the barn wall).
+ */
+function placeDish(l: Layout, rm: Room, door: Spot, shelter: Spot, strip: number | null): { dish: DishSpot; eat: Spot } | null {
+  const clearOf = (r: Rect) => !thingRects(l).some((t) => overlaps(r, t)) && !overlaps(r, l.hudClock) && !overlaps(r, l.hudToolbar) && r.x >= rm.minX;
+  if (strip !== null) {
+    // Portrait: on the strip, in the post gap nearest the doorstep (left of the gate).
+    const gap = postGap(l, door.x - 24, DISH_HALF * 2 + 1);
+    if (!gap) return null;
+    const y = strip + 1;
+    if (!clearOf(dishRect(gap.x, y))) return null;
+    return { dish: { x: gap.x, y }, eat: eatSpot(rm, gap.x, strip) };
+  }
+  // Landscape: on the grass below the barn, between the barn-wall seat and the doorstep (the sheep
+  // head right from the door, to the gate). He takes up 13px either side of his feet loafing, and
+  // 16px on his tail side sitting up.
+  const lo = (shelter.x !== door.x ? shelter.x + 17 : door.x - 40) + DISH_HALF;
+  const hi = door.x - 13 - DISH_HALF;
+  const x = lo <= hi ? Math.round((lo + hi) / 2) : Math.round(door.x - 22);
+  const y = door.y + 2;
+  if (!clearOf(dishRect(x, y))) return null;
+  return { dish: { x, y }, eat: eatSpot(rm, x, y - 1) };
+}
+
 export function computeYard(l: Layout): Yard {
   const rm = room(l);
   const spots: Spot[] = [];
@@ -232,11 +308,15 @@ export function computeYard(l: Layout): Yard {
     add(seatAt(rm, "fence0", "fence", l.fence.x - 21, ys, "right"));
   }
 
+  const bowl = placeDish(l, rm, door, shelter, laneY);
+
   return {
     spots: [...spots, ...(spots.some((s) => s.x === shelter.x && s.y === shelter.y && s.id !== "door") || shelter.x === door.x ? [] : [shelter])],
     door,
     shelter,
     sun,
+    dish: bowl?.dish ?? null,
+    eat: bowl?.eat ?? null,
     objects: [...objectRects(l), { x: l.barn.x + 2, y: l.barn.y + 4, w: l.barn.w - 4, h: l.barn.h - 4 }],
     laneY,
     spineX,
@@ -269,5 +349,6 @@ export function pathTo(yard: Yard, x: number, y: number, to: Spot): Point[] {
 
 export function findSpot(yard: Yard, id: string | null): Spot | null {
   if (!id) return null;
+  if (id === "eat") return yard.eat;
   return yard.spots.find((s) => s.id === id) ?? (id === "shelter" ? yard.shelter : id === "door" ? yard.door : null);
 }

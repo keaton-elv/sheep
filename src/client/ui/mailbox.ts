@@ -1,19 +1,22 @@
 // Letters about what happened on the farm while you were away, Stardew style.
 // Built from store.state.events: anything newer than the last letter this browser saw,
-// minus the things this tab did itself (you know about those already). Two exceptions:
-// an ORIGINAL PLAN always gets a letter from its sheep, and a Bumblesteed sighting on this
-// device gets one (local, synthetic) letter from Otto per sighting day.
+// minus the things this tab did itself (you know about those already). The exceptions:
+// an ORIGINAL PLAN always gets a letter from its sheep, a Bumblesteed sighting on this
+// device gets one (local, synthetic) letter from Otto per sighting day, and every couple of
+// weeks or so Snickers's brother KitKat sends a postcard from Arizona (local too).
 
 import "./mailbox.css";
 import { sfx } from "../audio";
 import { currentGame } from "../engine/game";
 import { has } from "../engine/sprites";
 import { serverNow, store } from "../net";
-import { stardewDate } from "../../shared/calendar";
+import { BUNDLES } from "../../shared/bundles";
+import { dayKey, stardewDate } from "../../shared/calendar";
 import type { DecorKind, FarmEvent, FarmEventKind, FarmState } from "../../shared/types";
 import { openMemory } from "./barn";
 import { safeStorage, sheepHead, timeAgo } from "./calendar-util";
 import { el, openDialog, openMenu, plural, registerMenu, spriteIcon, toast } from "./dom";
+import { bundleSackKey } from "./loom-art";
 import { mailPaperSkin, registerMailboxArt } from "./mailbox-art";
 import { originalPlanBadge } from "./stamp";
 import { decorIcon } from "./shop";
@@ -27,6 +30,16 @@ const LS_WELCOME = "farm.mail.welcomeRead";
 const LS_STEED = "farm.bumblesteed.lastSeen";
 /** The sighting day ("Y-M-D") whose letter from Otto has been read on this device. */
 const LS_STEED_READ = "farm.mail.steedRead";
+/** KitKat's latest postcard on this device: JSON { at, n } (n < 0 = none yet, just the clock started). */
+const LS_KITKAT = "farm.mail.kitkat";
+/** The `at` of the postcard that has been read on this device. */
+const LS_KITKAT_READ = "farm.mail.kitkatRead";
+/** The local day KitKat last thought about writing (one roll per device per day). */
+const LS_KITKAT_ROLL = "farm.mail.kitkatRoll";
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** At most one postcard every two weeks, and then only on a lucky day. */
+const KITKAT_GAP_MS = 14 * DAY_MS;
+const KITKAT_CHANCE = 0.2;
 /** An event that arrived without telling us who caused it gets this long to be claimed by this tab. */
 const PENDING_MS = 3000;
 const OWN_CAP = 80;
@@ -44,6 +57,11 @@ const remoteIds = new Set<number>();
 let steedAt: number | null = null;
 /** In-memory copy of LS_STEED_READ (so a blocked localStorage can't keep the letter unread forever). */
 let steedReadDay: string | null = null;
+/** KitKat's latest postcard (or the clock waiting for his first one). */
+let postcard: { at: number; n: number } | null = null;
+/** In-memory copies of LS_KITKAT_READ / LS_KITKAT_ROLL (in case storage is blocked). */
+let postcardReadAt: number | null = null;
+let postcardRollDay: string | null = null;
 let welcomeUnread = false;
 let primed = false;
 let started = false;
@@ -116,6 +134,45 @@ function onSteed(): void {
   notify();
 }
 
+// ---------- KitKat's postcards (local to this device) ----------
+
+function readPostcard(): { at: number; n: number } | null {
+  const raw = safeStorage.get(LS_KITKAT);
+  if (!raw) return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (v && typeof v === "object") {
+      const { at, n } = v as { at?: unknown; n?: unknown };
+      if (typeof at === "number" && Number.isFinite(at) && typeof n === "number" && Number.isFinite(n)) return { at, n };
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+/** Once a day per device, KitKat thinks about writing (and rarely does). */
+function maybePostcard(): void {
+  const today = dayKey(new Date());
+  if (postcardRollDay === today || safeStorage.get(LS_KITKAT_ROLL) === today) return;
+  postcardRollDay = today;
+  safeStorage.set(LS_KITKAT_ROLL, today);
+  postcard = readPostcard() ?? postcard;
+  const now = Date.now();
+  if (!postcard || postcard.at > now) {
+    // He hasn't heard about the farm yet: his first postcard can come in about five days.
+    postcard = { at: now - KITKAT_GAP_MS + 5 * DAY_MS, n: -1 };
+  } else if (now - postcard.at >= KITKAT_GAP_MS && Math.random() < KITKAT_CHANCE) {
+    postcard = { at: now, n: postcard.n + 1 };
+  } else return;
+  safeStorage.set(LS_KITKAT, JSON.stringify(postcard));
+}
+
+function postcardUnread(): boolean {
+  if (!postcard || postcard.n < 0) return false;
+  return postcardReadAt !== postcard.at && safeStorage.get(LS_KITKAT_READ) !== String(postcard.at);
+}
+
 // ---------- unread bookkeeping ----------
 
 /** Unread letters (events), newest first. Fresh unclaimed events wait a moment (see PENDING_MS). */
@@ -128,7 +185,7 @@ function unreadEvents(st: FarmState, now = serverNow()): FarmEvent[] {
 }
 
 function unreadCount(st: FarmState): number {
-  return unreadEvents(st).length + (welcomeUnread ? 1 : 0) + (steedUnread() ? 1 : 0);
+  return unreadEvents(st).length + (welcomeUnread ? 1 : 0) + (steedUnread() ? 1 : 0) + (postcardUnread() ? 1 : 0);
 }
 
 /** How many letters are waiting in the mailbox (for the world's mailbox flag + toolbar badge). */
@@ -172,6 +229,7 @@ function notify(): void {
 
 function onState(st: FarmState): void {
   const max = maxEventId(st);
+  maybePostcard();
   if (!primed) {
     primed = true;
     // The welcome letter waits in the box until it's been read once on this device.
@@ -201,6 +259,10 @@ function markAllSeen(st: FarmState): void {
     steedReadDay = steedDay(steedAt);
     safeStorage.set(LS_STEED_READ, steedReadDay);
   }
+  if (postcard && postcard.n >= 0) {
+    postcardReadAt = postcard.at;
+    safeStorage.set(LS_KITKAT_READ, String(postcard.at));
+  }
   notify();
 }
 
@@ -210,6 +272,7 @@ export function initMailbox(): void {
   if (started) return;
   started = true;
   readSteed();
+  postcard = readPostcard();
 
   store.events.on(({ event, own }) => {
     if (own && !ALWAYS_MAIL.has(event.kind)) {
@@ -231,6 +294,11 @@ export function initMailbox(): void {
   try {
     currentGame?.on("bumblesteed", onSteed);
     addEventListener("storage", (ev) => {
+      if (ev.key === LS_KITKAT || ev.key === LS_KITKAT_READ) {
+        postcard = readPostcard() ?? postcard;
+        notify();
+        return;
+      }
       if (ev.key !== LS_STEED && ev.key !== LS_STEED_READ) return;
       readSteed();
       notify();
@@ -252,6 +320,8 @@ interface Letter {
   gift: HTMLElement | null;
   action: { label: string; run: () => void } | null;
   isNew: boolean;
+  /** A postcard (KitKat's) instead of a letter: different paper, a stamp and a postmark. */
+  postcard?: boolean;
 }
 
 const q = (s: string) => `“${s}”`;
@@ -264,6 +334,8 @@ const q = (s: string) => `“${s}”`;
 const SNICKERS = "Snickers 🐾";
 const OTTO = "Otto 🦊";
 const OTTO_MILO = "Otto (and Milo) 🦊🦔";
+/** Snickers's brother, writing from Arizona. */
+const KITKAT = "KitKat 🌵";
 /** A sheep signs with its own name. */
 const sheepSign = (name: string) => `${name} 🐑`;
 /** A few sheep writing together: "Picnic, Pottery class & 3 more 🐑🐑🐑". */
@@ -332,7 +404,8 @@ function groupLetter(kind: FarmEventKind, g: FarmEvent[], isNew: boolean): Lette
   const sign = flockSign(g.map((e) => e.subject));
   const base = { key: `g-${kind}-${g[0]!.id}`, at: g[0]!.at, isNew, action: null, sign } as const;
   if (kind === "bought") {
-    return { ...base, greeting: "Hi!!", body: "We're new! Can't wait... baa!", gift: gift(sheepHead(false, { scale: 1.5 })) };
+    const body = g[0]!.id % 2 ? "We're new! Is this Golden Gate Park? It's smaller than we heard..." : "We're new! Can't wait... baa!";
+    return { ...base, greeting: "Hi!!", body, gift: gift(sheepHead(false, { scale: 1.5 })) };
   }
   if (kind === "hatted") {
     return { ...base, greeting: "Baa!", body: "Do you like our hats? We match. Sort of...", gift: hatGift(g[0]!.sheepId) };
@@ -343,7 +416,7 @@ function groupLetter(kind: FarmEventKind, g: FarmEvent[], isNew: boolean): Lette
   return {
     ...base,
     greeting: "Dear farmers,",
-    body: `${g.length === 2 ? "Both" : `All ${g.length}`} of us, done! We feel so light...`,
+    body: `${g.length === 2 ? "Both" : `All ${g.length}`} of us, done! ${g[0]!.id % 2 ? "Morning buns at Tartine to celebrate?" : "We feel so light..."}`,
     gift: gift(spriteIcon("item.wool")),
   };
 }
@@ -359,7 +432,13 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
       return {
         ...base,
         greeting: "Hi!!",
-        body: `I'm ${name}. Can't wait... baa!`,
+        body: /karaoke/i.test(name)
+          ? `I'm ${name}. ...Do we HAVE to?`
+          : /sketch/i.test(name)
+            ? `I'm ${name}. Another sketching meetup? I'll pose. Baa.`
+            : /pizza/i.test(name)
+              ? `I'm ${name}. Golden Boy or Tony's? ...Why not both.`
+              : pick([`I'm ${name}. Can't wait... baa!`, `I'm ${name}. Can't wait... baa!`, `I'm ${name}! I hear Dolores Park has the best grass...`]),
         sign: me,
         gift: gift(sheepHead(false, { scale: 1.5 })),
         action: sheepAction(e.sheepId, "Say hi"),
@@ -368,11 +447,16 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
       return {
         ...base,
         greeting: pick(["Dear farmers,", "Baa!", "Hi again,"]),
-        body: pick([
-          "We did it! I feel so light...",
-          "I feel so light! Like a cloud. A bald cloud...",
-          "Done! A little chilly, though... brr.",
-        ]),
+        body: /karaoke/i.test(name)
+          ? "We did it. We went to karaoke. Nobody ever has to know..."
+          : /sketch/i.test(name)
+            ? "Done! Did you draw me? Please say you drew me..."
+            : pick([
+                "We did it! I feel so light...",
+                "I feel so light! Like a cloud. A bald cloud...",
+                "Done! A little chilly, though. Who shears a sheep in San Francisco?! Brr...",
+                "Done! Croissants to celebrate? I hear the Arsicault line is worth it...",
+              ]),
         sign: me,
         gift: gift(spriteIcon("item.wool")),
         action: sheepAction(e.sheepId, e.sheepId && store.sheep(e.sheepId)?.memory ? "Our memory" : "Write a memory"),
@@ -389,7 +473,11 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
       return {
         ...base,
         greeting: "Baa!",
-        body: pick(["Do you like my hat? I've been strutting all day...", "Do you like my hat? Be honest. (Say yes.)"]),
+        body: pick([
+          "Do you like my hat? I've been strutting all day...",
+          "Do you like my hat? Be honest. (Say yes.)",
+          "Do you like my hat? It's for Bay to Breakers.",
+        ]),
         sign: me,
         gift: hatGift(e.sheepId),
         action: sheepAction(e.sheepId, "Admire"),
@@ -420,7 +508,7 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
         greeting: "Humans,",
         body: pick([
           "The clacking machine made cloth again. I watched the whole time. Exhausting...",
-          "The clacking machine made cloth. I did not ask for this. Clack, clack, clack...",
+          "The clacking machine made cloth. It is not string. I checked. Mow.",
         ]),
         sign: SNICKERS,
         gift: gift(spriteIcon("item.cloth")),
@@ -433,7 +521,11 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
           ? "Milo thinks the new gnome is watching him. I told him that's what gnomes do..."
           : name === "scarecrow" || name === "rarecrow"
             ? `The crows are furious about the new ${thing}. Milo and I think it's great.`
-            : `Milo and I snuck over to see the new ${thing}. Very fancy...`;
+            : pick([
+                `Milo and I snuck over to see the new ${thing}. Very fancy...`,
+                `We hiked all the way up Mt. Tam today, and the best view was still the new ${thing}.`,
+                `The fog rolled in, so Milo and I had to get REAL close to see the new ${thing}. Very fancy...`,
+              ]);
       return {
         ...base,
         greeting: "Psst!",
@@ -452,6 +544,25 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
         sign: OTTO,
         gift: gift(spriteIcon("ui.star")),
       };
+    case "bundled": {
+      const bundle = BUNDLES.find((b) => b.name === name);
+      const sack = gift(spriteIcon(bundle ? bundleSackKey(bundle.id) : "item.cloth"));
+      if (bundle?.id === "seeds") {
+        return { ...base, greeting: "Psst!", body: "The squirrels are furious about the Tree Seed Bundle. Milo and I are staying out of it...", sign: OTTO_MILO, gift: sack };
+      }
+      if (bundle?.id === "junk") {
+        return { ...base, greeting: "Mow.", body: "You traded the rusty spoon for cloth. I was going to knock that off a table...", sign: SNICKERS, gift: sack };
+      }
+      return e.id % 2
+        ? {
+            ...base,
+            greeting: "Psst!",
+            body: `Word travels fast: the whole pasture is talking about the ${name}. Milo did a little victory roll.`,
+            sign: OTTO,
+            gift: sack,
+          }
+        : { ...base, greeting: "Mow.", body: "You put perfectly good snacks in a sack and got cloth. Next: a Salmon Bundle.", sign: SNICKERS, gift: sack };
+    }
     default:
       return { ...base, greeting: "Humans,", body: "Something happened on the farm. I was asleep. Zzz...", sign: SNICKERS };
   }
@@ -465,7 +576,7 @@ function welcomeLetter(st: FarmState): Letter {
     greeting: "Humans,",
     body:
       `Welcome to ${st.farmName}.${mine} Every sheep out there is a plan. Do the thing, then shear the sheep. ` +
-      "I will be supervising...\n\nP.S. Scratches accepted. Some spots more than others.",
+      "I will be supervising...\n\nP.S. Scratches accepted. Some spots more than others.\nP.P.S. Fancy Feast. Salmon, if you have it.",
     sign: SNICKERS,
     gift: gift(sheepHead(false, { scale: 1.5 })),
     action: null,
@@ -479,11 +590,41 @@ function steedLetter(at: number, isNew: boolean): Letter {
     key: `steed-${steedDay(at)}`,
     at,
     greeting: "Psst!",
-    body: "I saw a ladybug knight riding a bumblebee today... Milo says it's called a Bumblesteed. Milo is never wrong.",
+    body:
+      new Date(at).getDate() % 2
+        ? "I saw a ladybug knight riding a bumblebee today... Milo says it's called a Bumblesteed. Milo is never wrong."
+        : "A ladybug knight on a bumblebee just flew over the pasture! Last time I saw one was in Muir Woods. Milo says it's a Bumblesteed.",
     sign: OTTO,
     gift: gift(has("critter.bumblesteed.icon") ? spriteIcon("critter.bumblesteed.icon") : null),
     action: null,
     isNew,
+  };
+}
+
+/** What KitKat writes from Arizona (one after another, so no postcard repeats for a while). */
+const POSTCARDS: readonly (readonly [greeting: string, body: string])[] = [
+  ["Brother,", "It is 114° here. I lie on the tile. The tile is also hot.\n\nSay hi to your humans."],
+  ["Hi you two!", "Is it foggy there? Here the sun is out. ALWAYS. Please mail me some fog. Karl, if he's free."],
+  ["Brother,", "Monsoon season! It rained for four whole minutes. Everyone is still talking about it."],
+  ["Brother,", "I found a cactus. I sat near it. Not on it. I learned."],
+  ["Hi you two!", "The sunsets here are pink and orange and purple. Like lavender, but on fire."],
+  ["Brother,", "A roadrunner ran past. I did not chase it. Too hot."],
+  ["Hi you two!", "A javelina looked at me today. I looked back. We agreed never to speak of it."],
+  ["Brother,", "It's a dry heat, they keep saying. I am melting anyway."],
+];
+
+function postcardLetter(p: { at: number; n: number }, isNew: boolean): Letter {
+  const [greeting, body] = POSTCARDS[((p.n % POSTCARDS.length) + POSTCARDS.length) % POSTCARDS.length]!;
+  return {
+    key: `kitkat-${p.at}`,
+    at: p.at,
+    greeting,
+    body,
+    sign: KITKAT,
+    gift: null,
+    action: null,
+    isNew,
+    postcard: true,
   };
 }
 
@@ -492,9 +633,17 @@ function letterEl(l: Letter, st: FarmState, arriving: boolean): HTMLElement {
   const date = l.key === "welcome" ? "Today" : `${stardewDate(new Date(l.at), st.foundedAt)} · ${timeAgo(l.at, serverNow())}`;
   return el(
     "article",
-    { class: `fm-letter ${l.isNew ? "is-new" : "is-read"} ${arriving ? "is-arriving" : ""}` },
+    { class: `fm-letter ${l.isNew ? "is-new" : "is-read"} ${arriving ? "is-arriving" : ""} ${l.postcard ? "is-postcard" : ""}` },
     l.isNew ? el("span", { class: "fm-letter__seal", "aria-label": "New" }) : null,
-    el("p", { class: "fm-letter__date" }, date),
+    l.postcard
+      ? el(
+          "div",
+          { class: "fm-postcard__corner", "aria-hidden": "true" },
+          el("span", { class: "fm-postcard__mark" }, "ARIZONA"),
+          has("ui.postcard.stamp") ? spriteIcon("ui.postcard.stamp", { scale: 1.5, class: "fm-postcard__stamp" }) : null,
+        )
+      : null,
+    el("p", { class: "fm-letter__date" }, l.postcard ? `Postcard · ${timeAgo(l.at, serverNow())}` : date),
     el("p", { class: "fm-letter__greeting" }, l.greeting),
     el("p", { class: "fm-letter__body" }, l.body),
     el(
@@ -521,10 +670,12 @@ function openMailbox(): void {
 
   // Everything unread right now (plus anything that arrives while the box is open) is "new".
   readSteed();
+  maybePostcard();
   const shownNew = new Set<number>(unreadEvents(st0).map((e) => e.id));
   const showWelcome = welcomeUnread;
   let steedNew = steedUnread();
-  const anyNew = shownNew.size > 0 || showWelcome || steedNew;
+  let cardNew = postcardUnread();
+  const anyNew = shownNew.size > 0 || showWelcome || steedNew || cardNew;
   // The box redraws on every farm update; only letters it hasn't drawn yet slide in.
   const drawn = new Set<string>();
   const draw = (l: Letter, st: FarmState) => {
@@ -550,11 +701,13 @@ function openMailbox(): void {
     const old = st.events.filter((e) => !shownNew.has(e.id) && !(lastSeen !== null && e.id > lastSeen && !ownIds.has(e.id)));
     const newLetters = toLetters(fresh, true);
     if (steedNew && steedAt !== null) newLetters.push(steedLetter(steedAt, true));
+    if (cardNew && postcard && postcard.n >= 0) newLetters.push(postcardLetter(postcard, true));
     newLetters.sort(newestFirst);
     const letters: Letter[] = showWelcome ? [welcomeLetter(st), ...newLetters] : newLetters;
     const hasNew = letters.length > 0;
     const oldAll = toLetters(old, false);
     if (!steedNew && steedAt !== null) oldAll.push(steedLetter(steedAt, false));
+    if (!cardNew && postcard && postcard.n >= 0) oldAll.push(postcardLetter(postcard, false));
     const oldLetters = oldAll.sort(newestFirst).slice(0, hasNew ? 2 : OLD_LETTERS);
     if (title) title.textContent = hasNew ? (letters.length === 1 ? "You've got mail!" : `${plural(letters.length, "new letter")}!`) : "Mailbox";
 
@@ -585,9 +738,11 @@ function openMailbox(): void {
     // New mail while the box is open: show it as new, and mark it read.
     const more = unreadEvents(st);
     const steed = steedUnread();
-    if (more.length || steed) {
+    const card = postcardUnread();
+    if (more.length || steed || card) {
       for (const e of more) shownNew.add(e.id);
       if (steed) steedNew = true;
+      if (card) cardNew = true;
       markAllSeen(st); // calls notify() -> liveRefresh again, but nothing is unread then
     }
     render();

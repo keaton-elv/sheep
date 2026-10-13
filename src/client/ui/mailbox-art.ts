@@ -1,5 +1,6 @@
 // Mailbox art: the real Stardew letter paper (sprites/mail.png) as a 9-slice CSS border-image,
-// and a little envelope with a heart seal for the empty mailbox.
+// a little envelope with a heart seal for the empty mailbox, and the cactus stamp on KitKat's
+// postcards from Arizona.
 
 import { pixelArt } from "../engine/pixelart";
 import { SHEETS } from "../engine/sprites";
@@ -45,6 +46,30 @@ export function registerMailboxArt(): void {
       "ooooooooooooooo",
     ],
     { o: "#6b4a2f", W: "#fff7e3", w: "#ecdcb8", S: "#d9bf8e", R: "#e8344b", r: "#8e0f24", h: "#ff9aa6", d: "#b81e33" },
+  );
+
+  // 15x15 postage stamp for KitKat's postcards: perforated white edge (mailbox.css outlines it so it
+  // reads on the cream card), an Arizona sunset in bands, the sun sinking behind the hills, two saguaros.
+  pixelArt(
+    "ui.postcard.stamp",
+    [
+      ".W.W.W.W.W.W.W.",
+      "WCCCCCCCCCCCCCW",
+      ".CPPPPPPPPPPPC.",
+      "WCPPPPPPPPgPPCW",
+      ".CppppppppgpgC.",
+      "WCppppppgpgpgCW",
+      ".COOOOOOgggggC.",
+      "WCOOgOOOOOgOOCW",
+      ".CYgYgYYYYgYYC.",
+      "WCYgggYSSYgYYCW",
+      ".CYYgYSSSSgYYC.",
+      "WCDDgDDDDDgDDCW",
+      ".CDDDDDDDDDDDC.",
+      "WCCCCCCCCCCCCCW",
+      ".W.W.W.W.W.W.W.",
+    ],
+    { W: "#ffffff", C: "#ffffff", P: "#7a4fa0", p: "#e86a8a", O: "#f59a3c", Y: "#ffd25a", S: "#fff2a0", g: "#2f7a34", D: "#c8743a" },
   );
 }
 

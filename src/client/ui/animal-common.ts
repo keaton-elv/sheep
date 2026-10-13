@@ -44,16 +44,33 @@ export function samePlanName(a: string | null | undefined, b: string | null | un
   return (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 }
 
-/** The plan's first name, if it has been renamed away from it since (else null). */
-export function renamedFrom(s: Pick<Sheep, "name" | "originalName">): string | null {
-  const original = (s.originalName ?? "").trim();
-  return original && !samePlanName(s.name, original) ? original : null;
+/** How a plan has wandered from its ORIGINAL PLAN: its first name, and its first date once it had one. */
+export interface OffPlan {
+  /** The original name (trimmed). */
+  name: string;
+  /** The original date, or null when the plan has never had one (then only the name counts). */
+  date: string | null;
+  nameChanged: boolean;
+  dateChanged: boolean;
+}
+
+/**
+ * Where the plan stands against its ORIGINAL PLAN, the way the server decides it: the name (trimmed,
+ * any case) and, once the plan has had a date, that date. null = it's on the original plan.
+ */
+export function offOriginal(s: Pick<Sheep, "name" | "date" | "originalName"> & { originalDate?: string | null }): OffPlan | null {
+  const name = (s.originalName ?? "").trim();
+  const date = s.originalDate ?? null;
+  const nameChanged = !!name && !samePlanName(s.name, name);
+  const dateChanged = date !== null && (s.date ?? null) !== date;
+  if (!nameChanged && !dateChanged) return null;
+  return { name: name || s.name.trim(), date, nameChanged, dateChanged };
 }
 
 /** How many times it went back to its ORIGINAL PLAN, when that's the plan it's on now (else 0). */
-export function originalStamps(s: Pick<Sheep, "name" | "originalName" | "originalReturns">): number {
+export function originalStamps(s: Pick<Sheep, "name" | "date" | "originalName" | "originalReturns"> & { originalDate?: string | null }): number {
   const n = Number(s.originalReturns) || 0;
-  return n > 0 && samePlanName(s.name, s.originalName) ? n : 0;
+  return n > 0 && offOriginal(s) === null ? n : 0;
 }
 
 /** "Sat, Oct 18" — the real calendar date, so nobody has to decode Stardew seasons. */

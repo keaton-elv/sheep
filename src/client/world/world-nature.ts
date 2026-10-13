@@ -1,16 +1,18 @@
-// Trees & bushes around the farm (tap: they shake, leaves flutter, sometimes a seed drops),
-// the day's seasonal forage (tap to pick it up, like the spring onions by the farmhouse), and
-// on some days a patch of wiggly worms: an artifact spot! Tap it to dig up a little treasure.
+// Trees & bushes around the farm (tap: they shake, leaves flutter, often a seed drops; berry bushes
+// drop berries in season), the day's seasonal forage (tap to pick it up, like the spring onions by the
+// farmhouse), and most days a patch of wiggly worms: an artifact spot! Tap it to dig up a little treasure.
+// Everything picked up goes into the shared chest (FarmState.items), where the bundles want it.
 
 import { sfx } from "../audio";
+import { BUNDLES } from "../../shared/bundles";
 import { dayKey, type Season } from "../../shared/calendar";
-import { rng, type Entity, type Game } from "../engine/game";
+import { rng, type Entity, type FarmEnv, type Game } from "../engine/game";
 import { objectRegion } from "../art/regions";
 import { draw, has, registerArt, REGIONS } from "../engine/sprites";
-import { store } from "../net";
+import { api, ApiError, store } from "../net";
 import { toast } from "../ui/dom";
 import { contains, fromFraction, inflate, type Layout, type Rect } from "./layout";
-import { FORAGE_BY_SEASON, forageKey } from "./world-art";
+import { COFFEE_BEAN, FORAGE_BY_SEASON, forageKey } from "./world-art";
 import { dustPuff, fx, reducedMotion } from "./world-fx";
 import type { Ground } from "./world-ground";
 import { flipPx, hash2, rowsToPx } from "./world-pixels";
@@ -26,9 +28,10 @@ REGIONS[ARTIFACT_SPOT] ??= objectRegion(590);
 
 /** What the worms were guarding: [name, Stardew item id, weight]. Mostly junk, sometimes a treasure. */
 const ARTIFACTS: readonly [string, number, number][] = [
-  ["Rusty Spoon", 110, 6],
-  ["Rusty Cog", 112, 5],
-  ["Glass Shards", 118, 5],
+  // The Treasure Bundle's three come up most (short visits should still fill it).
+  ["Rusty Spoon", 110, 10],
+  ["Rusty Cog", 112, 9],
+  ["Glass Shards", 118, 9],
   ["Arrowhead", 101, 5],
   ["Chipped Amphora", 100, 4],
   ["Ancient Doll", 103, 3],
@@ -84,6 +87,10 @@ function registerSpotFallback(): void {
 }
 
 type TreeKind = "oak" | "maple" | "pine";
+const TREE_KINDS: readonly TreeKind[] = ["oak", "maple", "pine"];
+
+/** How often a shaken tree drops its seed (never in winter, like Stardew). */
+const SEED_CHANCE = 0.35;
 
 const SEASON_X: Record<Season, number> = { spring: 0, summer: 146, fall: 292, winter: 438 };
 
@@ -187,6 +194,78 @@ function leafBurst(leaves: { img: HTMLCanvasElement; flip: HTMLCanvasElement }[]
   }
 }
 
+// ---------- the chest & little lines ----------
+
+/**
+ * Put a picked-up thing in the shared chest. The toast is optimistic; the request is fire-and-forget
+ * (one quiet retry if the network blinked), and only a real failure says so.
+ */
+function toChest(key: string, text: string): void {
+  toast(text, { icon: key });
+  const send = (retries: number): void => {
+    api.collectItem(key).catch((err: unknown) => {
+      const status = err instanceof ApiError ? err.status : 0;
+      if (retries > 0 && (status === 0 || status >= 500)) {
+        window.setTimeout(() => send(retries - 1), 4000);
+        return;
+      }
+      toast("Couldn't reach the chest...", { icon: key });
+    });
+  };
+  send(1);
+}
+
+/** A wink for a few items, once per visit each (the plain "X → chest" otherwise). */
+const winked = new Set<string>();
+function itemWink(name: string, now: Date): string | null {
+  if (winked.has(name)) return null;
+  let line: string | null = null;
+  switch (name) {
+    case COFFEE_BEAN:
+      line = now.getDate() % 2 ? "No Blue Bottle line!" : "Philz Mint Mojito time?";
+      break;
+    case "Salmonberry":
+      line = "Snickers was hoping for salmon.";
+      break;
+    case "Grape":
+      if (now.getDay() === 3) line = "Wine Wednesday!";
+      break;
+    case "Lost Book":
+      line = "Left at a sketching meetup?";
+      break;
+    case "Rare Disc":
+      line = "Please don't be karaoke...";
+      break;
+  }
+  if (line) winked.add(name);
+  return line;
+}
+
+function chestText(name: string, now: Date): string {
+  const wink = itemWink(name, now);
+  return wink ? `${name} → chest. ${wink}` : `${name} → chest`;
+}
+
+/** Rare flavor when a tree or bush is shaken and nothing falls out: each line at most once a visit. */
+const saidLines = new Set<string>();
+function rareLine(line: string | null): void {
+  if (!line || saidLines.has(line) || Math.random() > 0.08) return;
+  saidLines.add(line);
+  toast(line);
+}
+
+function treeLine(env: FarmEnv): string | null {
+  if (env.weather === "fog") return "The fog is stuck in the branches...";
+  if (!env.isNight) return "A squirrel scolds you from the branches.";
+  return null;
+}
+
+function bushLine(env: FarmEnv): string | null {
+  if (env.weather === "rain" || env.weather === "storm") return "A banana slug was napping in there...";
+  if (env.season === "summer" && env.hour >= 19) return "A cricket in there stops chirping. Awkward...";
+  return null;
+}
+
 // ---------- trees & bushes ----------
 
 class Tree implements Entity {
@@ -196,7 +275,8 @@ class Tree implements Entity {
   constructor(
     public x: number,
     public y: number,
-    private kind: TreeKind,
+    /** Mutable: Nature makes sure every kind (and so every seed) is somewhere on the farm. */
+    public kind: TreeKind,
     private nature: Nature,
   ) {}
   update(dt: number, g: Game): void {
@@ -230,9 +310,20 @@ class Tree implements Entity {
     sfx("rustle");
     const a = treeArt(this.kind, this.season);
     if (a) leafBurst(a.leaves, this.x, this.y - a.img.height * 0.6, 30, this.y + 4, 7);
-    // Every so often a seed tumbles out (oaks drop acorns, maples spin seeds down, pines drop cones).
-    if (Math.random() < 0.16 && this.season !== "winter") this.nature.dropSeed(g, this.x + (Math.random() < 0.5 ? -10 : 10), this.y + 4, TREE_DEF[this.kind].seed, this);
+    // Often a seed tumbles out (oaks drop acorns, maples spin seeds down, pines drop cones).
+    const seeded = this.season !== "winter" && Math.random() < SEED_CHANCE;
+    if (seeded) this.nature.dropSeed(g, this.x + (Math.random() < 0.5 ? -10 : 10), this.y + 4, TREE_DEF[this.kind].seed, this);
+    else rareLine(treeLine(g.env));
   }
+}
+
+/** Berry bushes (the medium ones) in berry season: salmonberries mid-spring, blackberries early fall. */
+const BERRIES: Partial<Record<Season, string>> = { spring: "Salmonberry", fall: "Blackberry" };
+/** Picked-list index for bush #i's berries (forage spots use 0..99, artifact spots 100+). */
+const BERRY_INDEX = 200;
+
+function berrySeason(season: Season, day: number): boolean {
+  return (season === "spring" && day >= 15 && day <= 18) || (season === "fall" && day >= 8 && day <= 11);
 }
 
 class Bush implements Entity {
@@ -244,11 +335,13 @@ class Bush implements Entity {
     public x: number,
     public y: number,
     private kind: BushKind,
+    private nature: Nature,
+    private index: number,
   ) {}
   update(dt: number, g: Game): void {
     this.season = g.env.season;
-    const d = g.env.now.getDate();
-    this.berries = (this.season === "spring" && d >= 15 && d <= 18) || (this.season === "fall" && d >= 8 && d <= 11);
+    // Only the medium bush has a berry sprite; once today's berries are picked it goes back to leaves.
+    this.berries = this.kind === "medium" && berrySeason(this.season, g.env.now.getDate()) && !this.nature.wasPicked(BERRY_INDEX + this.index);
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt);
   }
   private art(): HTMLCanvasElement | null {
@@ -267,13 +360,20 @@ class Bush implements Entity {
     if (!img) return false;
     return Math.abs(wx - this.x) <= img.width / 2 && wy >= this.y - img.height + 2 && wy <= this.y + 2;
   }
-  onTap(): void {
+  onTap(g: Game): void {
     if (this.shake > 0.25) return;
     this.shake = 0.4;
     sfx("rustle");
     const leaves = treeArt("oak", this.season)?.leaves ?? [];
     const img = this.art();
     leafBurst(leaves, this.x, this.y - (img?.height ?? 20) * 0.6, 18, this.y + 3, 3);
+    // Berries pop out to be picked up (one per bush per day, like Stardew's salmonberry bushes).
+    const berry = BERRIES[this.season];
+    if (this.berries && berry) {
+      this.nature.dropSeed(g, this.x + (Math.random() < 0.5 ? -8 : 8), this.y + 3, berry, this, BERRY_INDEX + this.index, 16);
+      return;
+    }
+    rareLine(bushLine(g.env));
   }
 }
 
@@ -300,10 +400,6 @@ function writePicked(day: string, picked: number[]): void {
   }
 }
 
-function article(name: string): string {
-  return /^[aeiou]/i.test(name) ? "an" : "a";
-}
-
 class Forage implements Entity {
   x = 0;
   y = 0;
@@ -315,7 +411,7 @@ class Forage implements Entity {
   private fall = 0;
   private fallV = 0;
   private ttl = Infinity;
-  /** The tree a dropped seed came from (one seed per tree on the ground at a time). */
+  /** The tree (or bush) a dropped seed or berry came from (one at a time each on the ground). */
   owner: object | null = null;
   /** The icon shown when picked (and in the toast). */
   private icon: string;
@@ -391,19 +487,16 @@ class Forage implements Entity {
   hit(wx: number, wy: number): boolean {
     return this.picked < 0 && Math.abs(wx - this.x) <= 12 && wy >= this.y - 19 && wy <= this.y + 5;
   }
-  onTap(): void {
+  onTap(g: Game): void {
     if (this.picked >= 0) return;
     this.picked = 0;
     if (this.spot) {
       dustPuff(this.x, this.y - 2, 9, "rgba(150,104,64,0.9)");
       sfx("thud", { volume: 0.5 });
-      sfx("pop");
-      toast(`Dug up ${article(this.name)} ${this.name}!`, { icon: this.icon });
-    } else {
-      sfx("pop");
-      toast(`Found ${article(this.name)} ${this.name}!`, { icon: this.icon });
     }
+    sfx("pop");
     this.nature.picked(this);
+    toChest(this.icon, chestText(this.name, g.env.now));
   }
 }
 
@@ -411,12 +504,50 @@ class Forage implements Entity {
 
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
+/** Bundle items turn up twice as often as other forage, so a season's bundle fills in a few short visits. */
+const BUNDLE_KEYS = new Set(BUNDLES.flatMap((b) => b.items));
+function pickForage(pool: readonly string[], r: number): string {
+  const weight = (name: string) => (BUNDLE_KEYS.has(forageKey(name)) ? 2 : 1);
+  let k = r * pool.reduce((t, name) => t + weight(name), 0);
+  for (const name of pool) {
+    k -= weight(name);
+    if (k < 0) return name;
+  }
+  return pool[0]!;
+}
+
+/** Days since 1970 in local time (for things that rotate day by day). */
+function dayNumber(d: Date): number {
+  return Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000);
+}
+
+// Every bundle item has to come from somewhere on the farm (seasonal ones in their own season),
+// or that bundle could never be finished. Cheap to check once at load; loud if it ever drifts.
+(() => {
+  const anywhere = new Set<string>([
+    ...Object.values(FORAGE_BY_SEASON).flat().map(forageKey),
+    ...Object.values(TREE_DEF).map((t) => forageKey(t.seed)),
+    ...Object.values(BERRIES).map((b) => forageKey(b)),
+    ...ARTIFACTS.map(([name]) => artifactKey(name)),
+  ]);
+  for (const b of BUNDLES) {
+    const pool = (FORAGE_BY_SEASON as Partial<Record<string, string[]>>)[b.id];
+    for (const key of b.items) {
+      const ok = pool ? pool.some((n) => forageKey(n) === key) : anywhere.has(key);
+      if (!ok) console.warn(`[world] nothing on the farm gives ${key} (${b.name})`);
+    }
+  }
+})();
+
 export class Nature {
   private plants: Entity[] = [];
+  private trees: Tree[] = [];
   private forage: Forage[] = [];
   private day = "";
   private dayCheck = 0;
   private seedsOut = new Set<Forage>();
+  /** What this device already picked up today (forage spot / artifact spot / berry bush indexes). */
+  private pickedToday = new Set<number>();
 
   constructor(
     private g: Game,
@@ -446,6 +577,7 @@ export class Nature {
     const g = this.g;
     for (const e of this.plants) g.remove(e);
     this.plants = [];
+    this.trees = [];
     const l = g.layout;
     const obstacles = this.obstacles(l);
     const r = rng(0xb05c + l.w * 7 + l.h * 13);
@@ -461,15 +593,16 @@ export class Nature {
       if (this.ground.isDirt(x, y) || this.ground.isDirt(x - 6, y) || this.ground.isDirt(x + 6, y)) return false;
       return !placed.some((p) => Math.hypot(p.x - x, p.y - y) < Math.max(spacing, p.r));
     };
-    const kinds: TreeKind[] = ["oak", "maple", "pine"];
     for (const c of candidates) {
       if (placed.length >= 6) break;
       const rect = { x: c.x - 22, y: c.y - 80, w: 44, h: 80 };
       if (!free(c.x, c.y, rect, 34)) continue;
-      const kind = kinds[Math.floor(hash2(c.x, c.y, 5) * kinds.length)]!;
+      const kind = TREE_KINDS[Math.floor(hash2(c.x, c.y, 5) * TREE_KINDS.length)]!;
       placed.push({ x: c.x, y: c.y, r: 34 });
-      this.plants.push(new Tree(c.x, c.y, kind, this));
+      this.trees.push(new Tree(c.x, c.y, kind, this));
     }
+    this.plants.push(...this.trees);
+    this.assignTreeKinds();
     const bushKinds: BushKind[] = ["large", "medium", "round", "small"];
     let bushes = 0;
     for (const kind of bushKinds) {
@@ -480,11 +613,37 @@ export class Nature {
         if (!free(c.x, c.y, rect, size[0] * 0.75)) continue;
         if (hash2(c.x, c.y, 77) < 0.35) continue; // leave some open grass
         placed.push({ x: c.x, y: c.y, r: size[0] * 0.75 });
-        this.plants.push(new Bush(c.x, c.y, kind));
+        this.plants.push(new Bush(c.x, c.y, kind, this, bushes));
         bushes++;
       }
     }
     for (const e of this.plants) g.add(guard(e, "plant"));
+  }
+
+  /**
+   * Oaks, maples and pines all have to be on the farm, or the Tree Seed Bundle can't be finished.
+   * With room for 3+ trees, any missing kind takes over a doubled-up tree (the rest keep their
+   * looks). On a cramped screen with only 1-2 trees, they take turns being each kind, day by day.
+   */
+  private assignTreeKinds(): void {
+    const trees = this.trees;
+    if (!trees.length) return;
+    if (trees.length < TREE_KINDS.length) {
+      const n = dayNumber(this.g.env.now);
+      trees.forEach((t, i) => (t.kind = TREE_KINDS[(n + i) % TREE_KINDS.length]!));
+      return;
+    }
+    for (const kind of TREE_KINDS) {
+      if (trees.some((t) => t.kind === kind)) continue;
+      // Re-kind the last tree whose kind appears more than once.
+      for (let i = trees.length - 1; i >= 0; i--) {
+        const t = trees[i]!;
+        if (trees.filter((o) => o.kind === t.kind).length > 1) {
+          t.kind = kind;
+          break;
+        }
+      }
+    }
   }
 
   private obstacles(l: Layout): Rect[] {
@@ -495,28 +654,40 @@ export class Nature {
     return out;
   }
 
-  /** Today's forage, seeded by the date so both farmers see the same spots. */
+  /** True if this device already picked up item `index` today. */
+  wasPicked(index: number): boolean {
+    return this.pickedToday.has(index);
+  }
+
+  /**
+   * Today's forage (3-5 things, now and then a coffee bean) and most days an artifact spot or two,
+   * seeded by the date so both farmers find the same things in the same spots.
+   */
   spawnForage(): void {
     const g = this.g;
     for (const f of this.forage) g.remove(f);
     this.forage = [];
     this.day = dayKey(g.env.now);
+    this.pickedToday = new Set(readPicked(this.day));
+    this.assignTreeKinds();
     const season = g.env.season;
     const pool = FORAGE_BY_SEASON[season];
     const seed = Number(this.day.replaceAll("-", "")) || 1;
     const r = rng(seed * 31 + 7);
-    const count = 1 + Math.floor(r() * 3);
-    const picked = readPicked(this.day);
+    const count = 3 + Math.floor(r() * 3);
+    const picked = this.pickedToday;
     const l = g.layout;
     // Keep forage out from under the decorations (they'd hide it and steal the tap), off paths,
-    // out of the fox & hedgehog's corner and the barn door yard.
+    // out of the fox & hedgehog's corner and the barn door yard, and not piled on each other.
     const decor = (store.state?.decorations ?? []).map((d) => fromFraction(l, d.fx, d.fy));
     const clearZones = keepClear(l);
+    const taken: { x: number; y: number }[] = [];
     const footprint = (x: number, y: number): Rect => ({ x: x - 8, y: y - 16, w: 16, h: 20 });
     const clear = (x: number, y: number) =>
       !l.blocked.some((b) => contains(inflate(b, 6), x, y)) &&
       !clearZones.some((z) => overlaps(footprint(x, y), z)) &&
       !decor.some((d) => Math.abs(d.x - x) < 18 && y > d.y - 40 && y < d.y + 10) &&
+      !taken.some((t) => Math.abs(t.x - x) < 16 && Math.abs(t.y - y) < 14) &&
       !this.ground.isDirt(x, y);
     // What grows today (and whether there are worms) depends only on the date, so both farmers find
     // the same things. Each spot gets its own little rng: dodging a decoration or a narrower screen
@@ -531,45 +702,58 @@ export class Nature {
         const p = fromFraction(l, fx, fy);
         if (clear(p.x, p.y)) break;
       }
+      taken.push(fromFraction(l, fx, fy));
       return { fx, fy };
     };
-    for (let i = 0; i < count; i++) {
-      const name = pool[Math.floor(r() * pool.length)]!;
-      if (picked.includes(i)) continue;
-      const s = spot(i, 0.06, 0.08);
-      const f = new Forage(this, name, i, s.fx, s.fy);
+    const add = (name: string, index: number, artifact: boolean): void => {
+      // Find the spot even if it's already picked, so picking one never moves the others.
+      const s = artifact ? spot(index, 0.08, 0.1) : spot(index, 0.06, 0.08);
+      if (picked.has(index)) return;
+      const f = new Forage(this, name, index, s.fx, s.fy, null, artifact);
       this.forage.push(f);
-      g.add(guard(f, "forage"));
-    }
-    // Most days, a patch of wiggly worms. Everyone in Stardew knows: you DIG there.
-    const index = 100;
-    const worms = r() < 0.6;
+      g.add(guard(f, artifact ? "artifact" : "forage"));
+    };
+    // Draw everything from the day's rng first, so what's picked never shifts what's left.
+    const names: string[] = [];
+    for (let i = 0; i < count; i++) names.push(pickForage(pool, r()));
+    const coffee = r() < 0.12;
+    const worms = r() < 0.8;
     const treasure = pickArtifact(r());
-    if (worms && !picked.includes(index)) {
-      const s = spot(index, 0.08, 0.1);
-      const f = new Forage(this, treasure, index, s.fx, s.fy, null, true);
-      this.forage.push(f);
-      g.add(guard(f, "artifact"));
-    }
+    const worms2 = r() < 0.25;
+    const treasure2 = pickArtifact(r());
+    names.forEach((name, i) => add(name, i, false));
+    // Now and then a coffee bean, in any season.
+    if (coffee) add(COFFEE_BEAN, 50, false);
+    // Most days, a patch of wiggly worms (sometimes two). Everyone in Stardew knows: you DIG there.
+    if (worms) add(treasure, 100, true);
+    if (worms2) add(treasure2, 101, true);
   }
 
   picked(f: Forage): void {
     this.seedsOut.delete(f);
     if (f.index < 0) return;
+    this.pickedToday.add(f.index);
     const list = readPicked(this.day);
     if (!list.includes(f.index)) list.push(f.index);
     writePicked(this.day, list);
   }
 
-  dropSeed(g: Game, x: number, y: number, name: string, from: object): void {
+  /**
+   * Something falls out of a tree or bush (a seed, or a berry) and lands at (x, y) to be picked up.
+   * One at a time per tree/bush. `index` >= 0 remembers the pick for today (berries); seeds use -1.
+   */
+  dropSeed(g: Game, x: number, y: number, name: string, from: object, index = -1, height = 34): void {
     for (const s of this.seedsOut) if (s.dead) this.seedsOut.delete(s);
     for (const s of this.seedsOut) if (s.owner === from) return;
     // Seeds don't land in the barn door yard (sheep and the cat need it): they roll to its edge.
     const yard = doorYard(g.layout);
     if (contains(inflate(yard, 6), x, y)) x = x < yard.x + yard.w / 2 ? yard.x - 8 : yard.x + yard.w + 8;
-    const f = new Forage(this, name, -1, 0, 0, { x: Math.round(x), y: Math.round(Math.min(g.layout.h - 4, y)) });
+    // A tree hanging off the screen edge drops toward the middle (an off-screen seed can't be picked up,
+    // and it would block that tree's next seed until it rots).
+    x = Math.max(10, Math.min(g.layout.w - 10, x));
+    const f = new Forage(this, name, index, 0, 0, { x: Math.round(x), y: Math.round(Math.min(g.layout.h - 4, y)) });
     f.owner = from;
-    f.dropFrom(34);
+    f.dropFrom(height);
     this.seedsOut.add(f);
     g.add(guard(f, "seed"));
   }
