@@ -144,7 +144,7 @@ export interface DialogOptions {
   body?: Child | Child[];
   buttons?: DialogButton[];
   className?: string;
-  /** Backdrop click / Escape / ✕ closes it. Default true. */
+  /** Backdrop click / Escape / ✕ closes it (backdrop and Escape not once a text field is edited). Default true. */
   dismissable?: boolean;
   onClose?: () => void;
   /** Play the menu open/close sounds. Default true. */
@@ -163,6 +163,10 @@ export interface DialogHandle {
 }
 
 const stack: DialogHandle[] = [];
+/** Per dialog: has the player typed into one of its fields since it opened? */
+const editedCheck = new WeakMap<DialogHandle, () => boolean>();
+/** Fields whose text is the player's own words (not a search filter, radio or slider). */
+const TEXT_FIELD_TYPES = new Set(["textarea", "text", "url", "email", "tel", "number", "date", "time", "datetime-local"]);
 
 export function isDialogOpen(): boolean {
   return stack.length > 0;
@@ -197,7 +201,8 @@ document.addEventListener("focusin", (ev) => {
 addEventListener("keydown", (ev) => {
   if (ev.key !== "Escape" || !stack.length) return;
   const top = stack[stack.length - 1]!;
-  if (top.root.dataset.dismissable === "true") {
+  // Half-typed plan/edit/memory: Esc doesn't throw it away (✕ and Cancel still close).
+  if (top.root.dataset.dismissable === "true" && !editedCheck.get(top)?.()) {
     ev.preventDefault();
     top.close();
   }
@@ -286,12 +291,34 @@ export function openDialog(rawOpts: DialogOptions): DialogHandle {
   }
   if (!opts.buttons?.length) buttons.remove();
 
+  // Remember each text field's starting value (fields added later: on first focus, before any
+  // typing), so a stray backdrop tap or Esc can tell whether there's typed text to lose.
+  const initialValues = new WeakMap<Element, string>();
+  const textFields = () =>
+    [...box.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].filter((f) => TEXT_FIELD_TYPES.has(f.type));
+  const remember = () =>
+    textFields().forEach((f) => {
+      if (!initialValues.has(f)) initialValues.set(f, f.value);
+    });
+  remember();
+  box.addEventListener("focusin", remember);
+  const isEdited = () => textFields().some((f) => f.value !== (initialValues.get(f) ?? f.defaultValue));
+  editedCheck.set(handle, isEdited);
+
   if (dismissable) {
     const x = el("button", { class: "sv-close", type: "button", "aria-label": "Close" }, has("ui.close") ? spriteIcon("ui.close") : "✕");
     x.addEventListener("click", () => handle.close());
     box.appendChild(x);
     root.addEventListener("pointerdown", (ev) => {
-      if (ev.target === root) handle.close();
+      if (ev.target !== root) return;
+      if (!isEdited()) return handle.close();
+      // Something's been typed: on iPhone, tapping away is how you put the keyboard down, so do
+      // just that and keep the dialog (✕ and Cancel still close it).
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== box && box.contains(active)) {
+        active.blur();
+        box.focus({ preventScroll: true });
+      }
     });
   }
 

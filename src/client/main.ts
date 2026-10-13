@@ -66,21 +66,8 @@ async function boot(): Promise<void> {
 
   if (!(await api.me())) await showPasswordGate();
 
-  initHud(g);
-  initToolbar(g);
-
-  await api.state();
-  connectLive();
-
-  const refreshWeather = () =>
-    api
-      .weather()
-      .then((w) => g.setWeather(w.kind))
-      .catch(() => {});
-  void refreshWeather();
-  setInterval(refreshWeather, WEATHER_REFRESH_MS);
-
   // Logged out somewhere along the way (password changed?): ask again, then resync.
+  // Registered before the first state load so a 401 there brings the gate up too.
   let gateOpen = false;
   store.unauthorized.on(async () => {
     if (gateOpen) return;
@@ -91,10 +78,31 @@ async function boot(): Promise<void> {
     await api.state().catch(() => {});
     connectLive();
   });
+
+  initHud(g);
+  initToolbar(g);
+
+  // A failed first load (patchy signal, a server hiccup) mustn't strand an empty farm: connect
+  // anyway. The socket sends the whole farm when it opens, and its retries and the poll keep
+  // trying until it does.
+  await api.state().catch((err) => console.warn("First farm load failed; retrying live", err));
+  connectLive();
+
+  const refreshWeather = () =>
+    api
+      .weather()
+      .then((w) => g.setWeather(w.kind))
+      .catch(() => {});
+  void refreshWeather();
+  setInterval(refreshWeather, WEATHER_REFRESH_MS);
 }
 
 boot().catch((err) => {
   console.error(err);
   const bootEl = document.getElementById("boot");
-  if (bootEl) bootEl.textContent = "The sheep got loose! Try reloading.";
+  if (bootEl) {
+    // g.start() may already have faded the boot screen out; bring it back so the message shows.
+    bootEl.classList.remove("is-done");
+    bootEl.textContent = "The sheep got loose! Try reloading.";
+  }
 });

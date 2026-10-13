@@ -286,7 +286,12 @@ export class Farm extends DurableObject<Env> {
     const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
     const isOriginal = (s: { name: string; date: string | null }) =>
       same(s.name, existing.originalName) && (originalDate === null || s.date === originalDate);
-    const backToOriginal = !isOriginal(existing) && isOriginal(next);
+    // Judge the old state against its own original, not the date it's adopting right now; giving a
+    // plan its very first date isn't a return to anything.
+    const wasOriginal =
+      same(existing.name, existing.originalName) &&
+      (existing.originalDate === null || existing.date === existing.originalDate);
+    const backToOriginal = !wasOriginal && isOriginal(next);
     this.sql.exec(
       `UPDATE sheep SET name = ?, notes = ?, link = ?, category = ?, date = ?, memory = ?, original_date = ?, original_returns = original_returns + ? WHERE id = ?`,
       next.name,

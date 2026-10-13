@@ -136,14 +136,19 @@ async function refreshIfOffline(): Promise<void> {
   if (!store.connected) store.set(await call<FarmState>("GET", "/state"));
 }
 
+/** Is the login cookie still good? "error" = couldn't tell (offline, server hiccup). */
+async function checkLogin(): Promise<"ok" | "unauthorized" | "error"> {
+  try {
+    await call("GET", "/me");
+    return "ok";
+  } catch (e) {
+    return e instanceof ApiError && e.status === 401 ? "unauthorized" : "error";
+  }
+}
+
 export const api = {
   async me(): Promise<boolean> {
-    try {
-      await call("GET", "/me");
-      return true;
-    } catch {
-      return false;
-    }
+    return (await checkLogin()) === "ok";
   },
 
   async login(password: string): Promise<boolean> {
@@ -272,6 +277,7 @@ let socket: WebSocket | null = null;
 let retry = 0;
 let pingTimer: number | undefined;
 let pollTimer: number | undefined;
+let reconnectTimer: number | undefined;
 
 function setConnected(v: boolean): void {
   if (store.connected === v) return;
@@ -287,6 +293,7 @@ export function connectLive(): void {
 
   ws.onopen = () => {
     retry = 0;
+    clearTimeout(reconnectTimer);
     setConnected(true);
     ws.send(JSON.stringify({ type: "hello", clientId }));
     clearInterval(pingTimer);
@@ -312,9 +319,12 @@ export function connectLive(): void {
     if (socket !== ws) return;
     retry++;
     const delay = Math.min(30_000, 1000 * 2 ** Math.min(retry, 5));
-    setTimeout(async () => {
-      // A failing socket might mean we got logged out; /me tells us (and fires `unauthorized`).
-      if (await api.me()) connectLive();
+    clearTimeout(reconnectTimer);
+    reconnectTimer = window.setTimeout(async () => {
+      // A failing socket might mean we got logged out; /me tells us (and fires `unauthorized`,
+      // whose handler reconnects after the password gate). Offline or a server hiccup isn't a
+      // logout: try again, and if the socket fails too its onclose backs off and retries.
+      if ((await checkLogin()) !== "unauthorized") connectLive();
     }, delay);
   };
 
@@ -325,9 +335,18 @@ export function connectLive(): void {
   }, 30_000);
 }
 
-// Coming back to the tab: resync immediately (phones freeze background sockets).
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState !== "visible" || !store.state) return;
-  api.state().catch(() => {});
+/** Reconnect now if live sync has started (boot called connectLive) but the socket is down. */
+function reconnectIfDown(): void {
   if (socket && socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING) connectLive();
+}
+
+// Coming back to the tab: resync immediately (phones freeze background sockets). Keyed on the
+// socket, not store.state, so a farm whose first load failed still gets another try.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible" || !socket) return;
+  api.state().catch(() => {});
+  reconnectIfDown();
 });
+
+// Network back (wifi handoff, laptop wake): don't wait out the backoff.
+window.addEventListener("online", reconnectIfDown);
