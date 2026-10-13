@@ -4,3 +4,6 @@
 .wrangler/
 dist/
 node_modules/
+
+# Raw sound downloads are big; the compressed copies live in src/client/public/sounds
+assets/raw/*/
