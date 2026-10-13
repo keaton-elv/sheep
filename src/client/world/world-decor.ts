@@ -15,6 +15,7 @@ import { DECOR_VARIANTS, STATUE_SHINE_FRAMES, VARIANT_NAMES, decorSize, drawArt,
 import { dustPuff, fx, reducedMotion, sparkle } from "./world-fx";
 import { hash2 } from "./world-pixels";
 import { guard, safeOn, safePass } from "./world-safe";
+import { keepClear } from "./world-zones";
 import "./world.css";
 
 const LAMP_LIGHT = "rgba(255,214,140,0.95)";
@@ -22,6 +23,8 @@ const FIRE_KEYS = Array.from({ length: 8 }, (_, i) => `world.fire.${i}`);
 const SHINE_KEYS = Array.from({ length: STATUE_SHINE_FRAMES }, (_, i) => `world.statue.shine.${i}`);
 const FIRE_LIGHT = "rgba(255,150,70,0.95)";
 const PUMPKIN_LIGHT = "rgba(255,170,60,0.85)";
+/** Render pass for the placement ghost: anything that must stay readable at night uses > 110. */
+const GHOST_PASS = 115;
 
 /** Clamp any variant number (even NaN or negative ones from an old save) into range. */
 function variantIndex(kind: DecorKind, variant: number, n = DECOR_VARIANTS[kind] ?? 1): number {
@@ -228,8 +231,8 @@ class DecorEntity implements Entity {
         return;
       }
       case "beehouse": {
+        // (The bumblebees buzzing around it belong to the critters.)
         drawArt(ctx, this.honey && season !== "winter" ? "world.beehouse.honey" : key, x, y, season, { anchor: "feet" });
-        this.drawBees(ctx, x, y, g);
         return;
       }
       case "sheepstatue": {
@@ -286,19 +289,6 @@ class DecorEntity implements Entity {
       }
     }
     ctx.drawImage(pond.rim, left, top);
-  }
-
-  private drawBees(ctx: CanvasRenderingContext2D, x: number, y: number, g: Game): void {
-    const env = g.env;
-    if (env.season === "winter" || env.isNight || env.weather === "rain" || env.weather === "storm" || env.weather === "snow") return;
-    // Bees come and go in little bursts.
-    if (Math.sin(this.t * 0.35 + this.d.fx * 10) < -0.1) return;
-    for (let i = 0; i < 2; i++) {
-      const a = this.t * (1.6 + i * 0.5) + i * 2.4;
-      const bx = Math.round(x + Math.cos(a) * (9 + i * 3) + Math.sin(a * 2.3) * 2);
-      const by = Math.round(y - 22 + Math.sin(a) * 5 - i * 3);
-      draw(ctx, Math.floor(this.t * 18 + i) % 2 ? "world.bee.1" : "world.bee.0", bx - 2, by - 1);
-    }
   }
 
   hit(wx: number, wy: number): boolean {
@@ -361,8 +351,8 @@ export function initDecor(g: Game): void {
       for (const e of entities.values()) if (e.d.createdAt > Date.now() - 15000) sparkle(e.x, e.y - 12, 5, 10);
     }, 400);
   });
-  // Above the night overlay (sky = 100): the ghost is UI and should always be easy to see.
-  safePass(g, 104, "placement ghost", (ctx) => drawGhost(ctx));
+  // Above the night overlay (sky = 100) and the lights: the ghost is UI and must read at night.
+  safePass(g, GHOST_PASS, "placement ghost", (ctx) => drawGhost(ctx));
 }
 
 // ---------- placement mode ----------
@@ -394,10 +384,15 @@ export function isPlacing(): boolean {
   return placement !== null;
 }
 
-function validSpot(g: Game, x: number, y: number, movingId: string | null): boolean {
+function validSpot(g: Game, x: number, y: number, kind: DecorKind, movingId: string | null): boolean {
   const l = g.layout;
   if (!contains(l.pasture, x, y)) return false;
   if (l.blocked.some((r) => contains(inflate(r, 2), x, y))) return false;
+  // Not in the fox & hedgehog's corner (or just above it), nor in the barn door yard: the whole
+  // base counts, so a wide pond next to the corner can't spill over the fox.
+  const half = Math.max(4, decorSize(kind).w / 2 - 2);
+  const base = { x: x - half, y: y - 4, w: half * 2, h: 6 };
+  if (keepClear(l).some((r) => base.x < r.x + r.w && base.x + base.w > r.x && base.y < r.y + r.h && base.y + base.h > r.y)) return false;
   for (const e of entities.values()) {
     if (e.d.id === movingId || e.hidden) continue;
     if (Math.abs(e.x - x) < 10 && Math.abs(e.y - y) < 7) return false;
@@ -458,7 +453,7 @@ export function beginPlacement(kind: DecorKind, variant: number, movingId: strin
       movingId,
       x: start.x,
       y: start.y,
-      valid: validSpot(g, start.x, start.y, movingId),
+      valid: validSpot(g, start.x, start.y, kind, movingId),
       armed: false,
       shake: 0,
       art,
@@ -476,7 +471,7 @@ export function beginPlacement(kind: DecorKind, variant: number, movingId: strin
     const moveTo = (wx: number, wy: number) => {
       p.x = wx;
       p.y = wy;
-      p.valid = validSpot(g, wx, wy, movingId);
+      p.valid = validSpot(g, wx, wy, kind, movingId);
       p.ok.disabled = !p.valid;
     };
     ok.disabled = !p.valid;

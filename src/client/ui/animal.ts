@@ -1,14 +1,18 @@
 // The animal card: Stardew's animal query menu, for one sheep (= one plan).
-// Big sprite, name, hearts, a mood line, the plan's details, and Shear / Edit / Sell.
+// Big sprite (with its hat), name, hearts, a mood line, the plan's details, and
+// Shear / Hat / Edit / Sell.
 
 import "./animal.css";
 import { sfx } from "../audio";
-import { hasPettedToday, sheepEmote } from "../entities/sheep";
-import { api, isRetired, serverNow, store } from "../net";
+import { hasPettedToday, markPetted, sheepEmote } from "../entities/sheep";
+import { hatName } from "../entities/sheep-hats";
+import { api, isLamb, isRetired, serverNow, store } from "../net";
 import { dayKey, daysBetween, parseDayKey, stardewDate } from "../../shared/calendar";
 import { CATEGORY_LABELS, LIMITS, MAX_PETS, RETIRE_AFTER_MS, type Sheep } from "../../shared/types";
-import { FRAME, farmMoment, friendlyError, hostLabel, realDateLabel, safeLink, sheepFrame } from "./animal-common";
+import { crispPx, farmMoment, friendlyError, hostLabel, lambGrowsUp, realDateLabel, safeLink } from "./animal-common";
+import { openHatPicker } from "./animal-hats";
 import { moodLine } from "./animal-mood";
+import { SheepSprite, hatTileIcon, lookOf } from "./animal-sprite";
 import { confirmDialog, el, heartsEl, openDialog, openMenu, plural, promptDialog, registerMenu, relativeDays, spriteIcon, toast, type DialogHandle } from "./dom";
 import { categoryIcon } from "./marnie-art";
 
@@ -16,125 +20,14 @@ export function initAnimal(): void {
   registerMenu("sheep", (id: string) => openAnimalCard(id));
 }
 
-const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+// ---------- petting from the card ----------
 
-// ---------- the big sheep sprite (blinks, sleeps, hops when poked) ----------
-
-class CardSprite {
-  readonly button: HTMLButtonElement;
-  readonly scene: HTMLElement;
-  private readonly canvas: HTMLCanvasElement;
-  private readonly ctx: CanvasRenderingContext2D;
-  private sheared = false;
-  private golden = false;
-  private asleep = false;
-  private blinkTimer = 0;
-  private frameTimer = 0;
-  private nibbling = false;
-  private stopped = false;
-
-  constructor(onPoke: () => void) {
-    this.canvas = el("canvas", { class: "an-sprite", width: 32, height: 32 });
-    this.canvas.setAttribute("aria-hidden", "true");
-    this.ctx = this.canvas.getContext("2d")!;
-    this.ctx.imageSmoothingEnabled = false;
-    this.button = el("button", { class: "an-poke", type: "button" }, this.canvas, el("span", { class: "an-zzz", "aria-hidden": "true" }, "z", el("span", null, "z")));
-    this.button.addEventListener("click", () => {
-      onPoke();
-      this.hop();
-    });
-    this.scene = el("div", { class: "an-scene" }, this.button);
-  }
-
-  set(sheared: boolean, golden: boolean, asleep: boolean, label: string): void {
-    const changed = sheared !== this.sheared || golden !== this.golden || asleep !== this.asleep;
-    this.sheared = sheared;
-    this.golden = golden;
-    this.asleep = asleep;
-    this.button.setAttribute("aria-label", label);
-    this.scene.classList.toggle("is-golden", golden);
-    this.scene.classList.toggle("is-asleep", asleep);
-    if (changed || !this.blinkTimer) {
-      this.show(asleep ? FRAME.asleep : FRAME.idleFront);
-      this.scheduleBlink();
-    }
-  }
-
-  private show(index: number): void {
-    this.ctx.clearRect(0, 0, 32, 32);
-    this.ctx.drawImage(sheepFrame(this.sheared, index, this.golden), 0, 0);
-  }
-
-  private scheduleBlink(): void {
-    clearTimeout(this.blinkTimer);
-    if (this.stopped) return;
-    this.blinkTimer = window.setTimeout(
-      () => {
-        if (this.stopped) return;
-        if (!this.asleep && !this.nibbling) {
-          this.show(FRAME.asleep); // eyes closed = a blink
-          window.setTimeout(() => !this.stopped && !this.asleep && !this.nibbling && this.show(FRAME.idleFront), 150);
-        }
-        this.scheduleBlink();
-      },
-      2200 + Math.random() * 3200,
-    );
-  }
-
-  /** Poke: baa, hop, and a quick nibble of grass. */
-  private hop(): void {
-    sfx("baa");
-    this.button.classList.remove("is-hopping");
-    void this.button.offsetWidth;
-    this.button.classList.add("is-hopping");
-    if (this.asleep || reducedMotion()) return;
-    clearTimeout(this.frameTimer);
-    this.nibbling = true;
-    let i = 0;
-    const step = () => {
-      if (this.stopped) return;
-      if (i < NIBBLE.length && !this.asleep) {
-        this.show(NIBBLE[i++]!);
-        this.frameTimer = window.setTimeout(step, 110);
-      } else {
-        this.nibbling = false;
-        this.show(this.asleep ? FRAME.asleep : FRAME.idleFront);
-      }
-    };
-    this.frameTimer = window.setTimeout(step, 260);
-  }
-
-  /** A little heart floats up out of the sheep (petted from the card). */
-  heart(): void {
-    const h = el("span", { class: "an-petheart", "aria-hidden": "true" }, spriteIcon("ui.heart.full", { scale: 2 }));
-    this.scene.append(h);
-    window.setTimeout(() => h.remove(), 1100);
-  }
-
-  stop(): void {
-    this.stopped = true;
-    clearTimeout(this.blinkTimer);
-    clearTimeout(this.frameTimer);
-  }
-}
-
-const NIBBLE = [...FRAME.graze, FRAME.graze[2], FRAME.graze[3], FRAME.graze[2], FRAME.graze[1], FRAME.graze[0]];
-
-/**
- * Pet from the card (e.g. opened from the calendar or barn, where there's no sheep to tap).
- * Mirrors the field-tap rule: once per day per device. The sheep module keeps its "petted
- * today" set under farm.petted.<day> in localStorage, so we add to the same list.
- */
-function markPettedToday(id: string): void {
-  const key = `farm.petted.${dayKey(new Date())}`;
+/** Record this device's pet in the sheep module's "petted today" list (shared with field taps). */
+function recordPet(id: string): void {
   try {
-    const raw = localStorage.getItem(key);
-    const arr: unknown = raw ? JSON.parse(raw) : [];
-    const list = Array.isArray(arr) ? arr.filter((v): v is string => typeof v === "string") : [];
-    if (!list.includes(id)) list.push(id);
-    localStorage.setItem(key, JSON.stringify(list));
+    markPetted(id);
   } catch {
-    // Private mode: the server still enforces once a day.
+    // Private mode etc.: the in-memory set below still stops double pets this session.
   }
 }
 
@@ -142,6 +35,14 @@ function markPettedToday(id: string): void {
 const pettedHere = new Set<string>();
 function canPetToday(id: string): boolean {
   return !pettedHere.has(`${dayKey(new Date())}:${id}`) && !hasPettedToday(id);
+}
+
+function safeHatName(id: number): string {
+  try {
+    return hatName(id);
+  } catch {
+    return "A fine hat";
+  }
 }
 
 // ---------- the card ----------
@@ -164,7 +65,7 @@ function openAnimalCard(id: string): void {
   let pokes = 0;
   let lastSig = "";
 
-  const sprite = new CardSprite(() => {
+  const sprite = new SheepSprite(() => {
     const s = store.sheep(id);
     if (s && canPetToday(id)) {
       pet(s);
@@ -178,7 +79,7 @@ function openAnimalCard(id: string): void {
   let head = el("div", { class: "an-head" });
   const top = el("div", { class: "an-top" }, el("div", { class: "an-frame" }, sprite.scene), head);
   const details = el("div", { class: "an-details" });
-  const body = el("div", { class: "an-card" }, top, details);
+  const body = el("div", { class: "an-card", style: `--ipx: ${crispPx(1.5, 2.25)}; --ipx-sm: ${crispPx(1.25, 2)}` }, top, details);
 
   const dialog: DialogHandle = openDialog({
     className: "an-dialog",
@@ -195,13 +96,13 @@ function openAnimalCard(id: string): void {
   const unsubscribe = store.changed.on(() => {
     const s = store.sheep(id);
     if (!s) {
-      if (!leaving) toast(`${name} wandered off to Marnie's.`, { icon: "ui.sheep" });
+      if (!leaving) toast(`${name} trotted off to a new home.`, { icon: "ui.sheep" });
       dialog.close();
       return;
     }
     render();
   });
-  // Dusk, midnight and "moves into the barn" happen without any store change; peek now and then.
+  // Dusk, midnight, growing up and "moves into the barn" happen without any store change; peek now and then.
   const ticker = window.setInterval(() => render(), 30_000);
 
   render();
@@ -229,22 +130,30 @@ function openAnimalCard(id: string): void {
     const moment = farmMoment();
     const nowMs = serverNow();
     const retired = isRetired(s, nowMs);
+    const lamb = s.shearedAt === null && isLamb(s, nowMs);
     const petMe = canPetToday(id);
-    const sig = [JSON.stringify(s), founded, busy, moment.isNight, moment.weather, moment.season, dayKey(moment.now), dayKey(new Date(nowMs)), retired, petMe].join("|");
+    const sig = [JSON.stringify(s), founded, busy, moment.isNight, moment.weather, moment.season, dayKey(moment.now), dayKey(new Date(nowMs)), retired, lamb, petMe].join("|");
     if (!force && sig === lastSig) return;
     lastSig = sig;
     name = s.name;
-    dialog.box.setAttribute("aria-label", `${s.name}, a sheep`);
+    dialog.box.setAttribute("aria-label", `${s.name}, a ${lamb ? "lamb" : "sheep"}`);
     const sheared = s.shearedAt !== null;
     const asleep = moment.isNight && !busy;
 
-    sprite.set(sheared, s.golden, asleep, petMe ? `Pet ${s.name}` : `Say hi to ${s.name}`);
+    sprite.set({
+      look: lookOf(s, nowMs),
+      golden: s.golden,
+      asleep,
+      hat: s.hat,
+      label: petMe ? `Pet ${s.name}` : `Say hi to ${s.name}`,
+    });
     sprite.scene.dataset.season = moment.season;
     sprite.scene.classList.toggle("is-night", moment.isNight);
 
-    const mood = moodLine(s, { moment, nowMs, retired, pokes });
+    const mood = moodLine(s, { moment, nowMs, retired, lamb, pokes });
 
-    // --- header: sprite + name + hearts + mood ---
+    // --- header: name + hearts + mood ---
+    const label = heartLabel(s.pets, petMe);
     const newHead = el(
       "div",
       { class: "an-head" },
@@ -253,7 +162,7 @@ function openAnimalCard(id: string): void {
         "div",
         { class: "an-heartsrow", title: "Hearts = how excited you two are. Each of you can pet it once a day for half a heart." },
         heartsEl(s.pets, { scale: 2 }),
-        heartLabel(s.pets, petMe) ? el("span", { class: "an-heartcount" }, heartLabel(s.pets, petMe)) : null,
+        label ? el("span", { class: "an-heartcount" }, label) : null,
       ),
       el("p", { class: "an-mood" }, mood),
     );
@@ -277,16 +186,21 @@ function openAnimalCard(id: string): void {
         el("span", { class: "an-sub" }, `${stardewDate(planned, founded)} · ${relativeDays(days)}${days === 0 ? "!" : ""}`),
       );
     } else if (!sheared) {
-      const pickDate = el("button", { class: "an-linkbtn", type: "button", dataset: { focus: "date" } }, "No date yet — pick one?");
-      pickDate.addEventListener("click", () => openMenu("editSheep", id));
+      const pickDate = el("button", { class: "an-linkbtn", type: "button", dataset: { focus: "date" } }, "No date yet. Pick one?");
+      pickDate.addEventListener("click", () => openMenu("editSheep", { id, focus: "date" }));
       row("When", pickDate);
     }
 
     const ageDays = daysBetween(new Date(s.createdAt), moment.now);
-    row(
-      "Age",
-      ageDays <= 0 ? "Brought home today" : ageDays === 1 ? "Brought home yesterday" : `Brought home ${plural(ageDays, "day")} ago`,
-    );
+    if (lamb) {
+      row("Age", el("span", { class: "an-chip an-chip--lamb" }, `Still a lamb! Grows up ${lambGrowsUp(s, moment.now)}.`));
+    } else {
+      row("Age", ageDays <= 0 ? "Brought home today" : ageDays === 1 ? "Brought home yesterday" : `Brought home ${plural(ageDays, "day")} ago`);
+    }
+
+    if (s.hat !== null) {
+      row("Hat", el("span", { class: "an-chip an-chip--hat" }, hatTileIcon(s.hat, 1), safeHatName(s.hat)));
+    }
 
     if (s.golden) {
       row("Wool", el("span", { class: "an-chip an-chip--gold" }, spriteIcon("ui.star"), sheared ? "Golden! Gave 2 wool." : "Golden! Shearing gives 2 wool."));
@@ -301,11 +215,7 @@ function openAnimalCard(id: string): void {
         : moveIn <= 0
           ? "Moves into the barn later today."
           : `Moves into the barn ${relativeDays(moveIn)}.`;
-      row(
-        "Sheared",
-        el("span", { class: "an-date" }, `${stardewDate(shearDate, founded)} (${relativeDays(-ago)})`),
-        el("span", { class: "an-sub" }, where),
-      );
+      row("Sheared", el("span", { class: "an-date" }, `${stardewDate(shearDate, founded)} (${relativeDays(-ago)})`), el("span", { class: "an-sub" }, where));
     }
 
     if (s.notes) row("Notes", el("span", { class: "an-notes" }, s.notes));
@@ -326,12 +236,13 @@ function openAnimalCard(id: string): void {
     }
 
     // --- actions ---
+    // Phones: Shear gets its own full-width row on top (un-shear at the bottom); the rest share a row.
     const actions = el("div", { class: "an-actions" });
-    const btn = (label: string, kind: "plain" | "primary" | "danger", icon: string | null, onClick: () => void) => {
+    const btn = (label: string, kind: "plain" | "primary" | "danger", icon: Node | null, onClick: () => void, extra = "") => {
       const b = el(
         "button",
-        { class: `sv-btn sv-btn--${kind}`, type: "button", disabled: busy, dataset: { focus: label } },
-        icon ? spriteIcon(icon) : null,
+        { class: `sv-btn sv-btn--${kind} ${extra}`, type: "button", disabled: busy, dataset: { focus: label } },
+        icon,
         el("span", null, label),
       );
       b.addEventListener("click", () => {
@@ -344,8 +255,9 @@ function openAnimalCard(id: string): void {
 
     btn("Sell", "danger", null, () => void sell(s));
     btn("Edit", "plain", null, () => openMenu("editSheep", id));
-    if (!sheared) btn("Shear", "primary", "tool.shears", () => openMenu("shear", id));
-    else btn("Oops, un-shear", "plain", null, () => void unshear(s));
+    if (!retired) btn("Hat", "plain", s.hat !== null ? hatTileIcon(s.hat, 1) : null, () => openHatPicker(id), "an-hatbtn");
+    if (!sheared) btn("Shear", "primary", spriteIcon("tool.shears"), () => openMenu("shear", id), "an-act--main");
+    else btn("Oops, un-shear", "plain", null, () => void unshear(s), "an-act--wide");
 
     // Re-rendering swaps the nodes; keep keyboard focus on "the same" button if it had it.
     const focused = document.activeElement instanceof HTMLElement && body.contains(document.activeElement) ? document.activeElement.dataset.focus : undefined;
@@ -354,8 +266,9 @@ function openAnimalCard(id: string): void {
   }
 
   function pet(s: Sheep): void {
-    pettedHere.add(`${dayKey(new Date())}:${id}`);
-    markPettedToday(id);
+    const key = `${dayKey(new Date())}:${id}`;
+    pettedHere.add(key);
+    recordPet(id);
     sfx("pet");
     sprite.heart();
     sheepEmote(id, "heart");
@@ -367,14 +280,14 @@ function openAnimalCard(id: string): void {
       })
       .catch(() => {
         // Not the end of the world: let them try again.
-        pettedHere.delete(`${dayKey(new Date())}:${id}`);
+        pettedHere.delete(key);
         if (store.sheep(id)) render(true);
       });
   }
 
   async function sell(s: Sheep): Promise<void> {
     const extra = s.shearedAt !== null && s.memory ? " (This deletes the plan and its memory.)" : " (This deletes the plan.)";
-    const yes = await confirmDialog(`Sell ${s.name} to Marnie? She'll find it a nice home.${extra}`, {
+    const yes = await confirmDialog(`Sell ${s.name}? A nice farm over the hill will give it a cozy new home.${extra}`, {
       yes: "Sell",
       no: "Keep",
       danger: true,
@@ -389,7 +302,7 @@ function openAnimalCard(id: string): void {
         throw err;
       }
       sfx("coin");
-      toast(`${s.name} went to live with Marnie.`, { icon: "ui.sheep" });
+      toast(`${s.name} trotted off to a cozy new home.`, { icon: "ui.sheep" });
       dialog.close();
     });
   }

@@ -1,5 +1,7 @@
 // Hand-drawn toolbar & menu icons (16x16) plus the toolbar's wooden frames.
 // Real Stardew regions under the same keys (REGIONS in sprites.ts) replace these automatically.
+// The flock (three little sheep heads) is hand-made; the hat is the real straw hat from the
+// animal hats sheet.
 
 import { makeCanvas, pixelArt } from "../engine/pixelart";
 import { has, REGIONS, SHEETS } from "../engine/sprites";
@@ -13,6 +15,9 @@ SHEETS.objects ??= "sprites/objects.png";
 REGIONS["ui.tb.shears"] ??= { sheet: "tools", x: 112, y: 0, w: 16, h: 16 };
 REGIONS["ui.hud.wool"] ??= { sheet: "objects", x: 128, y: 288, w: 16, h: 16 }; // springobjects #440
 REGIONS["ui.hud.cloth"] ??= { sheet: "objects", x: 320, y: 272, w: 16, h: 16 }; // springobjects #428
+// The straw hat (animal hat #4, front-facing frame), trimmed to a 16x16 icon.
+SHEETS.animalHats ??= "sprites/animal_hats.png";
+REGIONS["ui.icon.hat"] ??= { sheet: "animalHats", x: 82, y: 1, w: 16, h: 16 };
 
 /** Where a real-sheet key falls back to when its sheet didn't load. */
 const FALLBACKS: Record<string, string> = {
@@ -22,6 +27,19 @@ const FALLBACKS: Record<string, string> = {
 };
 
 const SHEEP = { o: "#513f3f", W: "#fff6dc", w: "#dcc9a5", s: "#8e7a5a", k: "#262626", p: "#e89a8f", F: "#f6e4c4" };
+/** Flock heads: cream wool over tan faces; the back row is a touch dimmer, so the front sheep pops. */
+const FLOCK = {
+  o: "#513f3f",
+  W: "#fffaea",
+  w: "#e8d6b0",
+  V: "#efe2c2",
+  v: "#d9c59c",
+  s: "#9c7c5a",
+  k: "#262626",
+  p: "#e89a8f",
+  F: "#efcf9f",
+  f: "#e0bb88",
+};
 const PLUS = { g: "#1f5e1a", G: "#5fd13d", L: "#b6f78f" };
 const WOOD = { o: "#4a1f0a", L: "#e98a2b", M: "#c25f17", D: "#8a3c0e" };
 
@@ -50,6 +68,46 @@ export function registerToolbarArt(): void {
     "...........gGg..",
     "...........ggg..",
   ], { ...SHEEP, ...PLUS });
+
+  // Three little sheep heads (fluffy tufted wool, tan faces, ears out): the Flock list.
+  pixelArt("ui.icon.flock", [
+    ".oo.oo....oo.oo.",
+    "oVVoVVo..oVVoVVo",
+    "oVVVVVVooVVVVVVo",
+    "oVvvvvVooVvvvvVo",
+    "sofffffssfffffos",
+    "ssfkfkfssfkfkfss",
+    ".offfffoofffffo.",
+    "..ofpoo.oofpfo..",
+    "...ooWWoWWooo...",
+    "...oWWWWWWWo....",
+    "...oWwwwwwWo....",
+    "...soFFFFFos....",
+    "...ssFkFkFss....",
+    "....oFFFFFo.....",
+    ".....oFpFo......",
+    "......ooo.......",
+  ], FLOCK);
+
+  // Fallback hat (a little straw hat) if the hats sheet doesn't load.
+  pixelArt("ui.icon.hat", [
+    "................",
+    "................",
+    "................",
+    "......oooo......",
+    ".....oYYYyo.....",
+    "....oYYYYYyo....",
+    "....oYYYYYyo....",
+    "....orrrrrro....",
+    "..ooYYYYYYYyoo..",
+    ".oYYYYYYYYYYyyo.",
+    ".oyyyyyyyyyyyyo.",
+    "..oooooooooooo..",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { o: "#6b3a12", Y: "#f6c453", y: "#d99a2b", r: "#d6304a" });
 
   pixelArt("ui.icon.calendar", [
     "................",

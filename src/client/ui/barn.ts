@@ -15,17 +15,17 @@ const QUIPS = [
   "It smells like hay and good decisions in here.",
   "The auto-grabber is on strike again.",
   "Somebody left a truffle in the corner. Suspicious.",
-  "Hay supply: plentiful. Marnie made sure.",
-  "A Junimo was here. It left a tiny thank-you note.",
+  "Hay supply: plentiful. The silo made sure.",
+  "Snickers was here. There's a warm, cat-shaped dent in the hay.",
   "The heater hums. Every sheep is dreaming of you two.",
-  "Shane says hi. He's not here for the chickens, promise.",
+  "A sparrow is nesting in the rafters. Everyone's being very quiet about it.",
 ];
 
 export function initBarn(): void {
   registerMenu("barn", () => openBarn());
 }
 
-/** "Baaaah Farm" -> "Baaaah Barn" (and "Moonlight Meadow" -> "Moonlight Meadow Barn"). */
+/** "Papa Snickers's Sheep Farm" -> "Papa Snickers's Sheep Barn" ("Moonlight Meadow" -> "Moonlight Meadow Barn"). */
 export function barnName(farmName: string): string {
   const base = farmName.replace(/\s+farm$/i, "").trim();
   return `${base || farmName} Barn`;
@@ -39,6 +39,7 @@ function openBarn(): void {
   const root = el("div", { class: "fm-barn fm-menu" });
   const state = store.state;
   const d = openDialog({ title: state ? barnName(state.farmName) : "The Barn", className: "fm-barn-dialog fm-menu", body: root, onClose: () => off() });
+  sfx("door", { volume: 0.5 });
   const title = d.box.querySelector(".sv-dialog__title");
   const quip = QUIPS[Math.floor(Math.random() * QUIPS.length)]!;
 
@@ -65,8 +66,7 @@ function content(st: FarmState | null, quip: string): (HTMLElement | null)[] {
         "div",
         { class: "fm-empty fm-barn__empty" },
         frameIcon("sheep", 13, 32, 32, { scale: 2 }),
-        el("p", { class: "sv-say" }, "The barn is quiet... shear some sheep and their stories will live here."),
-        el("p", { class: "fm-barn__hint" }, "Did a plan together? Grab the shears and give that sheep a trim!"),
+        el("p", { class: "sv-say" }, "The barn is quiet. Did a plan together? Shear its sheep and the memory moves in here."),
       ),
     ];
   }
@@ -104,7 +104,7 @@ function content(st: FarmState | null, quip: string): (HTMLElement | null)[] {
       el("h3", null, "Memories"),
       memories.length
         ? list(memories, () => null)
-        : el("p", { class: "fm-barn__hint" }, "No one's moved in yet. Sheared sheep graze in the pasture for 3 days first, so you can both admire them."),
+        : el("p", { class: "fm-barn__hint" }, "Nobody yet. Sheared sheep graze for 3 days, then move in here."),
     ),
     el("p", { class: "fm-quip" }, quip),
   ];
@@ -260,7 +260,7 @@ function memoryPage(s: Sheep, st: FarmState): (HTMLElement | null)[] {
     el("h3", null, "Memory"),
     s.memory
       ? el("blockquote", { class: "fm-mem__memory" }, s.memory)
-      : el("p", { class: "fm-mem__memory is-empty" }, "No memory written yet. What was the best part? Future you two will want to know."),
+      : el("p", { class: "fm-mem__memory is-empty" }, "No memory yet. What was the best part?"),
     s.notes ? el("h3", null, "Notes") : null,
     s.notes ? el("p", { class: "fm-mem__notes" }, s.notes) : null,
     link

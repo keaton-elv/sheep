@@ -1,4 +1,4 @@
-// Robin's catalog: friendly names and one-liners for every decoration.
+// The carpenter's shop catalog: friendly names and one-liners for every decoration.
 
 import type { DecorKind } from "../../shared/types";
 

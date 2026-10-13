@@ -1,5 +1,6 @@
-/* The Stardew clock box (top-right). Everything is sized in game pixels via --px so it
-   covers exactly layout.hudClock and stays on the farm's pixel grid. */
+/* The real Stardew day/time + money box (top-right). Everything is sized in game pixels via --px
+   so it covers exactly layout.hudClock and stays on the farm's pixel grid. hud.ts sets `top` from
+   the layout (which already includes the notch inset); the value here is only the first guess. */
 
 #ui > .hud-clock {
   pointer-events: none;
@@ -42,19 +43,19 @@
   -webkit-tap-highlight-color: transparent;
 }
 .hud-clock__face {
-  /* Leave the transparent sliver left of the round dial clickable-through. */
-  clip-path: inset(0 0 0 calc(var(--px) * 4));
+  /* The dial is round: don't let its empty corners steal taps meant for the farm. */
+  border-radius: calc(var(--px) * 22) 0 0 calc(var(--px) * 22);
 }
 
 /* The wool box is short on phones, so stretch its tap area a little, but only a few game
    pixels: the billboard and mailbox sit right under the clock in portrait (layout.ts leaves a
-   ~4px gap), and taps meant for them must not open the chest. It's ~80 CSS px wide anyway. */
+   ~4px gap), and taps meant for them must not open the chest. It's ~90 CSS px wide anyway. */
 .hud-wool::after {
   content: "";
   position: absolute;
-  left: calc(var(--px) * -2);
+  left: 0;
   right: 0;
-  top: 0;
+  top: calc(var(--px) * -1);
   bottom: calc(var(--px) * -3);
 }
 
@@ -64,50 +65,45 @@
   outline-offset: calc(var(--px) * -2);
 }
 
+/* Date and time sit in the box's two parchment windows, in Stardew's text colors. */
 .hud-clock__date,
 .hud-clock__time {
   position: absolute;
   display: grid;
   place-items: center;
+  overflow: hidden;
   font-size: calc(var(--px) * 9);
   line-height: 1;
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
-  color: #4a2410;
-  text-shadow: calc(var(--px) * 0.5) calc(var(--px) * 0.5) 0 rgba(233, 181, 106, 0.9);
+  color: #56160c;
+  text-shadow: calc(var(--px) * 0.5) calc(var(--px) * 0.5) 0 #dd9454;
   padding-top: calc(var(--px) * 0.5);
 }
-.hud-clock__time.is-late {
-  color: #b3261e;
+.hud-clock__time {
+  padding-top: 0;
 }
-
-.hud-clock__icon {
-  position: absolute;
-  width: calc(var(--px) * 12);
-  height: calc(var(--px) * 8);
-  line-height: 0;
+.hud-clock__date.is-tight,
+.hud-clock__time.is-tight {
+  font-size: calc(var(--px) * 8);
+  letter-spacing: 0;
+}
+.hud-clock__date.is-tighter,
+.hud-clock__time.is-tighter {
+  font-size: calc(var(--px) * 7);
+}
+.hud-clock__time.is-late {
+  color: #c4121a;
 }
 
 /* ---------- wool counter ---------- */
 
+/* The real wool sitting on the money box's end cap (where Stardew's gold coin is). */
 .hud-wool__icon {
   position: absolute;
   transform-origin: 50% 80%;
-}
-.hud-wool__n {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: calc(var(--px) * 2);
-  font-size: calc(var(--px) * 10);
-  line-height: 1;
-  font-weight: 700;
-  color: #ffb83f;
-  text-shadow: calc(var(--px) * 1) calc(var(--px) * 1) 0 #2a0f04;
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
+  pointer-events: none;
 }
 
 .hud-wool__float {
@@ -217,8 +213,17 @@
   align-items: center;
   gap: 4px;
 }
-.hud-report__date .sv-sprite {
+.hud-report__date .sv-sprite,
+.hud-report__festival .sv-sprite {
   --s: 1.5;
+}
+.hud-report__festival {
+  margin-top: -4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: #9a3a8a;
 }
 .hud-report__stats {
   list-style: none;
@@ -252,6 +257,20 @@
 .hud-report__value {
   flex: none;
   color: var(--ok-ink);
+}
+/* ORIGINAL PLAN: a little red rubber stamp. */
+.hud-report__stampmark {
+  flex: none;
+  padding: 0 5px;
+  font-size: 0.85em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #c4121a;
+  box-shadow: inset 0 0 0 2px #c4121a;
+  transform: rotate(-3deg);
+}
+.hud-report__stamp .hud-report__value {
+  color: #c4121a;
 }
 .hud-report__next {
   margin-top: 4px;

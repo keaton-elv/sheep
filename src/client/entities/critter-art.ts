@@ -1,15 +1,16 @@
 // Registers the critters' hand-drawn art (critter-sprites.ts) plus derived variants:
-// blinks, ear twitches, breathing frames, winter recolors and color-swapped butterflies/junimos.
+// blinks, ear twitches, breathing frames, winter recolors, color-swapped butterflies,
+// the owl's blink & glances and the golden ladybug.
 
-import { pixelArt, type Palette } from "../engine/pixelart";
-import { REGIONS, SHEETS } from "../engine/sprites";
-import { BUTTERFLY_PAL, FOX_PAL, HOG_PAL, JUNIMO_PAL, SPRITES, STUMP_PAL, type PixelSprite } from "./critter-sprites";
+import { objectRegion } from "../art/regions";
+import { makeCanvas, pixelArt, type Palette } from "../engine/pixelart";
+import { REGIONS } from "../engine/sprites";
+import { BUTTERFLY_PAL, FOX_PAL, GOLDBUG_PAL, HOG_PAL, OWL_PAL, SPRITES, STUMP_PAL, type PixelSprite } from "./critter-sprites";
+import { report } from "./critter-util";
 
-// The real Stardrop and Bouquet from Stardew's objects sheet (this fan rip's layout, verified by
-// cropping). The hand-drawn versions in critter-sprites.ts cover them if the sheet is missing.
-SHEETS.objects ??= "sprites/objects.png";
-REGIONS["item.stardrop"] ??= { sheet: "objects", x: 32, y: 288, w: 16, h: 16 };
-REGIONS["item.bouquet"] ??= { sheet: "objects", x: 32, y: 304, w: 16, h: 16 };
+// The real Bouquet (item 458) from the objects sheet; the Stardrop is already shared in art/regions.ts.
+// The hand-drawn versions in critter-sprites.ts cover them if the sheet is missing.
+REGIONS["item.bouquet"] ??= objectRegion(458);
 
 let done = false;
 
@@ -28,8 +29,13 @@ function breathe(rows: string[], at: number): string[] {
   return [...rows.slice(0, at + 1), ...rows.slice(at)];
 }
 
+/** Register one sprite. A typo in one sprite's data only loses that sprite, never all the critter art. */
 function reg(key: string, rows: string[], pal: Palette): void {
-  pixelArt(key, rows, pal);
+  try {
+    pixelArt(key, rows, pal);
+  } catch (err) {
+    report(`art ${key}`, err);
+  }
 }
 
 function base(key: string): PixelSprite {
@@ -48,6 +54,9 @@ function earTwitch(rows: string[], ox: number): string[] {
   ]);
 }
 
+/** Owl eyes: [left eye x, right eye x] columns and the pupil row in critter.owl.perch. */
+const OWL_EYES = { l: [3, 4], r: [8, 9], top: 5, pupil: 6 } as const;
+
 /** Hand-drawn butterfly colors (fallbacks for the real critters sheet, see critter-ambient.ts). */
 export const BUTTERFLY_COLORS: Record<string, [string, string]> = {
   green: ["#8ce87a", "#3a9a3a"],
@@ -55,15 +64,6 @@ export const BUTTERFLY_COLORS: Record<string, [string, string]> = {
   blue: ["#8ec8ff", "#4a74d8"],
   orange: ["#ffa04a", "#3a2418"],
   pink: ["#ffb0d8", "#e0559a"],
-};
-
-export const JUNIMO_COLORS: Record<string, { J: string; j: string; h: string; o: string }> = {
-  green: { J: "#7ad25a", j: "#58aa3e", h: "#b4f08c", o: "#1d3a1a" },
-  blue: { J: "#6aaef0", j: "#4a82cc", h: "#b0dcff", o: "#16284e" },
-  purple: { J: "#b07ae8", j: "#8656c4", h: "#dcb8ff", o: "#321a52" },
-  yellow: { J: "#f2d24a", j: "#c8a62a", h: "#fff0a0", o: "#4e3a0c" },
-  red: { J: "#ee6a6a", j: "#c24646", h: "#ffb0b0", o: "#4e1414" },
-  orange: { J: "#f59a42", j: "#cc7424", h: "#ffd0a0", o: "#4e260c" },
 };
 
 export function registerCritterArt(): void {
@@ -100,8 +100,29 @@ export function registerCritterArt(): void {
     for (const f of [0, 1]) reg(`critter.butterfly.${name}.${f}`, base(`critter.butterfly.${f}`).rows, { ...BUTTERFLY_PAL, A, a });
   }
 
-  // ---- junimos ----
-  for (const [name, c] of Object.entries(JUNIMO_COLORS)) {
-    for (const f of [0, 1, 2]) reg(`junimo.${name}.${f}`, base(`junimo.green.${f}`).rows, { ...JUNIMO_PAL, ...c });
+  // ---- the owl: a slow blink, and glances left & right ----
+  const owl = base("critter.owl.perch").rows;
+  const [l0, l1] = OWL_EYES.l;
+  const [r0, r1] = OWL_EYES.r;
+  const { top, pupil } = OWL_EYES;
+  reg("critter.owl.blink", edit(owl, [[l0, top, "C"], [l1, top, "C"], [r0, top, "C"], [r1, top, "C"], [l0, pupil, "o"], [l1, pupil, "o"], [r0, pupil, "o"], [r1, pupil, "o"]]), OWL_PAL);
+  reg("critter.owl.left", edit(owl, [[l0, pupil, "K"], [l1, pupil, "Y"], [r0, pupil, "K"], [r1, pupil, "Y"]]), OWL_PAL);
+  reg("critter.owl.right", edit(owl, [[l0, pupil, "Y"], [l1, pupil, "K"], [r0, pupil, "Y"], [r1, pupil, "K"]]), OWL_PAL);
+  // A puffed-up hoot: one row taller through the chest.
+  reg("critter.owl.hoot", breathe(owl, 9), OWL_PAL);
+
+  // ---- the golden ladybug (very rare, very lucky) ----
+  for (const key of ["critter.ladybug.0", "critter.ladybug.fly.0", "critter.ladybug.fly.1"]) {
+    reg(key.replace("ladybug", "goldbug"), base(key).rows, GOLDBUG_PAL);
   }
+  // Toast icons: the 6px bugs doubled up on a 16x16 tile, so they read next to the text.
+  const lady = base("critter.ladybug.0");
+  for (const [key, pal] of [["critter.ladybug.icon", lady.pal], ["critter.goldbug.icon", GOLDBUG_PAL]] as const) {
+    const bug = pixelArt(null, lady.rows, pal);
+    makeCanvas(key, 16, 16, (ctx) => ctx.drawImage(bug, 0, 0, bug.width, bug.height, 2, 4, bug.width * 2, bug.height * 2));
+  }
+  // ...and the Bumblesteed on a 16x16 tile, like an item icon.
+  const steed = base("critter.bumblesteed.0");
+  const steedArt = pixelArt(null, steed.rows, steed.pal);
+  makeCanvas("critter.bumblesteed.icon", 16, 16, (ctx) => ctx.drawImage(steedArt, 0, 3));
 }

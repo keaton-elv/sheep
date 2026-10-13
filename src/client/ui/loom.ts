@@ -6,7 +6,7 @@ import { has, isReal } from "../engine/sprites";
 import { api, serverNow, store } from "../net";
 import { LOOM_DURATION_MS, LOOM_WOOL_COST, type FarmState } from "../../shared/types";
 import { errorText } from "./calendar-util";
-import { append, el, openDialog, openMenu, plural, registerMenu, say, spriteIcon, toast } from "./dom";
+import { append, el, openDialog, openMenu, plural, registerMenu, spriteIcon, toast } from "./dom";
 import { registerLoomArt } from "./loom-art";
 
 export function initLoom(): void {
@@ -111,7 +111,7 @@ function openLoom(): void {
         ),
         enough
           ? el("p", { class: "fm-loom__hint" }, "Takes 4 farm hours (about 3 real minutes).")
-          : el("p", { class: "fm-loom__hint" }, `Needs ${plural(need, "more wool", "more wool")}. Go do ${need === 1 ? "a plan" : "some plans"} and shear ${need === 1 ? "that sheep" : "those sheep"}!`),
+          : el("p", { class: "fm-loom__hint" }, `Needs ${plural(need, "more wool", "more wool")}. Go shear ${need === 1 ? "a sheep" : "some sheep"}!`),
       );
     } else if (phase === "working") {
       fill = el("div", { class: "fm-loom__fill" });
@@ -142,7 +142,7 @@ function openLoom(): void {
       { class: "fm-loom__footer" },
       el("span", { class: "fm-count" }, spriteIcon("item.cloth"), plural(st.cloth, "cloth", "cloth"), " in the chest"),
       st.cloth > 0
-        ? el("button", { type: "button", class: "sv-btn", on: { click: () => openMenu("shop") } }, el("span", null, "Visit Robin ›"))
+        ? el("button", { type: "button", class: "sv-btn", on: { click: () => openMenu("shop") } }, el("span", null, "Carpenter's shop ›"))
         : null,
     );
 
@@ -183,12 +183,13 @@ interface ChestItem {
 }
 
 const SLOTS = 24;
-const SHORTS_SLOT = SLOTS - 1;
+/** Snickers keeps his favorite toy hidden in the last slot. Shh. */
+const SECRET_SLOT = SLOTS - 1;
 
 function openChest(): void {
   const root = el("div", { class: "fm-chest fm-menu" });
   let selected: string | null = null;
-  let shortsPokes = 0;
+  let secretPokes = 0;
 
   const d = openDialog({
     title: "Chest",
@@ -196,11 +197,12 @@ function openChest(): void {
     body: root,
     buttons: [
       { label: "Loom", onClick: () => (openMenu("loom"), false) },
-      { label: "Robin's shop", icon: "item.cloth", kind: "primary", onClick: () => (openMenu("shop"), false) },
+      { label: "Carpenter's shop", icon: "item.cloth", kind: "primary", onClick: () => (openMenu("shop"), false) },
     ],
     onClose: () => off(),
   });
   void d;
+  sfx("chest");
 
   const items = (st: FarmState): ChestItem[] => {
     const list: ChestItem[] = [];
@@ -219,19 +221,21 @@ function openChest(): void {
         icon: "item.cloth",
         name: "Cloth",
         count: st.cloth,
-        desc: "A bolt of fabric woven from your adventures. Robin takes it as payment for decorations.",
+        desc: "Woven from your adventures. Spend it at the carpenter's shop, or on a fancy hat for a sheep.",
       });
     }
     return list;
   };
 
-  const shorts: ChestItem = {
-    id: "shorts",
-    icon: "item.shorts",
-    name: "Lucky Purple Shorts",
-    count: 1,
-    desc: "Mayor Lewis's lucky purple shorts. How did these get in here?! Better not mention it...",
-  };
+  const secret: ChestItem | null = has("item.feather")
+    ? {
+        id: "feather",
+        icon: "item.feather",
+        name: "Snickers' Feather",
+        count: 1,
+        desc: "His very favorite toy. He hid it in here. Do NOT tell him you found it.",
+      }
+    : null;
 
   function render(): void {
     const st = store.state;
@@ -241,12 +245,12 @@ function openChest(): void {
     }
     const list = items(st);
     const all = new Map<string, ChestItem>(list.map((i) => [i.id, i]));
-    all.set(shorts.id, shorts);
+    if (secret) all.set(secret.id, secret);
     if (selected && !all.has(selected)) selected = null;
 
     const grid = el("div", { class: "fm-chest__grid", role: "list" });
     for (let i = 0; i < SLOTS; i++) {
-      const item = i < list.length ? list[i] : i === SHORTS_SLOT ? shorts : undefined;
+      const item = i < list.length ? list[i] : i === SECRET_SLOT && secret ? secret : undefined;
       if (!item) {
         grid.appendChild(el("div", { class: "fm-slot is-empty", role: "listitem", "aria-hidden": "true" }));
         continue;
@@ -255,7 +259,7 @@ function openChest(): void {
         "button",
         {
           type: "button",
-          class: `fm-slot ${selected === item.id ? "is-selected" : ""} ${item.id === "shorts" ? "is-shorts" : ""}`,
+          class: `fm-slot ${selected === item.id ? "is-selected" : ""} ${item.id === "feather" ? "is-secret" : ""}`,
           role: "listitem",
           "aria-label": item.count > 1 ? `${item.name}, ${item.count}` : item.name,
           "aria-pressed": String(selected === item.id),
@@ -279,7 +283,7 @@ function openChest(): void {
         el(
           "span",
           { class: "fm-chest__idle" },
-          list.length ? "Tap something to look at it." : "The chest is empty! Finish a plan and shear its sheep to get wool.",
+          list.length ? "Tap something to look at it." : "Empty! Shear a sheep to get wool.",
         ),
       );
     }
@@ -298,22 +302,16 @@ function openChest(): void {
   }
 
   function pick(item: ChestItem): void {
-    if (item.id === "shorts" && selected === "shorts") {
-      shortsPokes++;
-      if (shortsPokes === 1) {
-        sfx("woosh");
-        void say(
-          [
-            "Is that... oh! I mean, I've never seen those shorts before in my life.",
-            "...Could you, um, keep them in there? Somewhere nobody looks? Thanks.",
-          ],
-          { title: "Mayor Lewis" },
-        );
+    if (item.id === "feather" && selected === "feather") {
+      secretPokes++;
+      if (secretPokes === 1) {
+        sfx("meow");
+        toast("Somewhere outside, a grey cat's ears just perked up...", { icon: "item.feather" });
         return;
       }
     }
     selected = item.id;
-    sfx(item.id === "shorts" ? "squeak" : "select");
+    sfx(item.id === "feather" ? "rustle" : "select");
     render();
   }
 

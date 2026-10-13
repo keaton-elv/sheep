@@ -1,47 +1,27 @@
-// The farm sign: Mayor Lewis helps you (re)name the farm.
+// The farm sign: give the sign out front a fresh coat of paint (rename the farm).
 
 import "./farmsign.css";
 import { sfx } from "../audio";
+import { has } from "../engine/sprites";
 import { api, store } from "../net";
 import { stardewDate } from "../../shared/calendar";
 import { LIMITS } from "../../shared/types";
-import { friendly, hushTypewriter } from "./calendar-util";
-import { el, openDialog, registerMenu, spriteIcon, toast, typewriter } from "./dom";
-import { registerLewisArt } from "./farmsign-art";
-
-const LEWIS = { portrait: "portrait.lewis", speaker: "Mayor Lewis" };
-
-const NAME_IDEAS = [
-  "Ewe & Me Farm",
-  "Woolly Acres",
-  "Baaaah Farm",
-  "Fluffernutter Farm",
-  "Sweater Weather Farm",
-  "Two Sheep Farm",
-  "Stardrop Meadows",
-  "Cloud Nine Farm",
-  "Shear Bliss Farm",
-  "Haystack Hollow",
-  "Purl & Plait Farm",
-  "Mutton Button Farm",
-  "Cozy Fleece Farm",
-  "Sleepy Sheep Farm",
-  "Moonlight Meadow",
-  "Lamb Chop Lane",
-];
+import { friendly } from "./calendar-util";
+import { el, openDialog, registerMenu, spriteIcon, toast } from "./dom";
+import { registerFarmSignArt } from "./farmsign-art";
 
 export function initFarmSign(): void {
-  registerLewisArt();
+  registerFarmSignArt();
   registerMenu("farmSign", () => openFarmSign());
 }
 
 function openFarmSign(): void {
   const st = store.state;
   if (!st) {
-    toast("Mayor Lewis is still looking for his pen...");
+    toast("The paint is still drying... try again in a sec!");
     return;
   }
-  const line = el("p", { class: "sv-say fm-sign__say" });
+  const plank = el("span", null, st.farmName);
   const input = el("input", {
     class: "sv-input",
     type: "text",
@@ -49,32 +29,14 @@ function openFarmSign(): void {
     value: st.farmName,
     placeholder: "e.g. Ewe & Me Farm",
     autocomplete: "off",
+    autocapitalize: "words",
     enterkeyhint: "done",
     "aria-label": "Farm name",
   });
-  let lastIdea = -1;
-  const dice = el(
-    "button",
-    {
-      type: "button",
-      class: "sv-btn fm-sign__dice",
-      "aria-label": "Suggest a name",
-      title: "Suggest a name",
-      on: {
-        click: () => {
-          let i = Math.floor(Math.random() * NAME_IDEAS.length);
-          if (i === lastIdea) i = (i + 1) % NAME_IDEAS.length;
-          lastIdea = i;
-          input.value = NAME_IDEAS[i]!;
-          sfx("blip");
-          dice.classList.remove("is-rolling");
-          void dice.offsetWidth; // restart the wiggle
-          dice.classList.add("is-rolling");
-        },
-      },
-    },
-    spriteIcon("ui.dice"),
-  );
+  // Preview the new name on the plank as you type.
+  input.addEventListener("input", () => {
+    plank.textContent = input.value.trim() || "…";
+  });
 
   const save = async (): Promise<boolean> => {
     const name = input.value.trim().replace(/\s+/g, " ");
@@ -92,22 +54,24 @@ function openFarmSign(): void {
 
   const d = openDialog({
     title: "Farm Sign",
-    ...LEWIS,
     className: "fm-sign-dialog fm-menu",
     body: el(
       "div",
       { class: "fm-sign fm-menu" },
-      el("div", { class: "fm-sign__plank", "aria-hidden": "true" }, el("span", null, st.farmName)),
-      line,
-      el("p", { class: "fm-sign__sig" }, "— Mayor Lewis"),
-      el("label", { class: "sv-field" }, el("span", { class: "sv-field__label" }, "Farm name"), el("div", { class: "fm-sign__row" }, input, dice)),
+      el(
+        "div",
+        { class: "fm-sign__hero", "aria-hidden": "true" },
+        has("ui.menu.woodsign") ? spriteIcon("ui.menu.woodsign", { scale: 2, class: "fm-sign__post" }) : null,
+        el("div", { class: "fm-sign__plank" }, plank),
+      ),
+      el("p", { class: "fm-sign__say" }, "A fresh coat of paint for the sign out front. What should it say?"),
+      el("label", { class: "sv-field" }, el("span", { class: "sv-field__label" }, "Farm name"), input),
       el("p", { class: "fm-sign__founded" }, `Founded ${stardewDate(new Date(st.foundedAt), st.foundedAt)}`),
     ),
     buttons: [
       { label: "Never mind", kind: "plain" },
-      { label: "That's the one!", kind: "primary", icon: "ui.star", onClick: async () => void (await save()) },
+      { label: "Paint it!", kind: "primary", icon: "ui.star", onClick: async () => void (await save()) },
     ],
-    onClose: () => hushTypewriter(d),
   });
 
   input.addEventListener("keydown", (ev) => {
@@ -120,6 +84,4 @@ function openFarmSign(): void {
       .catch((err: unknown) => d.error(err instanceof Error ? err.message : String(err)))
       .finally(() => d.setBusy(false));
   });
-
-  void typewriter(line, "Ah, hello! The town records need your farm's name. What would you like to call it?");
 }

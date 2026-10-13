@@ -3,42 +3,10 @@
 
 import type { Season } from "../../shared/calendar";
 import type { Game } from "../engine/game";
-import { inflate, type Layout, type Point, type Rect } from "./layout";
+import type { Layout, Rect } from "./layout";
 import { GROUND_ATLAS, groundPixels, groundShapes, hash2 } from "./world-pixels";
-import { barnRect, cut, ctx2d, makeCanvasEl, outdoorsSheet, sheetPx } from "./world-sheets";
-
-/**
- * Where the farm sign actually stands. In landscape the layout puts it right in the gate opening
- * (sheep would walk through its post), so it steps down to stand beside the fence below the gap.
- */
-export function signSpot(l: Layout): Point {
-  const s = l.sign;
-  const g = l.gate;
-  if (g.side === "left") {
-    const half = g.w / 2;
-    const inGap = Math.abs(s.x - g.x) < 14 && s.y > g.y - half - 4 && s.y - 32 < g.y + half;
-    if (inGap) return { x: g.x - 11, y: Math.min(l.h - 6, Math.round(g.y + half + 22)) };
-  } else {
-    const half = g.w / 2;
-    const inGap = Math.abs(s.y - g.y) < 8 && Math.abs(s.x - g.x) < half + 8;
-    if (inGap) return { x: Math.round(g.x + half + 12), y: s.y };
-  }
-  return s;
-}
-
-/** Rects (in world px) where things should not sprout: barn, machines, sign, HUD, fence lines. */
-export function busyAreas(l: Layout): Rect[] {
-  const r: Rect[] = [inflate(barnRect(l), 2), l.hudClock, l.hudToolbar];
-  for (const p of [l.loom, l.chest, l.mailbox, signSpot(l)]) r.push({ x: p.x - 10, y: p.y - 34, w: 20, h: 38 });
-  r.push({ x: l.billboard.x - 17, y: l.billboard.y - 32, w: 34, h: 36 });
-  // Fence runs (the posts stick up ~27px above their feet line).
-  const f = l.fence;
-  r.push({ x: f.x - 8, y: f.y - 28, w: f.w + 16, h: 32 });
-  r.push({ x: f.x - 8, y: f.y + f.h - 28, w: f.w + 16, h: 32 });
-  r.push({ x: f.x - 7, y: f.y - 4, w: 14, h: f.h + 6 });
-  r.push({ x: f.x + f.w - 7, y: f.y - 4, w: 14, h: f.h + 6 });
-  return r;
-}
+import { cut, ctx2d, makeCanvasEl, outdoorsSheet, sheetPx } from "./world-sheets";
+import { busyAreas } from "./world-zones";
 
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
@@ -64,11 +32,16 @@ export class Ground {
   private tuftSeason: Season | null = null;
   readonly seed = 0x5eed;
 
-  /** Rebuild if the layout size or season changed. Returns true when rebuilt. */
+  /**
+   * Rebuild if the layout or season changed. Returns true when rebuilt. The key covers the layout's
+   * geometry, not just its size: the toolbar reporting its real height (or a safe-area inset showing
+   * up) re-runs the layout at the same size and moves the fence, paths and clear zones.
+   */
   build(g: Game, force = false): boolean {
     const l = g.layout;
     const season = g.env.season;
-    const key = `${l.w}x${l.h}:${season}`;
+    const r = (x: Rect) => `${x.x},${x.y},${x.w},${x.h}`;
+    const key = `${l.w}x${l.h}:${season}:${r(l.fence)}:${r(l.barn)}:${r(l.hudToolbar)}:${r(l.hudClock)}:${l.gate.x},${l.gate.y}:${l.loom.y},${l.billboard.y}`;
     if (!force && key === this.key && this.canvas) return false;
     this.key = key;
     const atlas = sheetPx(outdoorsSheet(season), GROUND_ATLAS.x, GROUND_ATLAS.y, GROUND_ATLAS.w, GROUND_ATLAS.h);
@@ -77,7 +50,7 @@ export class Ground {
     const ctx = ctx2d(c);
     ctx.putImageData(new ImageData(new Uint8ClampedArray(out.px.data), l.w, l.h), 0, 0);
     // A soft shadow along the barn's base.
-    const b = barnRect(l);
+    const b = l.barn;
     ctx.fillStyle = "rgba(40,20,60,0.22)";
     ctx.fillRect(b.x + 3, b.y + b.h, b.w - 6, 2);
     ctx.fillRect(b.x + 6, b.y + b.h + 2, b.w - 12, 1);

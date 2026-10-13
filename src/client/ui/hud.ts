@@ -1,14 +1,19 @@
-// The Stardew clock box in the top-right: date, a day/night dial, weather + season icons, the
-// time in 10-minute ticks, and the gold box underneath repurposed as the WOOL counter.
+// The real Stardew day/time box in the top-right: the date, the sun/moon dial and its hand, the
+// weather + season icons, the time in 10-minute ticks, and the money box underneath repurposed as
+// the WOOL counter (with Stardew's rolling digits).
 // Tap the clock for a little stats card + TV weather report; tap the wool for the chest.
+//
+// The box is painted on a canvas at the farm's device-pixel scale, so the dial hand can rotate
+// smoothly (like the game draws it at 4x) while everything else stays crisp pixel art.
 
 import { setAmbience } from "../audio";
 import { capitalize, clockDateLabel, clockTimeLabel, daysBetween, parseDayKey, stardewDate } from "../../shared/calendar";
 import type { Season } from "../../shared/calendar";
 import type { FarmState, WeatherKind } from "../../shared/types";
 import type { Game } from "../engine/game";
-import { draw as drawSprite } from "../engine/sprites";
-import { barnSheep, store } from "../net";
+import { draw as drawSprite, has, spriteCanvas } from "../engine/sprites";
+import { barnSheep, isLamb, store } from "../net";
+import { festivalOn } from "./calendar-festivals";
 import { el, openMenu, relativeDays, spriteIcon, uiRoot } from "./dom";
 import { CLOCK, registerHudArt } from "./hud-art";
 import { closePopover, togglePopover } from "./hud-popover";
@@ -43,41 +48,89 @@ const WEATHER_REPORT: Record<WeatherKind, string[]> = {
 };
 
 const TRIVIA = [
-  "Pierre's is closed on Wednesdays.",
-  "The Stardrop Saloon opens at noon.",
-  "The Traveling Cart visits on Fridays and Sundays.",
-  "Marnie's ranch is closed on Mondays and Tuesdays.",
   "Sheep in the valley cost 8,000g. These ones only cost a good idea.",
-  "A real loom turns 1 wool into cloth. Robin says ours are fancier.",
-  "Pet your animals every day. They notice!",
-  "Folks get grumpy if they catch you digging through trash cans. Except Linus. Linus gets it.",
-  "Krobus says hello from the sewers.",
-  "Shane loves pepper poppers. Shh, don't tell him you know.",
-  "Abigail has been known to eat amethysts. Please don't.",
+  "A real loom turns 1 wool into 1 cloth. Ours is fussier, but it hums while it works.",
+  "Pet your sheep every day. They notice!",
   "Every Stardrop you find raises your max energy.",
   "The Feast of the Winter Star is on Winter 25.",
   "Spirit's Eve is on Fall 27. Bring a lantern!",
-  "The Egg Festival is on Spring 13. Pierre always wins. Always.",
+  "The Egg Festival is on Spring 13. Bring a basket.",
   "The Flower Dance is on Spring 24. Ask someone early!",
   "The Luau is on Summer 11. Don't put anything weird in the soup.",
   "The Moonlight Jellies arrive on Summer 28.",
   "The Stardew Valley Fair is on Fall 16. Go for the star tokens!",
-  "Mayor Lewis has misplaced his lucky purple shorts. Again.",
   "Rainy days are free watering days.",
   "If you're up past 2am, you'll pass out. Go to bed!",
-  "Junimos love it when you finish bundles. And plans!",
-  "Mr. Qi is watching. Mr. Qi is always watching.",
-  "The Wizard's tower is in Cindersap Forest. He knows things.",
+  "The Traveling Cart visits on Fridays and Sundays.",
   "The Stardrop Saloon is the place to be on a Friday night.",
-  "Shears cost 1,000g at Marnie's. These ones were free!",
-  "The Old Mariner only shows up on the beach when it rains. He sells a certain pendant...",
-  "Clint is too shy to talk to Emily. Don't be like Clint.",
   "A sheep's wool grows back every few days. So do good ideas.",
+  "Crows won't land near a scarecrow. Rarecrows are just showing off.",
+  "Bee houses make honey from the flowers nearby. Very busy, very buzzy.",
+  "Ladybugs are lucky. A golden one is luckier.",
+  "Sheep love being talked to. Probably. They haven't said.",
+  "A hat doesn't change a sheep. It just makes it fancier.",
+  "Lambs grow up in a day. Blink and you'll miss it.",
+  "The barn remembers everything you two have done.",
+  "Snickers naps on the barn doorstep most afternoons.",
+  "Fall is the best season for finding mushrooms.",
+  "Winter is for planning. Spring is for doing.",
+  "Shooting stars are rare. Look up on clear nights.",
+  "Fireflies come out on summer nights.",
+  "A cozy night in counts as an adventure.",
+  "The Flock list finds any sheep in a snap.",
+  "Legend says a tiny knight rides a bumblebee over the pasture. Keep an eye out.",
+  "Plans change. The ORIGINAL PLAN usually wins.",
 ];
 
 const SEASON_NAMES: Record<Season, string> = { spring: "Spring", summer: "Summer", fall: "Fall", winter: "Winter" };
 
 let lastTrivia = -1;
+
+// ORIGINAL PLAN: how many times a plan was renamed and then changed back. The module that owns the
+// stamp tells the HUD how to count them; until then, a farm-level `originalPlans` number is used
+// if the state has one.
+let originalPlanCounter: ((s: FarmState) => number) | null = null;
+
+/** Let the ORIGINAL PLAN feature tell the clock popover how many times it has happened. */
+export function setOriginalPlanCounter(count: (s: FarmState) => number): void {
+  originalPlanCounter = count;
+}
+
+function originalPlans(s: FarmState): number {
+  try {
+    const n = originalPlanCounter ? originalPlanCounter(s) : (s as FarmState & { originalPlans?: unknown }).originalPlans;
+    return typeof n === "number" && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+type Special = "festival" | "wedding" | null;
+
+/** Festival days get Stardew's confetti icon; Bouquet Day and farm anniversaries get the heart. */
+function specialDay(now: Date, s: FarmState | null): { kind: Special; name: string | null } {
+  try {
+    const f = festivalOn(now, s?.foundedAt);
+    if (!f) return { kind: null, name: null };
+    // Farm days (founding, anniversaries) and Bouquet Day get the heart; festivals the confetti.
+    const heart = f.star === true || /bouquet|anniversary|founding/i.test(f.name);
+    return { kind: heart ? "wedding" : "festival", name: f.name };
+  } catch {
+    return { kind: null, name: null };
+  }
+}
+
+/** Which 12x8 icon goes in the weather hole. Real weather that matters (rain, storm, snow) wins. */
+function weatherIconKey(kind: WeatherKind, season: Season, special: Special): string {
+  let key: string;
+  if (special && kind !== "rain" && kind !== "storm" && kind !== "snow") key = `ui.weather.${special}`;
+  else if (kind === "windy") key = season === "fall" || season === "winter" ? "ui.weather.leaves" : "ui.weather.petals";
+  else key = `ui.weather.${kind}`;
+  return has(key) ? key : `ui.weather.${kind}`;
+}
+
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const easeOut = (t: number) => 1 - (1 - t) * (1 - t) * (1 - t);
 
 export function initHud(g: Game): void {
   registerHudArt();
@@ -85,19 +138,16 @@ export function initHud(g: Game): void {
 
   // ---------- DOM ----------
 
-  const bg = document.createElement("canvas");
-  bg.width = CLOCK.w;
-  bg.height = CLOCK.h;
-  bg.className = "hud-clock__bg";
-  bg.setAttribute("aria-hidden", "true");
-  const bgCtx = bg.getContext("2d")!;
+  const canvas = document.createElement("canvas");
+  canvas.className = "hud-clock__bg";
+  canvas.setAttribute("aria-hidden", "true");
+  const ctx = canvas.getContext("2d")!;
 
+  const { face: F } = CLOCK;
   const dateEl = el("span", { class: "hud-clock__date" });
   const timeEl = el("span", { class: "hud-clock__time" });
-  const weatherSlot = el("span", { class: "hud-clock__icon", style: `left:${gp(CLOCK.icons.weatherX)};top:${gp(CLOCK.icons.y)}` });
-  const seasonSlot = el("span", { class: "hud-clock__icon", style: `left:${gp(CLOCK.icons.seasonX)};top:${gp(CLOCK.icons.y)}` });
-  place(dateEl, CLOCK.date);
-  place(timeEl, CLOCK.time);
+  place(dateEl, CLOCK.date, F);
+  place(timeEl, CLOCK.time, F);
 
   const face = el(
     "button",
@@ -106,35 +156,32 @@ export function initHud(g: Game): void {
       type: "button",
       "aria-haspopup": "dialog",
       "aria-expanded": "false",
-      style: `width:${gp(CLOCK.w)};height:${gp(CLOCK.wool.box.y)}`,
+      style: `left:${gp(F.x)};top:${gp(F.y)};width:${gp(F.w)};height:${gp(F.h)}`,
     },
     dateEl,
-    weatherSlot,
-    seasonSlot,
     timeEl,
   );
 
-  const woolNum = el("span", { class: "hud-wool__n" }, "·");
+  const { money, wool: W } = CLOCK;
   const woolIcon = spriteIcon(woolKey(), { class: "hud-wool__icon" });
   const woolFloat = el("span", { class: "hud-wool__float", "aria-hidden": "true" });
-  const { box, icon, digits } = CLOCK.wool;
-  woolIcon.style.left = gp(icon.x - box.x);
-  woolIcon.style.top = gp(icon.y - box.y);
-  woolNum.style.cssText = `left:${gp(digits.x - box.x)};top:${gp(digits.y - box.y)};width:${gp(digits.w)};height:${gp(digits.h)}`;
+  const woolLeft = W.x;
+  const woolRight = money.x + money.w;
+  woolIcon.style.left = "0";
+  woolIcon.style.top = gp(W.y - money.y + 0);
   const wool = el(
     "button",
     {
       class: "hud-wool",
       type: "button",
-      style: `left:${gp(box.x)};top:${gp(box.y)};width:${gp(box.w)};height:${gp(box.h)}`,
+      style: `left:${gp(woolLeft)};top:${gp(money.y)};width:${gp(woolRight - woolLeft)};height:${gp(money.h)}`,
       "aria-label": "Wool in the chest",
     },
     woolIcon,
-    woolNum,
     woolFloat,
   );
 
-  const root = el("div", { class: "hud-clock" }, bg, face, wool);
+  const root = el("div", { class: "hud-clock" }, canvas, face, wool);
   uiRoot.appendChild(root);
 
   face.addEventListener("click", () => {
@@ -146,24 +193,138 @@ export function initHud(g: Game): void {
     openMenu("chest");
   });
 
+  // ---------- painting ----------
+
+  // Pieces drawn with sub-pixel motion (the hand, rolling digits) are cached as plain canvases.
+  const hand = spriteCanvas("ui.hud.hand");
+  const digits = new Map<string, HTMLCanvasElement>();
+  for (let d = 0; d <= 9; d++) digits.set(String(d), spriteCanvas(`ui.hud.digit.${d}`));
+
+  let k = 1; // device pixels per game pixel
+  let weatherKey = "ui.weather.sunny";
+  let seasonKey = "ui.season.spring";
+
+  // The hand: shown position and where it's heading (0 = 6am, pointing down; 1 = 2am, up).
+  let handT = 0;
+  let handFrom = 0;
+  let handTo = 0;
+  let handStart = -1;
+  let handMs = 0;
+
+  // The wool counter: right-aligned in 8 slots; changed digits roll like Stardew's money dial.
+  const blank = " ".repeat(CLOCK.digits.count);
+  let woolFrom = blank;
+  let woolTo = blank;
+  let woolUp = true;
+  let rollStart = -1;
+  const ROLL_MS = 380;
+
+  const animating = () => handStart >= 0 || rollStart >= 0;
+
+  const snap = (v: number) => Math.round(v * k) / k;
+
+  const paintDigits = (now: number) => {
+    const { x: x0, y: y0, w, h, step } = CLOCK.digits;
+    let p = 1;
+    if (rollStart >= 0) {
+      p = Math.min(1, (now - rollStart) / ROLL_MS);
+      if (reducedMotion()) p = 1;
+      if (p >= 1) rollStart = -1;
+    }
+    const e = easeOut(p);
+    const glyph = (ch: string, x: number, y: number) => {
+      const c = digits.get(ch);
+      if (c) ctx.drawImage(c, x, snap(y));
+    };
+    for (let i = 0; i < CLOCK.digits.count; i++) {
+      const a = woolFrom[i] ?? " ";
+      const b = woolTo[i] ?? " ";
+      const x = x0 + i * step;
+      if (a === b || e >= 1) {
+        glyph(b, x + 1, y0 + 1);
+        continue;
+      }
+      // Counting up: the old digit rolls up and out, the new one rolls in from below.
+      const dir = woolUp ? -1 : 1;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y0, w, h);
+      ctx.clip();
+      glyph(a, x + 1, y0 + 1 + dir * e * h);
+      glyph(b, x + 1, y0 + 1 - dir * (1 - e) * h);
+      ctx.restore();
+    }
+  };
+
+  const paintHand = (now: number) => {
+    if (handStart >= 0) {
+      const p = handMs > 0 ? Math.max(0, Math.min(1, (now - handStart) / handMs)) : 1;
+      handT = handFrom + (handTo - handFrom) * easeOut(p);
+      if (p >= 1) {
+        handT = handTo;
+        handStart = -1;
+      }
+    }
+    // Stardew: rotation = PI + PI * (how far through the 6am..2am day), clockwise.
+    const { pivot, handOrigin } = CLOCK;
+    ctx.save();
+    ctx.translate(pivot.x, pivot.y);
+    ctx.rotate(Math.PI + Math.PI * handT);
+    ctx.drawImage(hand, -handOrigin.x, -handOrigin.y);
+    ctx.restore();
+  };
+
+  const paint = () => {
+    try {
+      const now = performance.now();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(k, 0, 0, k, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      drawSprite(ctx, "ui.hud.clockbox", CLOCK.box.x, CLOCK.box.y);
+      drawSprite(ctx, weatherKey, CLOCK.weather.x, CLOCK.weather.y);
+      drawSprite(ctx, seasonKey, CLOCK.season.x, CLOCK.season.y);
+      paintDigits(now);
+      paintHand(now);
+    } catch (err) {
+      console.warn("[hud] paint", err);
+    }
+  };
+
+  const resize = () => {
+    k = Math.max(1, Math.round(g.scale));
+    if (canvas.width !== CLOCK.w * k) {
+      canvas.width = CLOCK.w * k;
+      canvas.height = CLOCK.h * k;
+    }
+    // Sit exactly where the farm's layout reserved room for the clock (it already includes the
+    // notch / status-bar inset), on the farm's pixel grid.
+    root.style.top = `${g.layout.hudClock.y * g.cssScale}px`;
+    fitText(dateEl);
+    fitText(timeEl);
+    paint();
+  };
+
   // ---------- clock ----------
 
   let lastMinuteKey = -1;
   let lastDay = -1;
-  let lastWeather: WeatherKind | null = null;
-  let lastSeason: Season | null = null;
+  let lastWeather = "";
+  let special: { kind: Special; name: string | null } = { kind: null, name: null };
   let acc = 1; // run immediately
   let ambAcc = 2;
+  let firstHand = true;
 
-  const paintClock = (hour: number) => {
-    bgCtx.clearRect(0, 0, CLOCK.w, CLOCK.h);
-    drawSprite(bgCtx, "ui.hud.clock", 0, 0);
-    paintHand(bgCtx, hour);
+  const handTarget = (now: Date) => {
+    const hour = now.getHours() + Math.floor(now.getMinutes() / 10) / 6;
+    const h = hour < 6 ? hour + 24 : hour;
+    return Math.max(0, Math.min(1, (h - 6) / 20));
   };
 
   const update = () => {
     const env = g.env;
     const now = env.now;
+    let dirty = false;
     const minuteKey = now.getHours() * 6 + Math.floor(now.getMinutes() / 10);
     if (minuteKey !== lastMinuteKey) {
       lastMinuteKey = minuteKey;
@@ -171,26 +332,44 @@ export function initHud(g: Game): void {
       timeEl.textContent = time;
       // Past midnight the time goes red: go to bed, farmers!
       timeEl.classList.toggle("is-late", now.getHours() < 6);
-      paintClock(now.getHours() + Math.floor(now.getMinutes() / 10) / 6);
+      fitText(timeEl);
       const day = now.getDate();
       if (day !== lastDay) {
         lastDay = day;
         dateEl.textContent = clockDateLabel(now);
+        fitText(dateEl);
+        special = specialDay(now, store.state);
+        lastWeather = ""; // re-pick the icon (festival days)
       }
-      face.setAttribute("aria-label", `${clockDateLabel(now)}, ${time}. Tap for the farm report.`);
+      const target = handTarget(now);
+      if (Math.abs(target - handTo) > 1e-4 || firstHand) {
+        handFrom = handT;
+        handTo = target;
+        // On arrival the hand sweeps round from 6am to now; after that it just ticks along.
+        handMs = reducedMotion() ? 0 : firstHand ? 1300 : 500;
+        handStart = performance.now() + (firstHand ? 350 : 0);
+        firstHand = false;
+      }
+      dirty = true;
     }
-    if (env.weather !== lastWeather) {
-      lastWeather = env.weather;
-      weatherSlot.replaceChildren(spriteIcon(`ui.weather.${env.weather}`, { title: WEATHER_NAMES[env.weather] ?? env.weather }));
+    const wKey = `${env.weather}|${env.season}|${special.kind}`;
+    if (wKey !== lastWeather) {
+      lastWeather = wKey;
+      weatherKey = weatherIconKey(env.weather, env.season, special.kind);
+      seasonKey = `ui.season.${env.season}`;
+      dirty = true;
     }
-    if (env.season !== lastSeason) {
-      lastSeason = env.season;
-      seasonSlot.replaceChildren(spriteIcon(`ui.season.${env.season}`, { title: SEASON_NAMES[env.season] ?? env.season }));
+    if (dirty) {
+      const weather = WEATHER_NAMES[env.weather] ?? capitalize(env.weather);
+      const festival = special.name ? ` ${special.name} today!` : "";
+      face.setAttribute("aria-label", `${clockDateLabel(now)}, ${timeEl.textContent}. ${weather}, ${SEASON_NAMES[env.season]}.${festival} Tap for the farm report.`);
+      if (!animating()) paint();
     }
   };
 
   const ambience = () => {
     const env = g.env;
+    const decor = store.state?.decorations ?? [];
     setAmbience({
       night: env.isNight,
       rain: env.weather === "rain" || env.weather === "storm",
@@ -199,6 +378,8 @@ export function initHud(g: Game): void {
       winter: env.season === "winter" || env.weather === "snow",
       season: env.season,
       windy: env.weather === "windy",
+      campfire: decor.some((d) => d.kind === "campfire"),
+      pond: decor.some((d) => d.kind === "pond"),
     });
   };
 
@@ -210,6 +391,7 @@ export function initHud(g: Game): void {
         acc = 0;
         update();
       }
+      if (animating()) paint();
       ambAcc += dt;
       if (ambAcc >= 2) {
         ambAcc = 0;
@@ -219,7 +401,20 @@ export function initHud(g: Game): void {
       console.warn("[hud]", err);
     }
   });
+  g.on("resize", () => {
+    try {
+      resize();
+    } catch (err) {
+      console.warn("[hud] resize", err);
+    }
+  });
   update();
+  resize();
+  // The pixel font may arrive after the first layout: re-check the text fits once it has.
+  void document.fonts?.ready.then(() => {
+    fitText(dateEl);
+    fitText(timeEl);
+  });
 
   // ---------- wool counter ----------
 
@@ -227,13 +422,21 @@ export function initHud(g: Game): void {
   let floatTimer = 0;
   const showWool = (s: FarmState | null) => {
     if (!s) return;
-    const n = s.wool;
+    const n = Math.max(0, s.wool);
     if (n === lastWool) return;
     const prev = lastWool;
     lastWool = n;
-    woolNum.textContent = String(n);
+    const text = String(Math.min(n, 99_999_999)).padStart(CLOCK.digits.count, " ");
     wool.setAttribute("aria-label", `Wool in the chest: ${n}. Open the chest.`);
-    if (prev === null) return;
+    if (prev === null) {
+      woolFrom = woolTo = text;
+      paint();
+      return;
+    }
+    woolFrom = woolTo;
+    woolTo = text;
+    woolUp = n > prev;
+    rollStart = performance.now();
     const diff = n - prev;
     woolFloat.textContent = diff > 0 ? `+${diff}` : `${diff}`;
     woolFloat.classList.toggle("is-minus", diff < 0);
@@ -246,67 +449,39 @@ export function initHud(g: Game): void {
     floatTimer = window.setTimeout(() => woolFloat.classList.remove("is-on"), 1200);
   };
   showWool(store.state);
-  store.changed.on(showWool);
+  store.changed.on((s) => {
+    try {
+      showWool(s);
+      // The farm's founding day can change what today's icon is (anniversaries).
+      if (s && lastDay !== -1 && special.kind === null) {
+        const sp = specialDay(g.env.now, s);
+        if (sp.kind) {
+          special = sp;
+          lastWeather = "";
+        }
+      }
+    } catch (err) {
+      console.warn("[hud] wool", err);
+    }
+  });
 }
 
-function place(node: HTMLElement, r: { x: number; y: number; w: number; h: number }): void {
-  node.style.left = gp(r.x);
-  node.style.top = gp(r.y);
+/** Position a text window relative to the face button (both in game pixels). */
+function place(node: HTMLElement, r: { x: number; y: number; w: number; h: number }, origin: { x: number; y: number }): void {
+  node.style.left = gp(r.x - origin.x);
+  node.style.top = gp(r.y - origin.y);
   node.style.width = gp(r.w);
   node.style.height = gp(r.h);
 }
 
-// ---------- the dial's hand ----------
-
-const HAND = "#d8342a";
-const HAND_EDGE = "#7a1010";
-const PIVOT = "#ffd23f";
-
-/** Stardew's dial: the hand points up at 6am, sweeps left through the afternoon, down at 2am. */
-function paintHand(ctx: CanvasRenderingContext2D, hour: number): void {
-  const h = hour < 6 ? hour + 24 : hour;
-  const t = Math.max(0, Math.min(1, (h - 6) / 20));
-  const phi = Math.PI * t;
-  const { x: px, y: py } = CLOCK.pivot;
-  const tx = Math.round(px - Math.sin(phi) * CLOCK.handLength);
-  const ty = Math.round(py - Math.cos(phi) * CLOCK.handLength);
-  const pts = linePoints(px, py, tx, ty);
-  ctx.fillStyle = HAND_EDGE;
-  for (const [x, y] of pts) {
-    ctx.fillRect(x - 1, y, 3, 1);
-    ctx.fillRect(x, y - 1, 1, 3);
-  }
-  ctx.fillStyle = HAND;
-  for (const [x, y] of pts) ctx.fillRect(x, y, 1, 1);
-  // Brass pivot cap.
-  ctx.fillStyle = HAND_EDGE;
-  ctx.fillRect(px - 1, py - 1, 3, 3);
-  ctx.fillStyle = PIVOT;
-  ctx.fillRect(px - 1, py, 3, 1);
-  ctx.fillRect(px, py - 1, 1, 3);
-}
-
-function linePoints(x0: number, y0: number, x1: number, y1: number): [number, number][] {
-  const pts: [number, number][] = [];
-  const dx = Math.abs(x1 - x0);
-  const dy = -Math.abs(y1 - y0);
-  const sx = x0 < x1 ? 1 : -1;
-  const sy = y0 < y1 ? 1 : -1;
-  let err = dx + dy;
-  for (let i = 0; i < 64; i++) {
-    pts.push([x0, y0]);
-    if (x0 === x1 && y0 === y1) break;
-    const e2 = 2 * err;
-    if (e2 >= dy) {
-      err += dy;
-      x0 += sx;
-    }
-    if (e2 <= dx) {
-      err += dx;
-      y0 += sy;
-    }
-  }
-  return pts;
+/** Step the font down a notch if a long label ("10:50 pm", "Wed. 30") would spill out of its window. */
+function fitText(node: HTMLElement): void {
+  node.classList.remove("is-tight", "is-tighter");
+  if (!node.isConnected || node.clientWidth === 0) return;
+  if (node.scrollWidth <= node.clientWidth + 0.5) return;
+  node.classList.add("is-tight");
+  if (node.scrollWidth <= node.clientWidth + 0.5) return;
+  node.classList.add("is-tighter");
 }
 
 // ---------- the farm report (clock popover) ----------
@@ -342,6 +517,7 @@ function buildReport(g: Game): HTMLElement {
   const now = env.now;
   const kind = env.weather;
   const w = store.weather;
+  const sp = specialDay(now, s);
 
   // TV weather report
   const where = w?.city ? `in ${w.city}` : "on the farm";
@@ -356,18 +532,26 @@ function buildReport(g: Game): HTMLElement {
       "div",
       null,
       el("div", { class: "hud-report__kicker" }, "Weather Report"),
-      el("div", { class: "hud-report__weather" }, spriteIcon(`ui.weather.${kind}`), ` ${name} ${where}${temp}`),
+      el("div", { class: "hud-report__weather" }, spriteIcon(weatherIconKey(kind, env.season, null)), ` ${name} ${where}${temp}`),
       el("p", { class: "hud-report__say" }, lines[Math.floor(Math.random() * lines.length)]!),
     ),
   );
 
-  const today = el("div", { class: "hud-report__date" }, spriteIcon(`ui.season.${env.season}`), ` ${s ? stardewDate(now, s.foundedAt) : `${capitalize(env.season)} ${now.getDate()}`}`);
+  const today = el(
+    "div",
+    { class: "hud-report__date" },
+    spriteIcon(`ui.season.${env.season}`),
+    ` ${s ? stardewDate(now, s.foundedAt) : `${capitalize(env.season)} ${now.getDate()}`}`,
+  );
+  const festival = sp.name && sp.kind ? el("div", { class: "hud-report__festival" }, spriteIcon(`ui.weather.${sp.kind}`), ` ${sp.name} today!`) : null;
 
   let stats: HTMLElement;
   if (s) {
     const waiting = s.sheep.filter((x) => x.shearedAt === null);
     const done = s.sheep.length - waiting.length;
     const halves = s.sheep.reduce((sum, x) => sum + x.pets, 0);
+    const lambs = waiting.filter((x) => isLamb(x)).length;
+    const hats = waiting.filter((x) => x.hat !== null && x.hat !== undefined).length;
     stats = el(
       "ul",
       { class: "hud-report__stats" },
@@ -378,8 +562,22 @@ function buildReport(g: Game): HTMLElement {
       statRow("Cloth", s.cloth, clothKey()),
       statRow("Hearts given", fmtHearts(halves), "ui.heart.full"),
     );
+    if (lambs) stats.appendChild(statRow(lambs === 1 ? "Brand-new lamb" : "Brand-new lambs", lambs, iconKey("ui.icon.flock")));
+    if (hats) stats.appendChild(statRow(hats === 1 ? "Sheep in a hat" : "Sheep in hats", hats, iconKey("ui.icon.hat")));
     const golden = s.sheep.filter((x) => x.golden).length;
     if (golden) stats.appendChild(statRow(golden === 1 ? "Golden sheep (lucky!)" : "Golden sheep (so lucky!)", golden, "ui.star"));
+    const stamps = originalPlans(s);
+    if (stamps) {
+      stats.appendChild(
+        el(
+          "li",
+          { class: "hud-report__stat hud-report__stamp", "aria-label": `Back to the ORIGINAL PLAN: ${stamps} ${stamps === 1 ? "time" : "times"}` },
+          el("span", { class: "hud-report__stampmark", "aria-hidden": "true" }, "ORIGINAL PLAN"),
+          el("span", { class: "hud-report__dots", "aria-hidden": "true" }),
+          el("b", { class: "hud-report__value", "aria-hidden": "true" }, `×${stamps}`),
+        ),
+      );
+    }
     const next = nextPlan(s, now);
     if (next) stats.appendChild(el("li", { class: "hud-report__next" }, "Next up: ", el("b", null, next.name), ` (${next.when})`));
   } else {
@@ -398,7 +596,7 @@ function buildReport(g: Game): HTMLElement {
     store.connected ? "Live: you'll see each other's changes" : "Offline for a sec. We'll catch up!",
   );
 
-  return el("div", { class: "hud-report__body" }, report, today, stats, trivia, live);
+  return el("div", { class: "hud-report__body" }, report, today, festival, stats, trivia, live);
 }
 
 function nextPlan(s: FarmState, now: Date): { name: string; when: string } | null {

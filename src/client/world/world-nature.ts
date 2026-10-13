@@ -5,26 +5,26 @@
 import { sfx } from "../audio";
 import { dayKey, type Season } from "../../shared/calendar";
 import { rng, type Entity, type Game } from "../engine/game";
-import { draw, has, registerArt, REGIONS, SHEETS } from "../engine/sprites";
+import { objectRegion } from "../art/regions";
+import { draw, has, registerArt, REGIONS } from "../engine/sprites";
 import { store } from "../net";
 import { toast } from "../ui/dom";
 import { contains, fromFraction, inflate, type Layout, type Rect } from "./layout";
 import { FORAGE_BY_SEASON, forageKey } from "./world-art";
 import { dustPuff, fx, reducedMotion } from "./world-fx";
-import { signSpot, type Ground } from "./world-ground";
+import type { Ground } from "./world-ground";
 import { flipPx, hash2, rowsToPx } from "./world-pixels";
 import { guard, safeOn } from "./world-safe";
-import { barnRect, canvasPx, ctx2d, cut, makeCanvasEl, pxCanvas } from "./world-sheets";
+import { canvasPx, ctx2d, cut, makeCanvasEl, pxCanvas } from "./world-sheets";
+import { doorYard, keepClear, signFeet } from "./world-zones";
 
 // ---------- art ----------
 
-// Artifact spots & artifacts live in Stardew's objects sheet (24 columns of 16x16 icons).
-SHEETS.objects ??= "sprites/objects.png";
-const objRegion = (index: number) => ({ sheet: "objects", x: (index % 24) * 16, y: Math.floor(index / 24) * 16, w: 16, h: 16 });
+// Artifact spots & artifacts are real objects.png icons (the sheet keeps Stardew's item ids).
 const ARTIFACT_SPOT = "world.artifactSpot";
-REGIONS[ARTIFACT_SPOT] ??= objRegion(590);
+REGIONS[ARTIFACT_SPOT] ??= objectRegion(590);
 
-/** What the worms were guarding: [name, objects index, weight]. Mostly junk, sometimes a treasure. */
+/** What the worms were guarding: [name, Stardew item id, weight]. Mostly junk, sometimes a treasure. */
 const ARTIFACTS: readonly [string, number, number][] = [
   ["Rusty Spoon", 110, 6],
   ["Rusty Cog", 112, 5],
@@ -43,7 +43,7 @@ const ARTIFACTS: readonly [string, number, number][] = [
   ["Dinosaur Egg", 107, 1],
 ];
 const artifactKey = (name: string) => `item.artifact.${name.toLowerCase().replace(/[^a-z]+/g, "-")}`;
-for (const [name, index] of ARTIFACTS) REGIONS[artifactKey(name)] ??= objRegion(index);
+for (const [name, id] of ARTIFACTS) REGIONS[artifactKey(name)] ??= objectRegion(id);
 const ARTIFACT_WEIGHT = ARTIFACTS.reduce((t, a) => t + a[2], 0);
 
 function pickArtifact(r: number): string {
@@ -489,13 +489,8 @@ export class Nature {
 
   private obstacles(l: Layout): Rect[] {
     const f = l.fence;
-    const out: Rect[] = [
-      { x: f.x - 8, y: f.y - 30, w: f.w + 16, h: f.h + 36 },
-      inflate(barnRect(l), 2),
-      l.hudToolbar,
-      { x: l.barnDoor.x - 18, y: l.barnDoor.y - 6, w: 36, h: 14 },
-    ];
-    for (const p of [l.loom, l.chest, l.mailbox, signSpot(l)]) out.push({ x: p.x - 14, y: p.y - 40, w: 28, h: 46 });
+    const out: Rect[] = [{ x: f.x - 8, y: f.y - 30, w: f.w + 16, h: f.h + 36 }, inflate(l.barn, 2), l.hudToolbar, ...keepClear(l)];
+    for (const p of [l.loom, l.chest, l.mailbox, signFeet(l)]) out.push({ x: p.x - 14, y: p.y - 40, w: 28, h: 46 });
     out.push({ x: l.billboard.x - 20, y: l.billboard.y - 38, w: 40, h: 44 });
     return out;
   }
@@ -513,45 +508,48 @@ export class Nature {
     const count = 1 + Math.floor(r() * 3);
     const picked = readPicked(this.day);
     const l = g.layout;
-    // Keep forage out from under the decorations (they'd hide it and steal the tap) and off paths.
+    // Keep forage out from under the decorations (they'd hide it and steal the tap), off paths,
+    // out of the fox & hedgehog's corner and the barn door yard.
     const decor = (store.state?.decorations ?? []).map((d) => fromFraction(l, d.fx, d.fy));
+    const clearZones = keepClear(l);
+    const footprint = (x: number, y: number): Rect => ({ x: x - 8, y: y - 16, w: 16, h: 20 });
     const clear = (x: number, y: number) =>
       !l.blocked.some((b) => contains(inflate(b, 6), x, y)) &&
+      !clearZones.some((z) => overlaps(footprint(x, y), z)) &&
       !decor.some((d) => Math.abs(d.x - x) < 18 && y > d.y - 40 && y < d.y + 10) &&
       !this.ground.isDirt(x, y);
-    for (let i = 0; i < count; i++) {
-      let fxp = 0.5;
-      let fyp = 0.5;
-      // Same draws on both phones (the rng only depends on the date), so everyone sees the same spots.
-      for (let tries = 0; tries < 20; tries++) {
-        fxp = 0.06 + r() * 0.88;
-        fyp = 0.08 + r() * 0.84;
-        const p = fromFraction(l, fxp, fyp);
+    // What grows today (and whether there are worms) depends only on the date, so both farmers find
+    // the same things. Each spot gets its own little rng: dodging a decoration or a narrower screen
+    // never changes what the next spot is.
+    const spot = (k: number, x0: number, y0: number): { fx: number; fy: number } => {
+      const rr = rng(seed * 131 + k * 7919 + 17);
+      let fx = 0.5;
+      let fy = 0.5;
+      for (let tries = 0; tries < 24; tries++) {
+        fx = x0 + rr() * (1 - x0 * 2);
+        fy = y0 + rr() * (1 - y0 * 2);
+        const p = fromFraction(l, fx, fy);
         if (clear(p.x, p.y)) break;
       }
+      return { fx, fy };
+    };
+    for (let i = 0; i < count; i++) {
       const name = pool[Math.floor(r() * pool.length)]!;
       if (picked.includes(i)) continue;
-      const f = new Forage(this, name, i, fxp, fyp);
+      const s = spot(i, 0.06, 0.08);
+      const f = new Forage(this, name, i, s.fx, s.fy);
       this.forage.push(f);
       g.add(guard(f, "forage"));
     }
     // Most days, a patch of wiggly worms. Everyone in Stardew knows: you DIG there.
-    if (r() < 0.6) {
-      const index = 100;
-      let fxp = 0.5;
-      let fyp = 0.5;
-      for (let tries = 0; tries < 20; tries++) {
-        fxp = 0.08 + r() * 0.84;
-        fyp = 0.1 + r() * 0.8;
-        const p = fromFraction(l, fxp, fyp);
-        if (clear(p.x, p.y)) break;
-      }
-      const name = pickArtifact(r());
-      if (!picked.includes(index)) {
-        const f = new Forage(this, name, index, fxp, fyp, null, true);
-        this.forage.push(f);
-        g.add(guard(f, "artifact"));
-      }
+    const index = 100;
+    const worms = r() < 0.6;
+    const treasure = pickArtifact(r());
+    if (worms && !picked.includes(index)) {
+      const s = spot(index, 0.08, 0.1);
+      const f = new Forage(this, treasure, index, s.fx, s.fy, null, true);
+      this.forage.push(f);
+      g.add(guard(f, "artifact"));
     }
   }
 
@@ -566,6 +564,9 @@ export class Nature {
   dropSeed(g: Game, x: number, y: number, name: string, from: object): void {
     for (const s of this.seedsOut) if (s.dead) this.seedsOut.delete(s);
     for (const s of this.seedsOut) if (s.owner === from) return;
+    // Seeds don't land in the barn door yard (sheep and the cat need it): they roll to its edge.
+    const yard = doorYard(g.layout);
+    if (contains(inflate(yard, 6), x, y)) x = x < yard.x + yard.w / 2 ? yard.x - 8 : yard.x + yard.w + 8;
     const f = new Forage(this, name, -1, 0, 0, { x: Math.round(x), y: Math.round(Math.min(g.layout.h - 4, y)) });
     f.owner = from;
     f.dropFrom(34);

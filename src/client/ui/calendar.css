@@ -1,8 +1,10 @@
-/* Pierre's billboard: a wooden board with a paper calendar and notes pinned to it. */
+/* The billboard: a wooden board with a paper calendar and notes pinned to it.
+   .is-real = the real Stardew billboard art (frame, planks, torn paper, grey pins) from
+   billboard.png, published as --fm-bb-* vars by calendar-art.ts. Without it, CSS stands in. */
 
 .sv-dialog.fm-cal-dialog {
   width: min(760px, 100%);
-  padding: 16px 8px 10px;
+  padding: 16px 6px 10px;
   /* Wooden board: the frame without its parchment fill, planks showing through. */
   border-image: var(--img-box) 6 / calc(var(--px) * 6) stretch;
   background:
@@ -16,19 +18,49 @@
   background-clip: padding-box;
 }
 .fm-cal-dialog .sv-dialog__content {
-  padding: 6px 4px 4px;
+  padding: 6px 2px 4px;
 }
 
+/* The real board: its dark frame as a 9-slice, the planks tiled behind the papers. */
+.sv-dialog.fm-cal-dialog.is-real {
+  padding: 6px 4px 4px;
+  border-width: calc(var(--fm-px) * 10) calc(var(--fm-px) * 9) calc(var(--fm-px) * 7) calc(var(--fm-px) * 9);
+  border-image: var(--fm-bb-frame) 10 9 7 9 / calc(var(--fm-px) * 10) calc(var(--fm-px) * 9) calc(var(--fm-px) * 7) calc(var(--fm-px) * 9) stretch;
+  background:
+    var(--fm-bb-wood) 0 0 / calc(var(--fm-px) * 16) calc(var(--fm-px) * 168) repeat,
+    #754514;
+  background-clip: padding-box;
+  image-rendering: pixelated;
+}
+.fm-cal-dialog.is-real .sv-dialog__content {
+  /* Room above the first paper for its pin. */
+  padding: calc(var(--fm-px) * 8 + 2px) 0 2px;
+}
+
+/* Phones: one column. Every grid track and item may shrink, so a long sheep name can never
+   push the day panel (or its button) past the right edge. */
 .fm-cal {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 .fm-cal__left,
 .fm-cal__right {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-content: start;
   min-width: 0;
+}
+.fm-cal__left > *,
+.fm-cal__right > * {
+  min-width: 0;
+}
+.fm-cal-dialog.is-real .fm-cal,
+.fm-cal-dialog.is-real .fm-cal__left,
+.fm-cal-dialog.is-real .fm-cal__right {
+  /* Leave room for the next paper's pin between notes. */
+  gap: calc(var(--fm-px) * 9 + 8px);
 }
 @media (min-width: 700px) {
   .fm-cal {
@@ -83,6 +115,67 @@
 .fm-cal__paper.is-winter {
   --season: #3f7fc0;
   --season-dark: #1d3f6e;
+}
+
+/* ---------- real billboard paper + pins ---------- */
+
+.fm-cal-dialog.is-real .fm-cal__paper,
+.fm-cal-dialog.is-real .fm-note {
+  background: none;
+  border: 1px solid transparent;
+  box-shadow: none;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 calc(var(--fm-px) * 2) 0 rgba(40, 18, 6, 0.35));
+}
+/* The calendar sheet: torn top-right corner and bottom notches (slices: 12 25 8 36). */
+.fm-cal-dialog.is-real .fm-cal__paper {
+  padding: calc(var(--fm-px) * 9 + 4px) 6px calc(var(--fm-px) * 6 + 4px);
+  border-image: var(--fm-bb-paper) 12 25 8 36 fill / calc(var(--fm-px) * 12) calc(var(--fm-px) * 25) calc(var(--fm-px) * 8) calc(var(--fm-px) * 36) stretch;
+}
+/* Notes use the same paper, mirrored, so their tears land on the other side. */
+.fm-cal-dialog.is-real .fm-note {
+  padding: calc(var(--fm-px) * 9 + 4px) 12px calc(var(--fm-px) * 6 + 6px);
+  border-image: var(--fm-bb-paper-flip) 12 36 8 25 fill / calc(var(--fm-px) * 12) calc(var(--fm-px) * 36) calc(var(--fm-px) * 8) calc(var(--fm-px) * 25) stretch;
+}
+/* One grey pin, top center (the pin's paper line is 8px down its 18px art). */
+.fm-cal-dialog.is-real .fm-cal__paper::before,
+.fm-cal-dialog.is-real .fm-note::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--fm-px) * -8 - 1px);
+  left: 50%;
+  right: auto;
+  width: calc(var(--fm-px) * 18);
+  height: calc(var(--fm-px) * 18);
+  margin-left: calc(var(--fm-px) * -9);
+  border-radius: 0;
+  background: var(--fm-bb-pin) 0 0 / 100% 100% no-repeat;
+  box-shadow: none;
+  image-rendering: pixelated;
+}
+.fm-cal-dialog.is-real .fm-cal__paper::after {
+  display: none;
+}
+
+/* The real festival pennant, waving through its 6 frames (14x12 each). */
+.fm-flag {
+  --fs: 1;
+  display: inline-block;
+  flex: none;
+  width: calc(var(--fm-px) * 14 * var(--fs));
+  height: calc(var(--fm-px) * 12 * var(--fs));
+  background: var(--fm-bb-flags) 0 0 / calc(var(--fm-px) * 84 * var(--fs)) 100% no-repeat;
+  image-rendering: pixelated;
+  animation: fm-flag-wave 0.9s steps(6) infinite;
+}
+.fm-flag.is-small {
+  --fs: 0.75;
+}
+@keyframes fm-flag-wave {
+  to {
+    background-position: calc(var(--fm-px) * -84 * var(--fs)) 0;
+  }
 }
 
 .fm-cal__head {
@@ -308,6 +401,10 @@
   text-align: center;
   color: var(--ink-soft);
 }
+.fm-cal__day,
+.fm-cal__soon {
+  overflow-wrap: anywhere;
+}
 .fm-cal__dayname {
   margin: 0;
 }
@@ -326,15 +423,25 @@
   background: #ffe9ec;
   box-shadow: inset 0 0 0 1px #e8a0aa;
 }
-.fm-cal__fest .sv-sprite {
+.fm-cal__festicon {
+  flex: none;
   margin-top: 2px;
+}
+.fm-cal__fest > span:last-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .fm-cal__plans {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
+}
+.fm-cal__plans > li {
+  min-width: 0;
 }
 .fm-cal__quiet {
   margin: 6px 0;
@@ -352,7 +459,22 @@
 }
 .fm-cal__add {
   width: 100%;
+  max-width: 100%;
   margin-top: 8px;
+  padding-left: 10px;
+  padding-right: 10px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+}
+.fm-cal__add > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* The button grows a little on hover; keep that inside the note on phones. */
+.fm-cal__add:hover:not(:disabled),
+.fm-cal__add:focus-visible {
+  transform: scale(1.02);
 }
 
 @media (max-width: 380px) {
@@ -369,7 +491,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fm-cal__cell.is-today::after {
+  .fm-cal__cell.is-today::after,
+  .fm-flag {
     animation: none;
   }
 }

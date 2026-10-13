@@ -1,8 +1,8 @@
-// The critter corner: a fox and a hedgehog who are best friends, their mossy stump and
-// gingham blanket, and (very rarely) Mr. Raccoon peeking out of the stump.
+// The critter corner: Otto the fox and Milo the hedgehog, best friends, with their mossy stump
+// and gingham blanket, and (very rarely) a raccoon peeking out of the stump.
 //
 // Corner-local coordinates (0..60 x 0..31) are used for everything here, so the hangout
-// follows layout.critterCorner around on resize (see hangout() for why it's lifted a bit).
+// follows layout.critterCorner around on resize.
 
 import { sfx } from "../audio";
 import type { Entity, Game } from "../engine/game";
@@ -12,8 +12,8 @@ import type { Layout } from "../world/layout";
 import type { EmoteKind } from "./emotes";
 import { addSafe, chance, dotPuff, drawAnchored, drawPart, drawShadow, Emote, heartFloat, inBox, onTick, params, rand } from "./critter-util";
 
-// Mr. Raccoon lives in the real Stardew raccoon sheet (512x256, 16x8 frames of 32x32).
-// Frame 0 faces the camera; frame 8 is Mrs. Raccoon. We only ever show their heads.
+// The raccoons live in the real Stardew raccoon sheet (512x256, 16x8 frames of 32x32).
+// Frame 0 faces the camera; frame 8 is the rounder one. We only ever show their heads.
 SHEETS.raccoons ??= "sprites/raccoons.png";
 REGIONS["critter.raccoon.peek"] ??= { sheet: "raccoons", x: 8, y: 12, w: 16, h: 16 };
 REGIONS["critter.raccoon2.peek"] ??= { sheet: "raccoons", x: 264, y: 12, w: 16, h: 16 };
@@ -25,8 +25,6 @@ const BLANKET = { x: 24, y: 16 };
 const FOX_HOME = { x: 36, y: 22 };
 const HOG_HOME = { x: 16, y: 27 };
 const HOG_AREA = { x0: 4, x1: 25, y0: 22, y1: 30 };
-/** Lowest feet line used by anything in the hangout (corner-local). */
-const MAX_LOCAL_Y = 31;
 /** Where the hedgehog stands to touch noses with the fox (fox lying at home, facing left). */
 const NUZZLE = { x: FOX_HOME.x - 15, y: FOX_HOME.y - 3 };
 /** Where the fox lands its mousing pounce. */
@@ -34,26 +32,12 @@ const POUNCE = { x: 48, y: 29 };
 /** Where the hedgehog sleeps, tucked against the curled-up fox. */
 const SNUGGLE = { x: FOX_HOME.x - 15, y: FOX_HOME.y + 1 };
 
-const origin = { x: 0, y: 0, lift: 0, layout: null as Layout | null };
-
 /**
- * Top-left of the hangout in world px. The pasture's bottom fence rail (drawn in front of
- * everything) hides the lowest ~20px of the critter corner, so the hangout is lifted just
- * enough to stay in view, and the lifted strip is added to layout.blocked so sheep don't
- * pick spots on top of the fox's blanket. Recomputed whenever the layout object changes.
+ * Top-left of the hangout in world px: simply the layout's critter corner (the layout keeps it
+ * clear of the bottom fence rail, so everything down to local y 31 stays in view).
  */
-export function hangout(l: Layout): { x: number; y: number; lift: number } {
-  if (origin.layout !== l) {
-    const c = l.critterCorner;
-    const visibleFeet = l.fence.y + l.fence.h - 21;
-    const lift = Math.max(0, Math.min(30, c.y + MAX_LOCAL_Y - visibleFeet));
-    origin.x = c.x;
-    origin.y = c.y - lift;
-    origin.lift = lift;
-    origin.layout = l;
-    if (lift > 0) l.blocked.push({ x: c.x - 4, y: c.y - lift - 6, w: c.w + 4, h: lift + 6 });
-  }
-  return origin;
+export function hangout(l: Layout): { x: number; y: number } {
+  return l.critterCorner;
 }
 
 const dimCache = new Map<string, { w: number; h: number }>();
@@ -71,69 +55,72 @@ const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.len
 // ---------- lines ----------
 
 const FOX_LINES = [
-  "The fox looks at you, then at the hedgehog. It seems very content.",
-  'The fox swishes its tail. That\'s fox for "hello, farmers."',
-  "It yawns a big fox yawn. You can see all its tiny teeth.",
-  "The fox would like you to know this is ITS blanket. (It shares it with the hedgehog.)",
-  "The fox sniffs your hand politely. You smell like sheep.",
-  "Its fur is the exact color of a Fall maple leaf.",
-  "The fox makes a noise like a squeaky gate. Foxes are weird.",
-  "The fox is watching the sheep. Not hungrily. Just... supervising.",
-  "The fox has heard Marnie's sheep are the best in the valley. It agrees.",
-  "The fox tilts its head. One ear flops. Unbearably cute.",
-  "The fox seems to think the hedgehog hung the moon.",
-  "Linus is out foraging somewhere. The fox is not. The fox is resting.",
-  "The fox wraps its tail around its paws like a scarf it brought from home.",
-  'It blinks at you slowly. In fox, that means "I trust you."',
-  "The fox pretends it didn't just pounce on a leaf.",
-  "You found: 1 fox. Pierre doesn't sell these. Priceless.",
-  "The fox would like to remind you both to drink some water.",
-  "The fox's favorite season is whichever one has the hedgehog in it.",
-  "The fox's ears perk up. It hears the Junimos humming somewhere.",
-  "It's very fluffy. That's the whole message. Very, very fluffy.",
-  "The fox rolls onto its back for a second, then remembers it's dignified.",
+  "Otto looks at you, then at Milo. He seems very content.",
+  'Otto swishes his tail. That\'s fox for "hello, farmers."',
+  "Otto yawns a big fox yawn. You can see all his tiny teeth.",
+  "Otto would like you to know this is HIS blanket. (He shares it with Milo.)",
+  "Otto sniffs your hand politely. You smell like sheep.",
+  "His fur is the exact color of a Fall maple leaf.",
+  "Otto makes a noise like a squeaky gate. Foxes are weird.",
+  "Otto is watching the sheep. Not hungrily. Just... supervising.",
+  "Otto has heard your sheep are the best in the valley. He agrees.",
+  "Otto tilts his head. One ear flops. Unbearably cute.",
+  "Otto seems to think Milo hung the moon.",
+  "Otto went foraging this morning. He found one (1) acorn and is very proud.",
+  "Otto wraps his tail around his paws like a scarf he brought from home.",
+  'Otto blinks at you slowly. In fox, that means "I trust you."',
+  "Otto pretends he didn't just pounce on a leaf.",
+  "You found: 1 fox. Not for sale. Priceless.",
+  "Otto would like to remind you both to drink some water.",
+  "Otto's favorite season is whichever one has Milo in it.",
+  "Otto's ears perk up. Somewhere, a bumblebee is bumbling.",
+  "Otto swears he saw a ladybug knight riding a bumblebee. Milo believes him.",
+  "He's very fluffy. That's the whole message. Very, very fluffy.",
+  "Otto rolls onto his back for a second, then remembers he's dignified.",
 ];
 const FOX_SLEEP_LINES = [
-  "The fox and the hedgehog are fast asleep, curled up together. Shhh...",
-  "Zzz... The fox's paw twitches. It's dreaming about chasing butterflies.",
-  "The hedgehog snores very softly. The fox doesn't mind one bit.",
+  "Otto and Milo are fast asleep, curled up together. Shhh...",
+  "Zzz... Otto's paw twitches. He's dreaming about chasing butterflies.",
+  "Milo snores very softly. Otto doesn't mind one bit.",
   "They're sleeping. Maybe you two should head to bed soon, too?",
 ];
 const HOG_LINES = [
-  "The hedgehog curls into a spiky little ball. Then it peeks at you.",
-  "The hedgehog snuffles. It sounds like a tiny teakettle.",
-  "It's very round. Spherical, even. A perfect circle of hedgehog.",
-  "The hedgehog would like you to know it is NOT a chestnut.",
-  "The hedgehog waddles in a small, determined circle.",
-  "Its tiny nose wiggles. It smells... friendship. And maybe a beetle.",
-  "The hedgehog and the fox have been friends since before the farm was a farm.",
-  "The hedgehog is small, but it has big plans.",
-  "You try not to boop the hedgehog. You fail. Boop.",
-  "The hedgehog squeaks like a squeaky toy. Its spines bristle with joy.",
-  "The hedgehog doesn't like being picked up, but it loves being admired.",
-  "It found a blueberry earlier. Happiest hedgehog in Stardew Valley.",
-  "The hedgehog is guarding the stump. Mr. Raccoon owes it a favor.",
-  "The hedgehog unrolls with great dignity, as if nothing happened.",
-  "Hedgehog fact: they snore. This one snores adorably.",
+  "Milo curls into a spiky little ball. Then he peeks at you.",
+  "Milo snuffles. It sounds like a tiny teakettle.",
+  "He's very round. Spherical, even. A perfect circle of hedgehog.",
+  "Milo would like you to know he is NOT a chestnut.",
+  "Milo waddles in a small, determined circle.",
+  "His tiny nose wiggles. He smells... friendship. And maybe a beetle.",
+  "Milo and Otto have been friends since before the farm was a farm.",
+  "Milo is small, but he has big plans.",
+  "You try not to boop Milo. You fail. Boop.",
+  "Milo squeaks like a squeaky toy. His spines bristle with joy.",
+  "Milo doesn't like being picked up, but he loves being admired.",
+  "Milo found a blueberry earlier. Happiest hedgehog in Stardew Valley.",
+  "Milo is guarding the stump. The raccoon inside owes him a favor.",
+  "Milo unrolls with great dignity, as if nothing happened.",
+  "Hedgehog fact: they snore. Milo snores adorably.",
 ];
 const HOG_SLEEP_LINES = [
-  "The hedgehog curls up tighter without waking up. A sleepy little pincushion.",
-  "Shhh. The hedgehog is dreaming about beetles. Big ones.",
-  "The hedgehog snuffles in its sleep and scoots closer to the fox.",
+  "Milo curls up tighter without waking up. A sleepy little pincushion.",
+  "Shhh. Milo is dreaming about beetles. Big ones.",
+  "Milo snuffles in his sleep and scoots closer to Otto.",
 ];
 const STUMP_LINES = [
   "It's a hollow stump. It smells faintly of berries. And trash.",
   "You knock on the stump. Something inside knocks back.",
   'A tiny sign on the stump says: "RACCOON RESIDENCE. NO SOLICITING."',
   "You peek into the stump. Two little eyes peek back. Then they're gone.",
-  'Someone carved tiny letters into the bark: "knock 5 times for Junimos". Huh.',
+  'Someone carved tiny letters into the bark: "knock five times, quickly." Huh.',
 ];
 const RACCOON_LINES: string[][] = [
-  ["Mr. Raccoon pops out of the stump!", '"Oh! Hello there, farmers! Lovely sheep. Very fluffy. I approve."', "He ducks back inside before you can ask what he's doing in there."],
-  ['"Psst! You two wouldn\'t happen to have 5 wool for an old raccoon? ...No?"', '"That\'s alright. I\'ll come back later!"'],
-  ["Mrs. Raccoon peeks out of the stump.", '"Don\'t tell my husband, but your farm is my favorite."'],
-  ['Mr. Raccoon: "This stump? Oh, it\'s a fixer-upper. Very cozy, though."'],
+  ["A raccoon pops out of the stump!", "It looks at your sheep, nods approvingly, and ducks back inside before you can ask what it's doing in there."],
+  ["A raccoon peeks out and eyes the wool chest hopefully.", "...Then it thinks better of it and waves a tiny paw instead."],
+  ["A second, rounder raccoon peeks out of the stump.", "It looks very cozy in there. You hear tiny furniture being rearranged."],
+  ["The raccoon is redecorating. Something inside goes clunk.", "It peeks out to see if you noticed. You did."],
 ];
+/** What five quick knocks gets you (the raccoon always answers those). */
+const SECRET_KNOCK_LINES = ["Knock-knock-knock-knock-knock!", "A raccoon pops out, delighted. Nobody ever knocks properly anymore."];
 
 // ---------- fox ----------
 
@@ -471,13 +458,13 @@ class Fox implements Entity {
     if (this.tapCount % 3 === 0) {
       const season = g.env.season;
       let line = pick(FOX_LINES);
-      if (this.state === "sunbathe") line = "The fox is sunbathing. It looks extremely cool in those shades.";
-      else if (season === "winter" && chance(0.3)) line = "The fox is very proud of its little red scarf. It was a gift from the hedgehog.";
+      if (this.state === "sunbathe") line = "Otto is sunbathing. He looks extremely cool in those shades.";
+      else if (season === "winter" && chance(0.3)) line = "Otto is very proud of his little red scarf. It was a gift from Milo.";
       void say(line);
     }
   }
 
-  /** React to something happening nearby (a bunny, junimos, Mr. Raccoon...). */
+  /** React to something happening nearby (a bunny, birds, the raccoon...). */
   react(kind: EmoteKind, towardX: number | null): void {
     if (this.asleep || this.state === "pounce" || this.state === "walk") return;
     if (towardX !== null && this.state !== "nuzzle") this.flip = towardX < this.x;
@@ -716,9 +703,9 @@ class Hedgehog implements Entity {
       let line = pick(HOG_LINES);
       if (this.ballFrom === "sleep") line = pick(HOG_SLEEP_LINES);
       else if (chance(0.35)) {
-        if (season === "winter") line = "The hedgehog's knit hat is slightly too big. It's perfect.";
-        else if (season === "fall") line = "There's a leaf stuck on the hedgehog's spines. It's wearing it on purpose.";
-        else if (season === "spring") line = "The hedgehog found a flower and put it on. Very fashionable.";
+        if (season === "winter") line = "Milo's knit hat is slightly too big. It's perfect.";
+        else if (season === "fall") line = "There's a leaf stuck on Milo's spines. He's wearing it on purpose.";
+        else if (season === "spring") line = "Milo found a flower and put it on. Very fashionable.";
       }
       void say(line);
     }
@@ -790,7 +777,7 @@ class Blanket implements Entity {
   }
 }
 
-/** Mr. Raccoon peeking out of the stump hollow. Drawn just in front of the stump. */
+/** A raccoon peeking out of the stump hollow. Drawn just in front of the stump. */
 class Raccoon implements Entity {
   x = 0;
   y = 0;
@@ -804,12 +791,16 @@ class Raccoon implements Entity {
 
   constructor(private corner: Corner) {}
 
-  peek(): void {
+  /** Pop up for a few seconds. `lines`: what tapping it says this time (default: a random raccoon moment). */
+  lines: string[] | null = null;
+
+  peek(lines: string[] | null = null): void {
     if (this.active || !has("critter.raccoon.peek")) return;
     this.active = true;
     this.t = 0;
     this.hold = rand(2.8, 4.5);
-    this.mrs = chance(0.25);
+    this.mrs = !lines && chance(0.25);
+    this.lines = lines;
     sfx("rustle", { volume: 0.6 });
     if (chance(0.5)) this.emote.show(pick<EmoteKind>(["question", "happy", "exclaim"]), 0.8);
   }
@@ -863,7 +854,7 @@ class Raccoon implements Entity {
     if (!this.active) return;
     sfx("squeak", { pitch: 0.8 });
     this.hold = Math.min(this.hold, this.t - 0.45 + 0.3);
-    const lines = this.mrs ? RACCOON_LINES[2]! : pick([RACCOON_LINES[0]!, RACCOON_LINES[1]!, RACCOON_LINES[3]!]);
+    const lines = this.lines ?? (this.mrs ? RACCOON_LINES[2]! : pick([RACCOON_LINES[0]!, RACCOON_LINES[1]!, RACCOON_LINES[3]!]));
     void say(lines);
     this.corner.fox.react("question", this.x);
   }
@@ -911,7 +902,7 @@ export class Corner {
       g,
       new Prop((g) => (g.env.season === "winter" ? "critter.snowman" : null), 55, 31, () => {
         sfx("pop");
-        void say("A tiny snowman. It's wearing a little red scarf, just like the fox's.");
+        void say("A tiny snowman. It's wearing a little red scarf, just like Otto's.");
       }),
       "snowman",
     );
@@ -938,7 +929,7 @@ export class Corner {
       }
     }
 
-    // Mr. Raccoon: rare, a little more likely after dark.
+    // The raccoon: rare, a little more likely after dark.
     this.raccoonIn -= dt;
     if (this.raccoonIn <= 0) {
       const dusk = g.env.hour >= 18 || g.env.hour < 6;
@@ -982,20 +973,28 @@ export class Corner {
     const sx = c.x + STUMP.x;
     dotPuff(sx, c.y + STUMP.y - 14, ["#c98a4c", "#e6b276"], 4);
     clearTimeout(this.knockLine);
-    // Knock-knock-knock-knock-knock: that wakes the Junimos (a phone-friendly secret).
+    // Knock-knock-knock-knock-knock: the raccoon always answers a proper knock (a phone-friendly secret).
     const now = g.time;
     const times = this.knockTimes;
     times.push(now);
     if (times.length > 5) times.shift();
     if (times.length === 5 && now - times[0]! < 4) {
       times.length = 0;
-      g.emit("junimos");
       this.hog.react("exclaim", sx);
+      if (this.raccoon.active || !has("critter.raccoon.peek")) return;
+      this.knockLine = setTimeout(() => {
+        if (this.raccoon.active) return;
+        sfx("secret");
+        this.raccoon.peek(SECRET_KNOCK_LINES);
+        this.raccoon.hold = 5.5;
+        this.raccoon.emote.show("happy", 0.6);
+        if (!this.fox.asleep) this.fox.react("exclaim", sx);
+      }, 500);
       return;
     }
     if (this.raccoon.active) return;
     // Whatever answers waits a beat, so nothing pops up in the middle of a knocking spree:
-    // sometimes Mr. Raccoon, otherwise a line every other time (the hedgehog just wonders).
+    // sometimes the raccoon, otherwise a line every other time (the hedgehog just wonders).
     this.knockLine = setTimeout(() => {
       if (this.raccoon.active) return;
       if (chance(0.3) && has("critter.raccoon.peek")) this.raccoon.peek();

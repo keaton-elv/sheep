@@ -1,8 +1,10 @@
 // Sound effects.
 // Plays the real Stardew recordings in public/sounds (see FILES) and, for anything without a
-// recording, synthesizes a little Stardew-ish sound with WebAudio (oscillators, noise, filters,
-// envelopes). A drop-in public/sounds/<name>.(ogg|mp3|wav|m4a) is picked up automatically too.
-// Also runs a quiet ambience bed (the real Stardew day/night/rain loops) while unmuted.
+// recording (baa, meow, yip, pet, lick), synthesizes a little Stardew-ish sound with WebAudio
+// (oscillators, noise, filters, envelopes). Only files listed in FILES / AMBIENCE_FILES are ever
+// fetched: nothing probes the server for recordings that might not exist.
+// Also runs a quiet ambience bed (the real Stardew loops in public/sounds/ambience: seasonal days,
+// night insects, rain, wind gusts, a campfire's crackle, the pond's babble) while unmuted.
 
 import type { Season } from "../shared/calendar";
 
@@ -18,7 +20,8 @@ export type Sfx =
   | "cancel" // error / nope
   | "loom" // loom clacking
   | "coin"
-  | "junimo" // junimo chirp
+  | "chirp" // a little three-note chirp (real recording)
+  | "junimo" // deprecated alias of "chirp" (the recording's file name); kept so old callers still work
   | "yip" // fox
   | "squeak" // hedgehog
   | "rustle" // grass/bush
@@ -31,7 +34,7 @@ export type Sfx =
   | "woosh"
   | "splash"
   | "chime" // gentle notification (new mail)
-  | "meow" // the farm cat
+  | "meow" // Snickers
   // Extras that have real Stardew recordings (free for any module to use):
   | "chest" // opening a chest
   | "croak" // a frog
@@ -40,7 +43,7 @@ export type Sfx =
   | "reward" // little "you got something" jingle
   | "secret" // secret found!
   | "thunder"
-  | "lick"; // Snickers licking the air (tiny wet blip)
+  | "lick"; // Snickers licking the air: a tiny wet "mlem" (synthesized, a little different every time)
 
 export interface SfxOpts {
   /** Multiplier on the sound's own level (default 1). */
@@ -64,6 +67,10 @@ export interface Ambience {
   season?: Season;
   /** Now and then a gust of wind. */
   windy?: boolean;
+  /** A campfire decoration is on the farm: its soft crackle (not in the rain). */
+  campfire?: boolean;
+  /** A pond decoration is on the farm: a gentle babble of water. */
+  pond?: boolean;
 }
 
 const MASTER_VOLUME = 0.45;
@@ -83,6 +90,7 @@ const FILES: Partial<Record<Sfx, string>> = {
   crow: "crow.wav",
   door: "door.wav",
   harvest: "harvest.wav",
+  chirp: "junimo.wav",
   junimo: "junimo.wav",
   loom: "loom.wav",
   menuClose: "menuClose.wav",
@@ -115,6 +123,7 @@ const FILE_GAIN: Partial<Record<Sfx, number>> = {
   croak: 0.6,
   crow: 0.6,
   door: 5,
+  chirp: 0.65,
   junimo: 0.65,
   loom: 0.8,
   menuClose: 0.9,
@@ -132,8 +141,6 @@ const FILE_GAIN: Partial<Record<Sfx, number>> = {
   thud: 0.8,
   woosh: 3,
 };
-/** Formats tried (in order) for a drop-in file whose name isn't in FILES. */
-const PROBE_EXTS = ["ogg", "mp3", "wav", "m4a"];
 /** Little UI sounds worth having decoded before the first tap. */
 const PRELOAD: Sfx[] = ["select", "cancel", "reward", "menuOpen", "menuClose", "blip", "pop", "snip", "purchase", "rustle", "thud", "woosh", "sparkle", "chime", "door"];
 
@@ -589,13 +596,17 @@ const SYNTHS: Record<Sfx, Synth> = {
     return 0.42;
   },
 
-  junimo(d, t, p) {
+  chirp(d, t, p) {
     [0, 0.085, 0.17].forEach((o, i) => {
       const f = (1500 + i * 260) * p;
       tone(d, t + o, { f, f2: f * 1.45, dur: 0.075, vol: 0.16, vibRate: 30, vibDepth: 0.04 });
     });
     tone(d, t + 0.29, { type: "triangle", f: 1300 * p, path: [[0.05, 1750 * p], [0.14, 1100 * p]], dur: 0.15, vol: 0.13 });
     return 0.45;
+  },
+
+  junimo(d, t, p) {
+    return SYNTHS.chirp(d, t, p);
   },
 
   yip(d, t, p) {
@@ -810,14 +821,33 @@ const SYNTHS: Record<Sfx, Synth> = {
     return 2.25;
   },
   lick(d, t, p) {
-    // A tiny wet "mlem": a quick bandpassed noise smack.
-    noise(d, t, { dur: 0.06, vol: 0.18, attack: 0.004, type: "bandpass", f: rand(1800, 2600) * p, path: [[0.06, 900 * p]] });
-    return 0.07;
+    // A tiny wet "mlem", a little different every flick:
+    const r = rand(0.9, 1.12) * p;
+    // "m": lips parting, a soft low bump...
+    tone(d, t, { f: 210 * r, f2: 330 * r, dur: 0.04, vol: 0.11, attack: 0.006 });
+    // ...the tongue pops out: a wet smack (a short, ringing band of noise sliding down)...
+    noise(d, t + 0.022, { dur: 0.03, vol: 0.2, attack: 0.001, type: "bandpass", f: 3000 * r, q: 7, path: [[0.03, 1700 * r]] });
+    // ..."lem": a little rising-then-falling vowel, kept soft and round...
+    tone(d, t + 0.026, {
+      type: "triangle",
+      f: 560 * r,
+      path: [
+        [0.028, 1180 * r],
+        [0.075, 760 * r],
+      ],
+      dur: 0.08,
+      vol: 0.09,
+      attack: 0.005,
+      filter: { type: "lowpass", f: 2200 },
+    });
+    // ...and back in: a teeny higher click.
+    noise(d, t + 0.088, { dur: 0.016, vol: rand(0.08, 0.13), attack: 0.001, type: "bandpass", f: 3800 * r, q: 9 });
+    return 0.11;
   },
 };
 
 // Some sounds would be annoying if they stacked up (typing blips, menu clicks).
-const MIN_GAP: Partial<Record<Sfx, number>> = { blip: 0.04, select: 0.03, menuOpen: 0.06, menuClose: 0.06, baa: 0.12, pop: 0.03 };
+const MIN_GAP: Partial<Record<Sfx, number>> = { blip: 0.04, select: 0.03, menuOpen: 0.06, menuClose: 0.06, baa: 0.12, pop: 0.03, lick: 0.05 };
 const lastPlayed = new Map<Sfx, number>();
 
 // ---------- real sound files ----------
@@ -842,15 +872,7 @@ async function fetchBuffer(url: string): Promise<AudioBuffer | null> {
   }
 }
 
-async function probe(name: Sfx): Promise<AudioBuffer | null> {
-  for (const ext of PROBE_EXTS) {
-    const b = await fetchBuffer(`${BASE}sounds/${name}.${ext}`);
-    if (b) return b;
-  }
-  return null;
-}
-
-/** Load (once) the recording for a sound: the known file, or a drop-in found by probing. */
+/** Load (once) the recording for a sound listed in FILES. Anything else resolves to null. */
 function requestFile(name: Sfx): Promise<AudioBuffer | null> {
   const done = fileBuf.get(name);
   if (done !== undefined) return Promise.resolve(done);
@@ -923,9 +945,8 @@ function play(name: Sfx, opts: SfxOpts): void {
   if (buf) return playBuffer(buf, volume * trim, pitch);
   if (buf === null) return playSynth(name, volume, pitch);
   if (!FILES[name]) {
-    // No known recording: synthesize right away, and look for a drop-in file for next time.
+    // No recording for this one: it's synthesized.
     playSynth(name, volume, pitch);
-    void requestFile(name);
     return;
   }
   // The recording is still on its way: play it if it shows up quickly, otherwise skip this one
@@ -944,11 +965,11 @@ function play(name: Sfx, opts: SfxOpts): void {
 
 // ---------- ambience ----------
 
-type LayerName = "day" | "night" | "rain";
+type LayerName = "day" | "night" | "rain" | "fire" | "water";
 
 interface Layer {
-  /** File (under sounds/ambience/) this layer should be playing, or null for silence. */
-  path: string | null;
+  /** Loop (sounds/ambience/<path>.m4a) this layer should be playing, or null for silence. */
+  path: AmbienceFile | null;
   level: number;
   src: AudioBufferSourceNode | null;
   gain: GainNode | null;
@@ -958,24 +979,55 @@ const layers: Record<LayerName, Layer> = {
   day: { path: null, level: 0, src: null, gain: null },
   night: { path: null, level: 0, src: null, gain: null },
   rain: { path: null, level: 0, src: null, gain: null },
+  fire: { path: null, level: 0, src: null, gain: null },
+  water: { path: null, level: 0, src: null, gain: null },
 };
 const ambBuf = new Map<string, AudioBuffer | null>();
 const ambLoad = new Map<string, Promise<AudioBuffer | null>>();
 
-const DAY_LOOP: Record<Season, string> = { spring: "spring_day", summer: "summer_day", fall: "fall_day", winter: "winter_day" };
-const NIGHT_LOOP: Partial<Record<Season, string>> = { spring: "spring_night", summer: "spring_night", fall: "crickets" };
-/** Per-loop gain: the recordings range from -37 to -48 dB, so even them out (quietly). */
-const LOOP_GAIN: Record<string, number> = {
+/**
+ * Every loop in public/sounds/ambience (all .m4a) and what it's for. Only these are fetched.
+ *   spring/summer/fall/winter_day: the seasonal day beds   spring_night: spring night peepers
+ *   night_time: the summer night chorus                     crickets: fall nights
+ *   rain: rain and storms     wind: one-shot gusts on windy days
+ *   fire: a campfire decoration's crackle                   babbling_brook: a pond decoration
+ */
+const AMBIENCE_FILES = [
+  "spring_day",
+  "summer_day",
+  "fall_day",
+  "winter_day",
+  "spring_night",
+  "night_time",
+  "crickets",
+  "rain",
+  "wind",
+  "fire",
+  "babbling_brook",
+] as const;
+type AmbienceFile = (typeof AMBIENCE_FILES)[number];
+
+const DAY_LOOP: Record<Season, AmbienceFile> = { spring: "spring_day", summer: "summer_day", fall: "fall_day", winter: "winter_day" };
+/** No night insects in winter (or in the snow). */
+const NIGHT_LOOP: Partial<Record<Season, AmbienceFile>> = { spring: "spring_night", summer: "night_time", fall: "crickets" };
+/** Per-loop gain: the recordings range from -35 to -48 dB, so even them out (quietly). */
+const LOOP_GAIN: Record<AmbienceFile, number> = {
   spring_day: 2.2,
   summer_day: 0.63,
   fall_day: 0.95,
   winter_day: 1.8,
   spring_night: 1.2,
+  night_time: 0.5,
   crickets: 1.1,
   rain: 0.62,
+  wind: 1,
+  // Decoration loops sit under everything else: you notice them, but only just.
+  fire: 0.75,
+  babbling_brook: 0.7,
 };
 
 let amb: Ambience = { night: false, rain: false };
+const ambienceFiles: ReadonlySet<string> = new Set(AMBIENCE_FILES);
 let ambKey = "";
 let ambTimer = 0;
 let lastOwl = 0;
@@ -986,7 +1038,9 @@ let rainSrc: AudioBufferSourceNode | null = null;
 let rainGain: GainNode | null = null;
 let rainFilter: BiquadFilterNode | null = null;
 
-function loadAmb(path: string): Promise<AudioBuffer | null> {
+function loadAmb(path: AmbienceFile): Promise<AudioBuffer | null> {
+  // Belt and braces: never fetch a loop that isn't in the folder.
+  if (!ambienceFiles.has(path)) return Promise.resolve(null);
   const done = ambBuf.get(path);
   if (done !== undefined) return Promise.resolve(done);
   let p = ambLoad.get(path);
@@ -1009,7 +1063,7 @@ function layerFailed(l: Layer): boolean {
 /** Called by the HUD every couple of seconds with what the farm looks like right now. */
 export function setAmbience(next: Ambience): void {
   try {
-    const key = [next.night, next.rain, next.morning, next.storm, next.winter, next.season, next.windy].map(String).join("|");
+    const key = [next.night, next.rain, next.morning, next.storm, next.winter, next.season, next.windy, next.campfire, next.pond].map(String).join("|");
     amb = { ...next };
     const changed = key !== ambKey;
     ambKey = key;
@@ -1037,6 +1091,10 @@ function applyAmbience(): void {
     setLayer(layers.rain, amb.rain ? "rain" : null, (LOOP_GAIN.rain ?? 1) * (amb.storm ? 1.4 : 1));
     setLayer(layers.day, dayLoop, dayLoop ? (LOOP_GAIN[dayLoop] ?? 1) : 0);
     setLayer(layers.night, nightLoop, nightLoop ? (LOOP_GAIN[nightLoop] ?? 1) : 0);
+    // A campfire crackles louder at night, when everything else is quiet. Rain puts it out.
+    const fire = amb.campfire && !amb.rain;
+    setLayer(layers.fire, fire ? "fire" : null, LOOP_GAIN.fire * (amb.night ? 1 : 0.6));
+    setLayer(layers.water, amb.pond ? "babbling_brook" : null, LOOP_GAIN.babbling_brook * (amb.rain ? 0.5 : 1));
     synthRain(amb.rain && layerFailed(layers.rain));
     if (!ambTimer) scheduleAmbience(400);
   } catch (err) {
@@ -1044,7 +1102,7 @@ function applyAmbience(): void {
   }
 }
 
-function setLayer(l: Layer, path: string | null, level: number): void {
+function setLayer(l: Layer, path: AmbienceFile | null, level: number): void {
   if (!ctx) return;
   if (l.path === path) {
     if (path && l.gain && l.level !== level) l.gain.gain.setTargetAtTime(level, ctx.currentTime, 1);

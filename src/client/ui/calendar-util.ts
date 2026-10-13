@@ -1,5 +1,6 @@
 // Small helpers shared by the farm menus (calendar, barn, loom, shop, mailbox, farm sign).
 
+import { currentGame } from "../engine/game";
 import { has, sheet } from "../engine/sprites";
 import { registerCalendarArt } from "./calendar-art";
 import { frameIcon, spriteIcon } from "./dom";
@@ -12,9 +13,8 @@ import "./calendar-util.css";
  */
 export function farmNow(): Date {
   try {
-    const g = (window as unknown as { __farm?: { now?: () => Date } }).__farm;
-    const d = g?.now?.();
-    if (d instanceof Date && !Number.isNaN(d.getTime())) return d;
+    const d = currentGame?.env.now;
+    if (d instanceof Date && !Number.isNaN(d.getTime())) return new Date(d.getTime());
   } catch {
     // fall through
   }
@@ -49,19 +49,6 @@ export async function friendly<T>(p: Promise<T>): Promise<T> {
     return await p;
   } catch (err) {
     throw new Error(errorText(err));
-  }
-}
-
-/**
- * dom.ts's typewriter keeps typing (and blipping!) after its dialog closes, e.g. when you hit
- * Buy while Robin is mid-sentence. It finishes instantly on a pointerdown on the dialog box,
- * so send one of those on close. (Plain Event: doesn't bubble, so the backdrop never sees it.)
- */
-export function hushTypewriter(d: { box: HTMLElement }): void {
-  try {
-    d.box.dispatchEvent(new Event("pointerdown"));
-  } catch {
-    // ignore
   }
 }
 
@@ -105,3 +92,30 @@ export const safeStorage = {
     }
   },
 };
+
+// ---------- pieces of real sprite sheets, for CSS ----------
+
+/** A copy of part of a loaded sheet as its own canvas (null if the sheet isn't loaded or is too small). */
+export function sheetCrop(sheetKey: string, x: number, y: number, w: number, h: number): HTMLCanvasElement | null {
+  const img = sheet(sheetKey);
+  if (!img || img.width < x + w || img.height < y + h) return null;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+  return c;
+}
+
+/** A canvas as a CSS url() value. */
+export function cssUrl(c: HTMLCanvasElement): string {
+  return `url("${c.toDataURL("image/png")}")`;
+}
+
+/** Put CSS custom properties on the document root (shared by every farm menu). */
+export function setRootVars(vars: Record<string, string>): void {
+  const root = document.documentElement.style;
+  for (const [k, v] of Object.entries(vars)) root.setProperty(k, v);
+}

@@ -75,6 +75,19 @@
   margin-top: calc(var(--ipx) * -7);
   margin-bottom: calc(var(--ipx) * -1);
 }
+.help-entry__icons .sv-sprite.help-sheep.is-lamb {
+  /* Lambs are smaller and sit lower in their frame. */
+  margin-top: calc(var(--ipx) * -11);
+  margin-bottom: calc(var(--ipx) * -3);
+}
+/* Otto & Milo share one slot: tuck them together, standing on the same ground. */
+.help-entry__icons:has(.help-critter) {
+  align-items: flex-end;
+  padding-bottom: calc(var(--ipx) * 1);
+}
+.help-entry__icons .help-critter + .help-critter {
+  margin-left: calc(var(--ipx) * -7);
+}
 
 .help-entry__text {
   min-width: 0;

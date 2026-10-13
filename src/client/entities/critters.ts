@@ -1,16 +1,22 @@
-// The fox & hedgehog in the corner, the farm cat, butterflies, crows, a bunny, frogs...
-// Art is plain data in critter-sprites.ts (registered by critter-art.ts); each critter has its own file:
-//   critter-fox.ts      fox + hedgehog + their stump & blanket (+ Mr. Raccoon)
-//   critter-cat.ts      the farm cat (real Stardew sheet)
-//   critter-ambient.ts  butterflies, crows, the forest bunny, rain frogs
-//   critter-util.ts     emotes, shadows, sparkles, localStorage helpers
+// The farm's wildlife. Art is plain data in critter-sprites.ts (registered by critter-art.ts) plus
+// real frames from critters.png; each kind of critter has its own file:
+//   critter-fox.ts      Otto the fox & Milo the hedgehog, their stump & blanket (+ the raccoon in the stump)
+//   critter-birds.ts    sparrows, blue jays, cardinals, crows, a woodpecker, the night owl
+//   critter-bugs.ts     ladybugs (and a rare golden one), bumblebees and their bee houses, the Bumblesteed
+//   critter-ambient.ts  butterflies, the fence squirrel, the forest bunny, rain frogs
+//   critter-star.ts     the rare shooting star (make a wish!)
+//   critter-place.ts    where critters can stand: grass, fence rails & posts, decorations
+//   critter-util.ts     emotes, shadows, sparkles, crash guards, localStorage helpers
+// Snickers, the farm's cat, lives in snickers.ts.
 
 import type { Game } from "../engine/game";
 import { registerCritterArt } from "./critter-art";
 import { initAmbient } from "./critter-ambient";
-import { initCat } from "./critter-cat";
+import { initBirds } from "./critter-birds";
+import { initBugs } from "./critter-bugs";
 import { initCorner } from "./critter-fox";
 import { initParticles, report } from "./critter-util";
+import { initSnickers } from "./snickers";
 
 export { critterParty, critterReact, foxPosition } from "./critter-fox";
 
@@ -20,8 +26,10 @@ export function initCritters(g: Game): void {
     ["art", registerCritterArt],
     ["particles", () => initParticles(g)],
     ["corner", () => void initCorner(g)],
-    ["cat", () => initCat(g)],
+    ["snickers", () => initSnickers(g)],
     ["ambient", () => initAmbient(g)],
+    ["birds", () => initBirds(g)],
+    ["bugs", () => initBugs(g)],
   ];
   for (const [name, init] of parts) {
     try {

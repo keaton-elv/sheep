@@ -3,7 +3,6 @@
 
 import type { Season } from "../../shared/calendar";
 import { SHEETS, sheet } from "../engine/sprites";
-import type { Layout, Rect } from "./layout";
 import { newPx, type Px } from "./world-pixels";
 
 SHEETS.farmBuildings ??= "sprites/farm_buildings.png";
@@ -14,7 +13,6 @@ SHEETS.outdoorsWinter ??= "sprites/outdoors_winter.png";
 SHEETS.trees ??= "sprites/trees.png";
 SHEETS.bushes ??= "sprites/bushes.png";
 SHEETS.grass ??= "sprites/grass.png";
-SHEETS.forage ??= "sprites/forage.png";
 SHEETS.craftables ??= "sprites/craftables.png";
 SHEETS.animations ??= "sprites/animations.png";
 
@@ -66,18 +64,6 @@ export const BARN = {
   window: { x: 48, y: 64, w: 18, h: 9 },
   interior: "#141313",
 } as const;
-
-/**
- * Where the barn sprite is drawn. The layout's 112x112 box assumes the door is centred, but the
- * Deluxe Barn's animal door sits right of centre, so the sprite slides over until its doorway is
- * exactly at layout.barnDoor (where the sheep walk in and out). Clamped so it never wanders far.
- */
-export function barnRect(l: Layout): Rect {
-  const b = l.barn;
-  const ideal = Math.round(l.barnDoor.x - (BARN.hole.x + BARN.hole.w / 2));
-  const x = Math.max(b.x - 40, Math.min(b.x + 40, ideal));
-  return { x, y: b.y + b.h - BARN.h, w: BARN.w, h: BARN.h };
-}
 
 // ---------- canvases & pixels ----------
 

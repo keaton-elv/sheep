@@ -1,5 +1,6 @@
 // The little row of farm things: the loom, the wool chest, the mailbox, the town-style calendar
-// billboard and the farm sign. Each is a tappable, y-sorted entity that opens its menu.
+// billboard and the farm sign. Each is a tappable, y-sorted entity that opens its menu. Their little
+// cues (cloth ready, new mail, plans today) draw in a pass above the night overlay so they read at night.
 
 import { dayKey } from "../../shared/calendar";
 import { LOOM_WOOL_COST } from "../../shared/types";
@@ -12,7 +13,11 @@ import type { Point } from "./layout";
 import { BUBBLE_ITEM } from "./world-artdata";
 import { drawArt } from "./world-art";
 import { fx, reducedMotion, sparkle } from "./world-fx";
-import { signSpot } from "./world-ground";
+import { safePass } from "./world-safe";
+import { signFeet } from "./world-zones";
+
+/** Above the sky's night overlay (100): the cues are UI and must stay readable at night. */
+const CUE_PASS = 114;
 
 type Pick = (l: Game["layout"]) => Point;
 
@@ -57,6 +62,19 @@ abstract class FarmThing implements Entity {
     return this.bounce > 0 ? -Math.round(Math.sin((this.bounce / 0.22) * Math.PI) * 2) : 0;
   }
   abstract draw(ctx: CanvasRenderingContext2D, g: Game): void;
+  /** A cue floating above the thing (drawn in the CUE_PASS, not with the entity). */
+  cue(_ctx: CanvasRenderingContext2D, _g: Game): void {}
+  /**
+   * Top y for a bouncing cue `w` px wide resting at `restY` (hopping up by `bounce`, at most
+   * `maxBounce`). In portrait the mailbox and billboard stand just under the DOM clock, which would
+   * hide their cues, so there the cue rests a little lower, tucked under the clock's bottom edge.
+   */
+  protected cueY(g: Game, left: number, w: number, restY: number, bounce: number, maxBounce: number): number {
+    const c = g.layout.hudClock;
+    const underClock = left < c.x + c.w && left + w > c.x && restY - maxBounce < c.y + c.h + 1;
+    const rest = underClock ? Math.max(restY, c.y + c.h + 1 + maxBounce) : restY;
+    return Math.round(rest - bounce);
+  }
   hit(wx: number, wy: number): boolean {
     const [l, t, w, h] = this.box;
     // Generous on phones: at least ~28 game px wide (~40 CSS px at the usual 1.33-1.5 CSS px per
@@ -101,13 +119,15 @@ export class Loom extends FarmThing {
     // While weaving the loom rocks a little (clack, clack).
     if (s === "working") dy += Math.floor(this.t * 6) % 2 === 0 ? 0 : -1;
     drawArt(ctx, s === "idle" ? "world.loom.0" : "world.loom.1", this.x - 8, this.fy - 32 + dy, season);
-    if (s === "ready") this.drawBubble(ctx, this.x, this.fy - 26);
+  }
+  override cue(ctx: CanvasRenderingContext2D, g: Game): void {
+    if (this.state() === "ready") this.drawBubble(ctx, g, this.x, this.fy - 26);
   }
   /** Stardew's "it's ready!" bubble with a bolt of cloth, bobbing. */
-  private drawBubble(ctx: CanvasRenderingContext2D, x: number, top: number): void {
+  private drawBubble(ctx: CanvasRenderingContext2D, g: Game, x: number, top: number): void {
     const bob = Math.round(Math.sin(this.t * 3) * 1.5);
     const bx = Math.round(x - 10);
-    const by = Math.round(top - 22 + bob);
+    const by = this.cueY(g, bx, 20, top - 20, 2 - bob, 4);
     draw(ctx, "world.bubble", bx, by);
     if (has("item.cloth")) {
       this.cloth ??= spriteCanvas("item.cloth");
@@ -196,11 +216,13 @@ export class Mailbox extends FarmThing {
     const shake = this.wiggle > 0 ? Math.round(Math.sin(this.wiggle * 45) * 1.2) : 0;
     const hasMail = this.unread > 0;
     drawArt(ctx, hasMail ? "world.mailbox.1" : "world.mailbox.0", this.x - 8 + shake, this.fy - 24 + dy, season);
-    if (hasMail) {
-      // Stardew's bouncing letter.
-      const bounce = Math.round(Math.abs(Math.sin(this.t * 3.2)) * 4);
-      draw(ctx, "world.letter", Math.round(this.x - 6), Math.round(this.fy - 24 - 12 - bounce));
-    }
+  }
+  override cue(ctx: CanvasRenderingContext2D, g: Game): void {
+    if (this.unread <= 0) return;
+    // Stardew's bouncing letter.
+    const bounce = Math.round(Math.abs(Math.sin(this.t * 3.2)) * 4);
+    const x = Math.round(this.x - 6);
+    draw(ctx, "world.letter", x, this.cueY(g, x, 13, this.fy - 36, bounce, 4));
   }
   override hit(wx: number, wy: number): boolean {
     if (super.hit(wx, wy)) return true;
@@ -229,11 +251,13 @@ export class Billboard extends FarmThing {
   draw(ctx: CanvasRenderingContext2D, g: Game): void {
     const dy = this.hop();
     drawArt(ctx, "world.billboard", this.x - 15, this.fy - 30 + dy, g.env.season);
-    if (this.plansToday > 0) {
-      // Something's planned for today! A bouncing "!" like a new quest on the town board.
-      const b = Math.round(Math.abs(Math.sin(this.t * 3)) * 3);
-      draw(ctx, "world.bang", Math.round(this.x - 2), Math.round(this.fy - 30 - 12 - b));
-    }
+  }
+  override cue(ctx: CanvasRenderingContext2D, g: Game): void {
+    if (this.plansToday <= 0) return;
+    // Something's planned for today! A bouncing "!" like a new quest on the town board.
+    const b = Math.round(Math.abs(Math.sin(this.t * 3)) * 3);
+    const x = Math.round(this.x - 2);
+    draw(ctx, "world.bang", x, this.cueY(g, x, 5, this.fy - 42, b, 3));
   }
   protected tapped(): void {
     openMenu("calendar");
@@ -247,7 +271,7 @@ export class FarmSign extends FarmThing {
   /** Narrower: in portrait the sign stands right next to the loom. */
   protected override minW = 22;
   constructor(g: Game) {
-    super(g, signSpot, [-8, -30, 16, 30]);
+    super(g, signFeet, [-8, -30, 16, 30]);
   }
   /** The sign stands right against the top fence: draw it in front of the rails so it reads. */
   protected override sortY(feetY: number, g: Game): number {
@@ -269,5 +293,9 @@ export class FarmSign extends FarmThing {
 }
 
 export function buildObjects(g: Game): Entity[] {
-  return [new Loom(g), new Chest(g), new Mailbox(g), new Billboard(g), new FarmSign(g)];
+  const things: FarmThing[] = [new Loom(g), new Chest(g), new Mailbox(g), new Billboard(g), new FarmSign(g)];
+  safePass(g, CUE_PASS, "object cues", (ctx, gg) => {
+    for (const t of things) t.cue(ctx, gg);
+  });
+  return things;
 }

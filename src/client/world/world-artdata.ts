@@ -85,7 +85,7 @@ export const MAILBOX_FLAG_UP: ArtData = {
   pal: MAILBOX_PAL,
 };
 
-// ---------- Pierre-style calendar billboard ----------
+// ---------- the town-style calendar billboard ----------
 
 export const BILLBOARD: ArtData = {
   rows: [
@@ -283,12 +283,6 @@ export const GNOME: ArtData = {
     s: SHADOW,
   },
 };
-
-/** A bee (2 frames: wings up / down). */
-export const BEE: ArtData[] = [
-  { rows: [".ww.", "oYkY", ".oo."], pal: { w: "#e8f4ff", Y: "#ffcf3a", k: "#2a1a10", o: "#5a3a10" } },
-  { rows: ["....", "oYkY", "wwo."], pal: { w: "#e8f4ff", Y: "#ffcf3a", k: "#2a1a10", o: "#5a3a10" } },
-];
 
 /** Flame frames for when the real animations sheet is missing (campfire). */
 export const FLAME: ArtData[] = [

@@ -1,21 +1,23 @@
-// Secrets! Junimos, the witch, typing "baaaaah", the Konami code, a lucky clover, the 2 AM
+// Secrets! A rare shooting star, typing "baaaaah", the Konami code, a lucky clover, the 2 AM
 // pass-out, Stardrops for every 10 wool, holiday surprises, and a soft "new day" banner.
+// (More live with the critters: five quick knocks on the stump, the golden ladybug, the Bumblesteed...)
 //
-// Debug: ?junimo=1 ?witch=1 ?stardrop=1 ?raccoon=1 ?crow=1 ?bunny=1 (plus the engine's ?date= ?time=).
+// Debug: ?star=1 ?stardrop=1 ?raccoon=1 ?birds=1 ?crow=1 ?woodpecker=1 ?owl=1 ?ladybug=1 ?golden=1
+// ?bees=1 ?bumblesteed=1 ?squirrel=1 ?bunny=1 (plus the engine's ?date= ?time= ?season= ?weather=).
 
 import { sfx } from "../audio";
 import type { Entity, Game } from "../engine/game";
 import { draw } from "../engine/sprites";
 import { store } from "../net";
-import { clockDateLabel, dayKey, farmYear, seasonOf, capitalize } from "../../shared/calendar";
+import { clockDateLabel, dayKey, farmYear, seasonOf, capitalize, type Season } from "../../shared/calendar";
 import type { FarmState } from "../../shared/types";
 import { el, isDialogOpen, say, spriteIcon, toast, uiRoot } from "../ui/dom";
-import { FENCE_HIDE } from "./critter-ambient";
 import { critterParty } from "./critter-fox";
-import { initJunimos, summonJunimos } from "./critter-junimo";
+import { FENCE_HIDE } from "./critter-place";
+import { initShootingStars } from "./critter-star";
 import { addSafe, chance, drawShadow, heartFloat, inBox, lsGet, lsSet, onTick, params, rand, reducedMotion, report, sparkleBurst } from "./critter-util";
-import { initWitch } from "./critter-witch";
 import { sheepParty } from "./sheep";
+import { snickersParty } from "./snickers";
 import "./critter-eggs.css";
 
 // ---------- a queue so dialog-y moments never stack on top of each other ----------
@@ -57,13 +59,12 @@ function isTyping(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
-function party(g: Game, message: string, junimos = false): void {
+function party(g: Game, message: string): void {
   sheepParty();
   critterParty();
   sfx("secret");
   const l = g.layout;
   sparkleBurst(l.pasture.x + l.pasture.w / 2, l.pasture.y + l.pasture.h / 2, 10, 30);
-  if (junimos) setTimeout(() => summonJunimos(g), 600);
   toast(message, { icon: "item.wool" });
 }
 
@@ -82,7 +83,7 @@ function initKeys(g: Game): void {
     if (keys.length === KONAMI.length && keys.every((v, i) => v === KONAMI[i])) {
       lastParty = now;
       keys.length = 0;
-      party(g, "Konami code! Mr. Qi nods approvingly.", true);
+      party(g, "Konami code! The whole farm is dancing.");
     } else if (/ba{4,}h$/.test(typed)) {
       lastParty = now;
       typed = "";
@@ -139,9 +140,11 @@ class Clover implements Entity {
     sparkleBurst(this.x, this.y - 4, 6, 12);
     toast("A four-leaf clover! You two are lucky.", { icon: "item.clover" });
     // Luck is contagious: the whole farm does a little happy dance (the phone way to a sheep party).
+    // (Snickers hears typed parties on his own; this one he has to be told about.)
     setTimeout(() => {
       sheepParty();
       critterParty();
+      snickersParty();
     }, 400);
   }
 }
@@ -254,7 +257,7 @@ function initStardrops(): void {
 
 // ---------- a soft "new day" banner on the first visit of each day ----------
 
-function dayFlavor(now: Date): string {
+function dayFlavor(now: Date, season: Season, hour: number): string {
   const m = now.getMonth();
   const d = now.getDate();
   if (m === 9 && d === 31) return "Happy Spirit's Eve!";
@@ -262,20 +265,26 @@ function dayFlavor(now: Date): string {
   if (m === 11 && d === 24) return "The Winter Star is tomorrow!";
   if (m === 1 && d === 14) return "A good day for bouquets.";
   if (d === 1 && (m === 2 || m === 5 || m === 8 || m === 11)) return `It's the first day of ${capitalize(seasonOf(now))}!`;
-  const dow = now.getDay();
-  if (dow === 3) return "Pierre's is closed today.";
-  if (dow === 5 && chance(0.6)) return "The Stardrop Saloon is lively tonight.";
+  if (now.getDay() === 5 && hour >= 15 && chance(0.5)) return "The Stardrop Saloon is lively tonight.";
+  const hello = hour < 12 ? "good morning" : hour < 18 ? "hello" : "good evening";
   const lines = [
+    `The sheep say ${hello}!`,
     "The sheep look extra fluffy today.",
     "The spirits are in good humor today.",
     "A perfect day to make plans.",
-    "Marnie says hello!",
-    "Lewis is looking for his purple shorts again.",
-    "Somewhere, a Junimo is humming.",
-    "The fox and the hedgehog say good morning.",
+    `Otto and Milo say ${hello}.`,
+    hour < 11 ? "Snickers is up early. Tongue out, as usual." : "Snickers says hi. Tongue out, as usual.",
+    ...SEASON_LINES[season],
   ];
   return lines[Math.floor(Math.random() * lines.length)]!;
 }
+
+const SEASON_LINES: Record<Season, string[]> = {
+  spring: ["The bees are busy today.", "Somewhere, a bird is singing.", "A lucky day for ladybugs."],
+  summer: ["The bees are busy today.", "A good day for a nap in the sun."],
+  fall: ["The squirrels are hiding acorns everywhere.", "The leaves are turning."],
+  winter: ["The cardinals are out today.", "Bundle up, farmers!"],
+};
 
 function initDayBanner(g: Game): void {
   void whenState().then((s) => {
@@ -288,7 +297,7 @@ function initDayBanner(g: Game): void {
         "div",
         { class: "cr-day", role: "status" },
         el("div", { class: "cr-day__date" }, `${clockDateLabel(now)} — Year ${farmYear(s.foundedAt, now)}`),
-        el("div", { class: "cr-day__flavor" }, dayFlavor(now)),
+        el("div", { class: "cr-day__flavor" }, dayFlavor(now, g.env.season, g.env.hour)),
       );
       uiRoot.appendChild(banner);
       setTimeout(() => banner.remove(), 4800);
@@ -419,8 +428,7 @@ function initHolidays(g: Game): void {
 export function initEasterEggs(g: Game): void {
   // Each secret boots on its own: one breaking never stops the farm (or the other secrets).
   const parts: [string, () => void][] = [
-    ["junimos", () => initJunimos(g)],
-    ["witch", () => initWitch(g)],
+    ["shooting star", () => initShootingStars(g)],
     ["keys", () => initKeys(g)],
     ["clover", () => initClover(g)],
     ["holidays", () => initHolidays(g)],

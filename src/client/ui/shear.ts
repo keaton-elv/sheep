@@ -3,7 +3,7 @@
 
 import { sfx } from "../audio";
 import { pick } from "../engine/game";
-import { playShear } from "../entities/sheep";
+import { playShear, shearFailed } from "../entities/sheep";
 import { ApiError, api, store } from "../net";
 import { LIMITS, LOOM_WOOL_COST } from "../../shared/types";
 import { friendlyError } from "./animal-common";
@@ -25,7 +25,7 @@ const MEMORY_PLACEHOLDERS = [
 ];
 
 const GOLDEN_LINES = [
-  "Golden wool! Two for the chest. Even Mr. Qi would be impressed.",
+  "Golden wool! Two for the chest. Even the stars are jealous.",
   "Golden wool?! That's going straight into the chest. Twice.",
   "The wool is... glowing? Two golden bundles for the chest!",
 ];
@@ -70,14 +70,13 @@ async function runShear(id: string): Promise<void> {
   const golden = fresh.golden;
   const name = fresh.name;
   const woolBefore = store.state?.wool ?? 0;
-  // Un-sheared earlier? Its old memory is still on it: keep it (the server overwrites it on shear).
+  // Un-sheared earlier? Its old memory is still on it, and shearing without a memory keeps it.
   const prevMemory = fresh.memory;
 
-  // Animation and request run side by side; the sheep entity follows store state afterwards,
-  // so if the request fails the sheep simply goes back to being woolly.
+  // Animation and request run side by side; the sheep entity follows store state afterwards.
   const [, result] = await Promise.all([
     playShear(id).catch((err) => console.warn("[shear] animation failed", err)),
-    api.shear(id, prevMemory).then(
+    api.shear(id).then(
       () => ({ ok: true as const }),
       (err: unknown) => ({ ok: false as const, err }),
     ),
@@ -85,6 +84,15 @@ async function runShear(id: string): Promise<void> {
 
   if (!result.ok) {
     const err = result.err;
+    // Put the wool straight back on (otherwise it waits a few seconds for the server to agree).
+    // A 409 means it really is sheared (the other farmer beat us to it), so leave it bare.
+    if (!(err instanceof ApiError && err.status === 409)) {
+      try {
+        shearFailed(id);
+      } catch {
+        // the sheep reverts on its own anyway
+      }
+    }
     // Logged out: main.ts is already closing everything and showing the password gate.
     if (err instanceof ApiError && err.status === 401) return;
     if (err instanceof ApiError && err.status === 409) await say(`Looks like ${name} was already sheared! Teamwork.`);

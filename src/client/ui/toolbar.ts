@@ -1,5 +1,7 @@
-// Stardew's toolbar along the bottom: Hand and Shears (tools), then shortcuts to Marnie,
-// the calendar, the barn, Robin's shop, the mailbox, and a "…" menu with the rest.
+// Stardew's toolbar along the bottom: Hand and Shears (tools), then shortcuts to the ranch
+// (+ a new sheep), the Flock list, the calendar, the barn, the mailbox, and a "…" menu with the
+// rest (the carpenter's shop, loom, chest, name tags, sound, how to play, log out).
+// Mobile first: every slot is at least 40 CSS px, and the bar fits a 360px-wide phone.
 
 import { isMuted, setMuted, sfx } from "../audio";
 import type { Game, Tool } from "../engine/game";
@@ -36,12 +38,12 @@ interface SlotDef {
 const SLOTS: SlotDef[] = [
   { id: "hand", icon: "tool.hand", name: "Hand", hint: "Pet sheep & peek at their plans", tool: "hand" },
   { id: "shears", icon: "ui.tb.shears", name: "Shears", hint: "Done a plan? Shear its sheep!", tool: "shears" },
-  { id: "marnie", icon: "ui.tool.plus-sheep", name: "New plan", hint: "Buy a sheep from Marnie", menu: "marnie" },
+  { id: "new", icon: "ui.tool.plus-sheep", name: "New plan", hint: "Buy a sheep at the ranch", menu: "marnie" },
+  { id: "flock", icon: "ui.icon.flock", name: "Flock", hint: "Every sheep in a list. Find one fast", menu: "flock" },
   { id: "calendar", icon: "ui.icon.calendar", name: "Calendar", hint: "Plans with a date", menu: "calendar" },
   { id: "barn", icon: "ui.icon.barn", name: "Barn", hint: "Memories of things you did", menu: "barn" },
-  { id: "shop", icon: "ui.icon.shop", name: "Robin's shop", hint: "Trade cloth for decorations", menu: "shop" },
   { id: "mail", icon: "ui.icon.mail", name: "Mailbox", hint: "Letters about the farm", menu: "mailbox" },
-  { id: "more", icon: "ui.icon.more", name: "More", hint: "Loom, chest, settings & help", more: true },
+  { id: "more", icon: "ui.icon.more", name: "More", hint: "Carpenter's shop, loom, chest, settings & help", more: true },
 ];
 
 function storageGet(key: string): string | null {
@@ -193,6 +195,7 @@ export function initToolbar(g: Game): void {
       closePopover(true);
       openMenu(menu);
     };
+    item("ui.icon.shop", "Carpenter's Shop", null, go("shop"));
     item("ui.icon.loom", "Loom", null, go("loom"));
     item("ui.icon.chest", "Chest", null, go("chest"));
     item("ui.icon.tag", "Name tags", labelsOn() ? "On" : "Off", () => {
@@ -326,8 +329,16 @@ export function initToolbar(g: Game): void {
       queueMicrotask(() => g.relayout());
     }
   };
-  layout();
-  g.on("resize", layout);
+  // Resize listeners share one emit(): never let this one break the others.
+  const safeLayout = () => {
+    try {
+      layout();
+    } catch (err) {
+      console.warn("[toolbar] layout", err);
+    }
+  };
+  safeLayout();
+  g.on("resize", safeLayout);
 
   // ---------- first visit: show how the farm works ----------
 

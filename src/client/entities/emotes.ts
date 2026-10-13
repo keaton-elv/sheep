@@ -6,9 +6,9 @@ import { pixelArt } from "../engine/pixelart";
 import { REGIONS, SHEETS, draw, drawFrame, has, registerArt, sheet, size } from "../engine/sprites";
 import { BUBBLE, BUBBLE_TAIL_X, DOTS_STAGES, EMOTE_ICONS, ICON_BOX, POP, POP_TAIL_X, type ArtData } from "./sheep-artdata";
 
-export type EmoteKind = "heart" | "happy" | "music" | "sleep" | "question" | "exclaim" | "sad" | "angry" | "dots";
+export type EmoteKind = "heart" | "happy" | "music" | "sleep" | "question" | "exclaim" | "sad" | "angry" | "dots" | "blush";
 
-export const EMOTE_KINDS: readonly EmoteKind[] = ["heart", "happy", "music", "sleep", "question", "exclaim", "sad", "angry", "dots"];
+export const EMOTE_KINDS: readonly EmoteKind[] = ["heart", "happy", "music", "sleep", "question", "exclaim", "sad", "angry", "dots", "blush"];
 
 /** How long an emote lasts, in seconds. */
 export const EMOTE_DURATION = 1.6;
@@ -31,6 +31,7 @@ const REAL_ROW: Record<EmoteKind, number> = {
   happy: 8,
   dots: 10,
   music: 14,
+  blush: 15, // a rosy-cheeked little face (lambs snuggling up, a new hat)
 };
 /** Which frame makes the best still icon (for DOM use via spriteIcon("emote.heart")). */
 const REAL_ICON_FRAME: Partial<Record<EmoteKind, number>> = { sleep: 3, dots: 3 };
@@ -76,7 +77,8 @@ export function registerEmoteArt(): void {
   if (ready) return;
   ready = true;
   for (const kind of EMOTE_KINDS) {
-    const icon = EMOTE_ICONS[kind];
+    // Kinds without a hand-drawn icon (blush) fall back to the happy face.
+    const icon = EMOTE_ICONS[kind] ?? (kind === "blush" ? EMOTE_ICONS.happy : undefined);
     registerArt(`emote.${kind}`, bubbleWith(icon ?? null));
   }
   registerArt("emote.bubble", bubbleWith(null));

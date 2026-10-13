@@ -1,5 +1,6 @@
-// Pierre's billboard: a paper calendar of a real month pinned to a wooden board.
-// Days with plans get tiny sheep faces; tap a day to see (or add) its plans.
+// The billboard: a paper calendar of a real month pinned to a wooden board (the real Stardew
+// billboard art when it's loaded). Days with plans get tiny sheep faces; tap a day to see
+// (or add) its plans.
 
 import "./calendar.css";
 import { sfx } from "../audio";
@@ -7,8 +8,8 @@ import { isRetired, store } from "../net";
 import { capitalize, dayKey, daysBetween, monthName, parseDayKey, seasonOf, stardewDate } from "../../shared/calendar";
 import { CATEGORY_LABELS, type FarmState, type Sheep } from "../../shared/types";
 import { openMemory } from "./barn";
-import { registerCalendarArt } from "./calendar-art";
-import { festivalOn } from "./calendar-festivals";
+import { billboardSkin, registerCalendarArt } from "./calendar-art";
+import { festivalOn, type Festival } from "./calendar-festivals";
 import { categoryIcon, farmNow, sheepHead } from "./calendar-util";
 import { el, heartsEl, openDialog, openMenu, plural, registerMenu, relativeDays, spriteIcon } from "./dom";
 
@@ -20,7 +21,7 @@ const UPCOMING = 5;
 const QUIET_DAY = [
   "Nothing planned yet. The sheep are suspiciously free.",
   "A wide open day. Perfect for an adventure... or a nap.",
-  "No plans! Marnie has sheep for every occasion.",
+  "No plans! The ranch has a sheep for every occasion.",
   "Free as a sheep in springtime.",
 ];
 
@@ -63,7 +64,8 @@ function openCalendar(focus?: string): void {
   let showOverdue = false;
 
   const root = el("div", { class: "fm-cal fm-menu" });
-  const d = openDialog({ className: "fm-cal-dialog fm-menu", body: root, onClose: () => off() });
+  const real = billboardSkin();
+  const d = openDialog({ className: `fm-cal-dialog fm-menu ${real ? "is-real" : ""}`, body: root, onClose: () => off() });
   d.box.setAttribute("aria-label", "Calendar");
 
   const go = (delta: number) => {
@@ -149,7 +151,7 @@ function openCalendar(focus?: string): void {
           title: fest ? fest.name : undefined,
         },
         el("span", { class: "fm-cal__num" }, String(day)),
-        fest ? spriteIcon("ui.festflag", { class: "fm-cal__flag" }) : null,
+        fest ? festIcon(fest, true) : null,
         plans.length ? heads : null,
       );
       cell.addEventListener("click", () => {
@@ -199,7 +201,7 @@ function openCalendar(focus?: string): void {
     for (const p of plans) list.appendChild(el("li", null, planRow(p, null)));
 
     let quip = QUIET_DAY[(date.getDate() + date.getMonth()) % QUIET_DAY.length]!;
-    if (date.getDay() === 3) quip = "Pierre's is closed on Wednesdays. Perfect excuse for a date?";
+    if (date.getDay() === 3) quip = "Midweek and wide open. Perfect excuse for a little date?";
     if (rel < 0) quip = "Nothing happened here... or nobody wrote it down.";
 
     return el(
@@ -208,7 +210,7 @@ function openCalendar(focus?: string): void {
       el("h3", { class: "fm-cal__dayname" }, `${DOW_FULL[date.getDay()]}, ${monthName(date.getMonth())} ${date.getDate()}`),
       el("p", { class: "fm-cal__sub" }, sub),
       fest
-        ? el("p", { class: "fm-cal__fest" }, spriteIcon("ui.festflag"), el("span", null, el("b", null, fest.name), " ", fest.note))
+        ? el("p", { class: "fm-cal__fest" }, festIcon(fest, false), el("span", null, el("b", null, fest.name), " ", fest.note))
         : null,
       plans.length ? list : el("p", { class: "fm-cal__quiet" }, state ? quip : "The billboard is still being pinned up..."),
       state
@@ -249,7 +251,7 @@ function openCalendar(focus?: string): void {
       }
       note.appendChild(ul);
     } else {
-      note.appendChild(el("p", { class: "fm-cal__quiet" }, "Nothing on the books yet. Give a sheep a date and it'll show up here!"));
+      note.appendChild(el("p", { class: "fm-cal__quiet" }, "Nothing dated yet. Give a sheep a day and it shows up here."));
     }
 
     if (overdue.length) {
@@ -324,6 +326,17 @@ function openCalendar(focus?: string): void {
 
   const off = store.changed.on(render);
   render();
+}
+
+/**
+ * A festival's marker: the real waving purple pennant (or the gold star for farm days), with the
+ * hand-drawn flag as a fallback. `small` = the 3/4-size version for calendar cells.
+ */
+function festIcon(fest: Festival, small: boolean): HTMLElement {
+  const cls = small ? "fm-cal__flag" : "fm-cal__festicon";
+  if (fest.star) return spriteIcon("ui.feststar", { scale: small ? 0.75 : 1, class: cls });
+  if (billboardSkin()) return el("span", { class: `fm-flag ${small ? "is-small" : ""} ${cls}`, "aria-hidden": "true" });
+  return spriteIcon("ui.festflag", { scale: small ? 0.75 : 1, class: cls });
 }
 
 /** Horizontal swipe on the calendar paper flips months (phones). */

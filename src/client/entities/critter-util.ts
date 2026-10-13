@@ -105,6 +105,20 @@ export function onTick(g: Game, name: string, fn: (dt: number) => void): () => v
   });
 }
 
+/**
+ * Every tap on the farm (fires before anything handles it, and never swallows it), with a
+ * try/catch around the listener. For "tapped near me" reactions: birds scattering, bees darting.
+ */
+export function onAnyTap(g: Game, name: string, fn: (x: number, y: number) => void): () => void {
+  return g.on("tap", (p: { x: number; y: number }) => {
+    try {
+      fn(p.x, p.y);
+    } catch (err) {
+      report(`${name}.tap`, err);
+    }
+  });
+}
+
 // ---------- emotes ----------
 
 /** An emote bubble with its own timer. Call update(dt) every frame and draw() where the head is. */
@@ -267,7 +281,7 @@ export function initParticles(g: Game): void {
   particles = addSafe(g, new Particles(), "particles");
 }
 
-/** A twinkly burst of sparkles (junimo poofs, clovers, stardrops...). */
+/** A twinkly burst of sparkles (clovers, golden ladybugs, stardrops...). */
 export function sparkleBurst(x: number, y: number, n = 6, spread = 14): void {
   if (!particles) return;
   if (reducedMotion) n = Math.min(n, 2);

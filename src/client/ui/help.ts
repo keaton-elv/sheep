@@ -1,9 +1,12 @@
-// "How the farm works": a little journal in Stardew's quest-log style.
+// "How the farm works": a little journal in Stardew's quest-log style, in a plain narrator voice.
 // Opened from the toolbar's "…" menu, and automatically once on a device's first visit.
+// Copy stays short: one line per idea, plus a few hints for the secrets.
 
 import { LOOM_DURATION_MS, LOOM_WOOL_COST, RETIRE_AFTER_MS } from "../../shared/types";
+import { has } from "../engine/sprites";
 import { store } from "../net";
 import { el, frameIcon, openDialog, registerMenu, spriteIcon } from "./dom";
+import { registerHelpArt } from "./help-art";
 import { iconKey, registerToolbarArt } from "./toolbar-art";
 import "./help.css";
 
@@ -15,7 +18,10 @@ interface Entry {
 }
 
 const sprite = (key: string, scale = 1) => () => spriteIcon(iconKey(key), { scale });
+/** A critter's own sprite if it has one, otherwise a fallback icon. */
+const critter = (key: string, fallback: string) => () => spriteIcon(has(key) ? key : iconKey(fallback), { class: "help-critter" });
 const sheep = () => frameIcon("sheep", 12, 32, 32, { class: "help-sheep" });
+const lamb = () => frameIcon("sheepBaby", 12, 32, 32, { class: "help-sheep is-lamb" });
 const shorn = () => frameIcon("sheepSheared", 13, 32, 32, { class: "help-sheep" });
 
 const RETIRE_DAYS = Math.round(RETIRE_AFTER_MS / 86_400_000);
@@ -25,7 +31,12 @@ const ENTRIES: Entry[] = [
   {
     icons: [sheep],
     title: "Every plan is a sheep",
-    text: "Tap the + sheep to buy one from Marnie. Its name is the plan: a date, a workshop, a trip... Stuck? Roll the dice for an idea.",
+    text: "Tap the + to buy one at the ranch. Its name is the plan: a date, a workshop, a trip...",
+  },
+  {
+    icons: [lamb],
+    title: "Lambs",
+    text: "New sheep arrive as wobbly little lambs and grow up after a day.",
   },
   {
     icons: [sprite("ui.heart.full", 2)],
@@ -35,27 +46,47 @@ const ENTRIES: Entry[] = [
   {
     icons: [sprite("ui.tb.shears", 1.5)],
     title: "Did it? Shear it!",
-    text: "Pick the shears and tap the sheep, or press Shear on its card. Snip! The wool goes in the chest, and you can jot down a little memory.",
+    text: "Pick the shears and tap the sheep, or press Shear on its card. The wool goes in the chest, and you can jot down a memory.",
+  },
+  {
+    icons: [sprite("ui.icon.flock", 1.5)],
+    title: "The Flock",
+    text: "Every sheep in one list. Tap the flock button to find any of them fast.",
+  },
+  {
+    icons: [sprite("ui.icon.hat", 1.5)],
+    title: "Hats",
+    text: "Pick one from any sheep's card — 1 cloth. Taking it off is free.",
   },
   {
     icons: [sprite("ui.icon.tag", 1.5)],
     title: "Changed your mind?",
-    text: "Open a sheep's card to Edit the plan or Sell it back to Marnie. Sheared one by accident? There's an un-shear button.",
+    text: "Edit a plan or sell the sheep back to the ranch from its card. Sheared one by accident? There's an un-shear button.",
   },
   {
     icons: [sprite("ui.hud.wool"), sprite("ui.hud.cloth")],
     title: "Wool, loom, cloth",
-    text: `Feed ${LOOM_WOOL_COST} wool to the loom and wait about ${LOOM_MINUTES} minutes for cloth. Robin trades cloth for decorations; tap the pasture to place them.`,
+    text: `${LOOM_WOOL_COST} wool in the loom makes cloth in about ${LOOM_MINUTES} minutes. Spend it at the carpenter's shop (in the … menu), then tap the pasture to place your decoration.`,
   },
   {
     icons: [shorn],
     title: "Memories in the barn",
-    text: `A sheared sheep naps in the pasture for ${RETIRE_DAYS} days so you both see it, then moves into the barn. Visit any time to relive your adventures.`,
+    text: `A sheared sheep naps in the pasture for ${RETIRE_DAYS} days so you both see it, then moves into the barn for good.`,
   },
   {
     icons: [sprite("ui.icon.calendar"), sprite("ui.icon.mail")],
     title: "Calendar & mail",
-    text: "Plans with a date go up on the calendar board. The mailbox has letters about everything that happened on the farm. (Tap the farm sign to rename the farm!)",
+    text: "Plans with a date go up on the calendar. Letters about the farm show up in the mailbox. (Tap the farm sign to rename the farm.)",
+  },
+  {
+    icons: [critter("fox.sit.0", "ui.star"), critter("hedgehog.idle.0", "ui.star")],
+    title: "Otto & Milo",
+    text: "The fox and the hedgehog in the corner. Best friends, champion nappers.",
+  },
+  {
+    icons: [sprite("ui.icon.snickers", 1.5)],
+    title: "Snickers",
+    text: "Snickers lives by the barn. Rumor has it he has a secret button...",
   },
   {
     icons: [sprite("ui.heart.full", 2), sprite("ui.heart.full", 2)],
@@ -65,7 +96,7 @@ const ENTRIES: Entry[] = [
   {
     icons: [sprite("ui.star", 2)],
     title: "Psst...",
-    text: "Some critters love being tapped... and some secrets only come out at night.",
+    text: "Tap the grass a bunch. Knock on the stump. Look up at night.",
     secret: true,
   },
 ];
@@ -76,14 +107,15 @@ export function initHelp(): void {
 
 function openHelp(welcome: boolean): void {
   registerToolbarArt();
+  registerHelpArt();
   const farm = store.state?.farmName;
 
   const intro = welcome
     ? el(
         "div",
         { class: "help-note" },
-        el("p", { class: "help-note__big" }, `Welcome to ${farm ? farm : "your farm"}!`),
-        el("p", null, "Mayor Lewis left this little guide on the doorstep. The sheep are very excited to meet you both."),
+        el("p", { class: "help-note__big" }, `Welcome to ${farm ? farm : "the farm"}!`),
+        el("p", null, "The sheep are very excited to meet you both. Here's how things work around here."),
       )
     : null;
 
@@ -104,7 +136,7 @@ function openHelp(welcome: boolean): void {
     : null;
 
   openDialog({
-    title: welcome ? "A Note From the Mayor" : "How the Farm Works",
+    title: welcome ? "Welcome to the Farm" : "How the Farm Works",
     className: "help-journal",
     body: [intro, list, keys],
     buttons: [{ label: welcome ? "Let's farm!" : "Got it!", kind: "primary" }],

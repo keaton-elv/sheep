@@ -1,7 +1,8 @@
 // Art for the loom & chest menus: the real Stardew loom (a spinning wheel!) and chest from
-// craftables.png when it's there, a hand-drawn loom as the fallback, and an extremely
-// important pair of purple shorts.
+// craftables.png when it's there, a hand-drawn loom as the fallback, and the duck feather
+// Snickers keeps hidden in the chest (from objects.png).
 
+import { objectRegion } from "../art/regions";
 import { pixelArt } from "../engine/pixelart";
 import { registerArt, REGIONS, SHEETS } from "../engine/sprites";
 
@@ -12,6 +13,8 @@ const craft = (index: number) => ({ sheet: "craftables", x: (index % 8) * 16, y:
 REGIONS["ui.menu.loom"] = craft(17);
 REGIONS["ui.menu.loom.working"] = craft(18);
 REGIONS["ui.menu.chest"] = craft(130);
+// Duck Feather (Stardew item 444): Snickers' favorite toy.
+REGIONS["item.feather"] = objectRegion(444);
 
 let done = false;
 
@@ -65,26 +68,4 @@ export function registerLoomArt(): void {
     },
   );
   registerArt("ui.menu.loom.working", loom);
-
-  // Mayor Lewis's Lucky Purple Shorts. Nobody knows how they got in the chest.
-  pixelArt(
-    "item.shorts",
-    [
-      "................",
-      "..oooooooooooo..",
-      "..oLLLLYyLLLLo..",
-      "..oooooooooooo..",
-      "..oPPPPPPPPPpo..",
-      ".oPLPPPPoPPPPpo.",
-      ".oPLPPPPoPPPPpo.",
-      ".oPPPPPPoPPPPpo.",
-      "oPPPPPPooPPPPPpo",
-      "oPPPPPo..oPPPPpo",
-      "oPLPPPo..oPPPPpo",
-      "opppppo..opppppo",
-      "ooooooo..ooooooo",
-      "................",
-    ],
-    { o: "#2e1838", P: "#8e4fbf", p: "#6a3596", L: "#b57be0", Y: "#ffe066", y: "#d9a62c" },
-  );
 }

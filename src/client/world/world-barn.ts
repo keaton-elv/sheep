@@ -9,7 +9,7 @@ import { barnSheep } from "../net";
 import { openMenu } from "../ui/dom";
 import { fx, reducedMotion } from "./world-fx";
 import { snowRoofPx, type Px } from "./world-pixels";
-import { BARN, barnRect, ctx2d, cut, makeCanvasEl, pxCanvas, sheetPx } from "./world-sheets";
+import { BARN, ctx2d, cut, makeCanvasEl, pxCanvas, sheetPx } from "./world-sheets";
 
 const OPEN_TIME = 0.32;
 const HOLD_TIME = 1.8;
@@ -109,8 +109,6 @@ export class Barn implements Entity {
   private zTimer = 2;
   private season: Season = "spring";
   private zed: HTMLCanvasElement | null = null;
-  private rectFor: Game["layout"] | null = null;
-  private rect = { x: 0, y: 0, w: 0, h: 0 };
 
   constructor(private g: Game) {
     g.on("barnDoor", () => this.knock());
@@ -122,13 +120,9 @@ export class Barn implements Entity {
     this.holdUntil = this.g.time + HOLD_TIME;
   }
 
-  /** The barn sprite's rect (recomputed only when the layout object changes). */
+  /** The barn sprite sits exactly in layout.barn (its doorway lines up with layout.barnDoor). */
   private box(l: Game["layout"]): { x: number; y: number; w: number; h: number } {
-    if (this.rectFor !== l) {
-      this.rectFor = l;
-      this.rect = barnRect(l);
-    }
-    return this.rect;
+    return l.barn;
   }
 
   update(dt: number, g: Game): void {

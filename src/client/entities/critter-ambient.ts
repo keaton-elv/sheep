@@ -1,30 +1,29 @@
-// Ambient wildlife: butterflies on nice spring/summer days, crows that peck at the pasture
-// (unless there's a scarecrow — Stardew rules), a forest bunny, and frogs when it rains.
-// Everything is capped and spawns lazily, so it's cheap when nothing is around.
+// Ambient wildlife: butterflies on nice spring/summer days, a squirrel scampering along the fence
+// rail, a forest bunny, and frogs when it rains. (Birds live in critter-birds.ts, bugs in
+// critter-bugs.ts.) Everything is capped and spawns lazily, so it's cheap when nothing is around.
+// Debug: ?bunny=1 ?squirrel=1
 
 import { sfx } from "../audio";
 import type { Entity, Game } from "../engine/game";
 import { draw, isReal, REGIONS, SHEETS } from "../engine/sprites";
-import { contains, fromFraction, type Layout } from "../world/layout";
+import { contains, fromFraction } from "../world/layout";
 import { pastureSheep, store } from "../net";
 import { sheepPosition } from "./sheep";
 import { BUTTERFLY_COLORS } from "./critter-art";
 import { critterReact, hangout } from "./critter-fox";
+import { FENCE_HIDE, onLayoutChange, pastureSpot, RAIL_TOP, railStretch, type Rail } from "./critter-place";
 import { addSafe, chance, drawShadow, Emote, inBox, onTick, params, rand } from "./critter-util";
 
 const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
 
 // ---------- the real Stardew critters sheet (320x640) ----------
-// Crows face left, rabbits & frogs face right, butterflies are 4-frame flaps. Hand-drawn art in
-// critter-sprites.ts covers every key if the sheet is missing.
+// Rabbits, squirrels & frogs face right, butterflies are 4-frame flaps. Hand-drawn art in
+// critter-sprites.ts covers the butterflies, bunny and frogs if the sheet is missing.
 SHEETS.critters ??= "sprites/critters.png";
-function cell(key: string, x: number, y: number, w = 16, h = 16): void {
+function cell(key: string, x: number, y: number, w = 16, h = 16): string {
   REGIONS[key] ??= { sheet: "critters", x, y, w, h };
+  return key;
 }
-cell("critter.crow.stand", 128, 32, 32, 32);
-cell("critter.crow.peck", 224, 32, 32, 32);
-const CROW_FLY_REAL = ["critter.crow.fly.0", "critter.crow.fly.1", "critter.crow.fly.2", "critter.crow.fly.3"] as const;
-[0, 32, 64, 128].forEach((x, i) => cell(CROW_FLY_REAL[i]!, x, 64, 32, 32));
 const BUTTERFLY_REAL: Record<string, [number, number]> = { blue: [128, 96], yellow: [256, 96], green: [128, 112], pink: [192, 112], orange: [256, 112] };
 for (const [name, [x, y]] of Object.entries(BUTTERFLY_REAL)) for (let f = 0; f < 4; f++) cell(`critter.butterfly.${name}.${f}`, x + f * 16, y);
 cell("critter.bunny.sit", 128, 160, 32, 32);
@@ -36,29 +35,12 @@ cell("critter.frog.croak", 96, 224);
 const FROG_JUMP_REAL = ["critter.frog.jump.0", "critter.frog.jump.1", "critter.frog.jump.2", "critter.frog.land"] as const;
 [16, 32, 48, 64].forEach((x, i) => cell(FROG_JUMP_REAL[i]!, x, 224));
 cell("critter.frog.jump", 32, 224); // also backs the hand-drawn key
-
-function hasScarecrow(): boolean {
-  const d = store.state?.decorations;
-  if (!d) return false;
-  for (const x of d) if (x.kind === "scarecrow" || x.kind === "rarecrow") return true;
-  return false;
-}
-
-/** The bottom fence rail hides the lowest strip of the pasture; keep critters above it. */
-export const FENCE_HIDE = 16;
-
-/** A random spot in the pasture where a critter may land (not in the corner, not under the HUD). */
-function pastureSpot(l: Layout, margin = 8): { x: number; y: number } {
-  const p = l.pasture;
-  for (let i = 0; i < 12; i++) {
-    const x = p.x + margin + Math.random() * Math.max(1, p.w - margin * 2);
-    const y = p.y + margin + Math.random() * Math.max(1, p.h - margin - Math.max(margin, FENCE_HIDE));
-    let ok = true;
-    for (const b of l.blocked) if (contains(b, x, y)) ok = false;
-    if (ok) return { x, y };
-  }
-  return { x: p.x + p.w / 2, y: p.y + p.h / 2 };
-}
+// Squirrel (32x32 cells, row y=192): two nibbling-a-nut frames, sitting up, then a 5-frame scamper.
+const SQUIRREL = {
+  nibble: [cell("critter.squirrel.nibble.0", 0, 192, 32, 32), cell("critter.squirrel.nibble.1", 32, 192, 32, 32)],
+  alert: cell("critter.squirrel.alert", 64, 192, 32, 32),
+  run: [96, 128, 160, 192, 224].map((x, i) => cell(`critter.squirrel.run.${i}`, x, 192, 32, 32)),
+};
 
 function niceDay(g: Game): boolean {
   const e = g.env;
@@ -144,22 +126,24 @@ class Butterfly implements Entity {
         }
       }
     }
-    // On flowers Robin built.
+    // On the flower tubs you two placed (the blooms are on top of the tub).
     if (r < 0.6) {
       const flowers = store.state?.decorations?.filter((d) => d.kind === "flowers") ?? [];
       if (flowers.length) {
         const d = pick(flowers);
         const p = fromFraction(l, d.fx, d.fy);
-        return { x: p.x + rand(-3, 3), y: p.y - 7 };
+        return { x: p.x + rand(-4, 4), y: p.y - rand(19, 26) };
       }
     }
     // The corner's wildflowers.
     if (r < 0.75 && (g.env.season === "spring" || g.env.season === "summer")) {
       const c = hangout(l);
-      return { x: c.x + 3, y: c.y + 25 };
+      return chance(0.5) ? { x: c.x - 1, y: c.y + 23 } : { x: c.x + 6, y: c.y + 23 };
     }
     // The top rail of the fence.
-    return { x: l.fence.x + 10 + Math.random() * (l.fence.w - 20), y: l.fence.y + 6 };
+    const st = railStretch(l, 4, 10);
+    if (st) return { x: (st.x0 + st.x1) / 2, y: st.rail.feet - RAIL_TOP - 2 };
+    return null;
   }
 
   update(dt: number): void {
@@ -230,146 +214,116 @@ class Butterfly implements Entity {
   }
 }
 
-// ---------- crows ----------
+// ---------- squirrel ----------
 
-class Crow implements Entity {
+/** A squirrel scampers along a fence rail, stops for a nut, and scampers off. */
+class Squirrel implements Entity {
   x = 0;
   y = 0;
-  layer = 3;
+  layer = 1;
   dead = false;
-  private gx: number;
-  private gy: number;
-  private z = 0;
-  private sx: number;
-  private sy: number;
-  private sz: number;
+  private px: number;
+  private readonly feet: number;
   private t = 0;
-  private state: "in" | "ground" | "out" | "flyover" = "in";
-  private stayDur = rand(8, 16);
-  private pecking = 0;
-  private peckIn = rand(0.5, 2);
-  private flip = false;
+  private anim = 0;
+  private state: "run" | "alert" | "nibble" | "look" | "exit" = "run";
+  private dur = 0;
+  private dir: 1 | -1;
+  private stopAt: number;
+  private stopped = false;
+  private alpha = 0;
+  private speed = 40;
+  /** Up and over each fence post it passes (a post stands 7px above the rail). */
+  private z = 0;
   private emote = new Emote();
-  private emoted = false;
 
   constructor(
-    private g: Game,
-    private lx: number,
-    private ly: number,
-    flyover: boolean,
+    private rail: Rail,
+    private x0: number,
+    private x1: number,
   ) {
-    const l = g.layout;
-    const fromLeft = chance(0.5);
-    this.flip = !fromLeft;
-    this.sx = fromLeft ? -30 : l.w + 30;
-    this.sy = ly - rand(10, 40);
-    this.sz = 70;
-    this.gx = this.sx;
-    this.gy = this.sy;
-    this.z = this.sz;
-    if (flyover) {
-      this.state = "flyover";
-      this.lx = fromLeft ? l.w + 40 : -40;
-      this.ly = this.sy + rand(-10, 10);
-    }
-  }
-
-  flee(): void {
-    if (this.state === "out") return;
-    this.state = "out";
-    this.t = 0;
-    this.sx = this.gx;
-    this.sy = this.gy;
-    this.sz = this.z;
-    const l = this.g.layout;
-    this.flip = this.gx < l.w / 2;
-    this.lx = this.flip ? -40 : l.w + 40;
-    this.ly = this.gy - 30;
+    this.dir = chance(0.5) ? 1 : -1;
+    this.px = this.dir > 0 ? x0 : x1;
+    this.feet = rail.feet - RAIL_TOP + 1;
+    this.stopAt = x0 + (x1 - x0) * rand(0.35, 0.65);
   }
 
   update(dt: number): void {
     this.t += dt;
+    this.anim += dt;
     this.emote.update(dt);
-    if (this.state === "in") {
-      const k = Math.min(1, this.t / 2.4);
-      const e = 1 - (1 - k) * (1 - k);
-      this.gx = this.sx + (this.lx - this.sx) * e;
-      this.gy = this.sy + (this.ly - this.sy) * e;
-      this.z = this.sz * (1 - e);
-      if (k >= 1) {
-        this.state = "ground";
-        this.t = 0;
-        this.z = 0;
+    const end = this.dir > 0 ? this.x1 : this.x0;
+    if (this.state === "run" || this.state === "exit") {
+      this.px += this.dir * this.speed * dt;
+      const pastStop = this.dir > 0 ? this.px >= this.stopAt : this.px <= this.stopAt;
+      if (this.state === "run" && !this.stopped && pastStop) {
+        this.stopped = true;
+        this.set("alert", rand(0.4, 0.8));
       }
-    } else if (this.state === "ground") {
-      this.peckIn -= dt;
-      if (this.pecking > 0) this.pecking -= dt;
-      if (this.peckIn <= 0) {
-        this.peckIn = rand(0.6, 2.2);
-        if (chance(0.7)) this.pecking = rand(0.25, 0.6);
-        else {
-          // A little hop.
-          this.flip = chance(0.5);
-          this.gx += this.flip ? -3 : 3;
-        }
-      }
-      if (this.t > this.stayDur || hasScarecrow()) {
-        if (hasScarecrow()) this.emote.show("exclaim");
-        this.flee();
-      }
-    } else if (this.state === "out") {
-      const k = Math.min(1, this.t / 2);
-      const e = k * k;
-      this.gx = this.sx + (this.lx - this.sx) * e;
-      this.gy = this.sy + (this.ly - this.sy) * e;
-      this.z = this.sz + 80 * e;
-      if (k >= 1) this.dead = true;
-    } else {
-      // Flyover: crosses the farm high up, spots the scarecrow, wants no part of it.
-      const k = Math.min(1, this.t / 4.5);
-      this.gx = this.sx + (this.lx - this.sx) * k;
-      this.gy = this.sy + (this.ly - this.sy) * k;
-      this.z = 40 + Math.sin(k * Math.PI) * 6;
-      if (k > 0.4 && !this.emoted) {
-        this.emoted = true;
-        this.emote.show("angry");
-        sfx("crow", { volume: 0.5 });
-      }
-      if (k >= 1) this.dead = true;
+      const atEnd = this.dir > 0 ? this.px >= end : this.px <= end;
+      // Hops down off the far end of the rail.
+      this.alpha = atEnd ? this.alpha - dt * 4 : Math.min(1, this.alpha + dt * 4);
+      if (atEnd && this.alpha <= 0) this.dead = true;
+    } else if (this.t > this.dur) {
+      if (this.state === "alert") this.set("nibble", rand(2, 4.5));
+      else if (this.state === "nibble") {
+        if (chance(0.5)) {
+          this.dir = this.dir > 0 ? -1 : 1; // changes its mind
+          this.set("look", rand(0.4, 0.8));
+        } else this.set("run", 0);
+      } else this.set("run", 0);
     }
-    this.layer = this.z > 0.5 ? 3 : 1;
-    this.x = this.gx;
-    this.y = this.gy;
+    let z = 0;
+    for (const p of this.rail.posts) {
+      const d = Math.abs(this.px - p);
+      if (d < 8) z = Math.max(z, Math.cos((d / 8) * (Math.PI / 2)) * 7);
+    }
+    this.z = Math.round(z);
+    this.x = this.px;
+    this.y = this.rail.feet + 0.5;
+  }
+
+  private set(state: Squirrel["state"], dur: number): void {
+    this.state = state;
+    this.t = 0;
+    this.dur = dur;
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
-    const x = Math.round(this.gx);
-    const y = Math.round(this.gy - this.z);
-    const real = isReal("critter.crow.stand");
+    if (this.alpha <= 0 || !isReal(SQUIRREL.alert)) return;
     let key: string;
-    if (this.z > 0.5) {
-      key = real ? CROW_FLY_REAL[Math.floor(this.t / 0.09) % 4]! : Math.floor(this.t / 0.12) % 2 ? "critter.crow.fly.1" : "critter.crow.fly.0";
-      if (this.z < 60) drawShadow(ctx, this.gx, this.gy, 12, Math.max(0, 1 - this.z / 60));
-    } else {
-      key = this.pecking > 0 ? "critter.crow.peck" : "critter.crow.stand";
-      drawShadow(ctx, this.gx, this.gy, 12);
-    }
-    // `flip` means "facing left": the hand-drawn crow faces right, the real one faces left.
-    draw(ctx, key, x, y, { anchor: "feet", flipX: real ? !this.flip : this.flip });
-    this.emote.draw(ctx, x, y - (real ? 18 : 13));
+    if (this.state === "run" || this.state === "exit") key = SQUIRREL.run[Math.floor(this.anim / (this.state === "exit" ? 0.045 : 0.065)) % SQUIRREL.run.length]!;
+    else if (this.state === "nibble") key = SQUIRREL.nibble[Math.floor(this.t / 0.18) % 2]!;
+    else key = SQUIRREL.alert;
+    const x = Math.round(this.px);
+    const feet = Math.round(this.feet) - this.z;
+    draw(ctx, key, this.dir > 0 ? x - 14 : x - 17, feet - 31, { flipX: this.dir < 0, alpha: this.alpha });
+    this.emote.draw(ctx, x, feet - 18);
   }
 
   hit(wx: number, wy: number): boolean {
-    if (this.state !== "ground" && this.state !== "in") return false;
-    const y = this.gy - this.z;
-    return inBox(wx, wy, this.gx - 12, y - 18, 24, 22);
+    return this.state !== "exit" && this.alpha > 0.5 && inBox(wx, wy, this.px - 11, this.feet - this.z - 20, 22, 22);
   }
 
   onTap(): void {
-    sfx("crow");
+    if (this.state === "exit") return;
+    sfx("rustle", { volume: 0.45, pitch: 1.5 });
     this.emote.show("exclaim");
-    this.flee();
+    // Dash for the nearest end of the rail.
+    this.dir = this.px - this.x0 < this.x1 - this.px ? -1 : 1;
+    this.speed = 75;
+    this.state = "exit";
+    this.t = 0;
   }
+}
+
+function spawnSquirrel(g: Game): Squirrel | null {
+  if (!isReal(SQUIRREL.alert)) return null; // real frames only
+  const l = g.layout;
+  const len = Math.min(110, Math.max(50, l.fence.w * 0.4));
+  const st = railStretch(l, len, 24, 22);
+  if (!st) return null;
+  return addSafe(g, new Squirrel(st.rail, st.x0, st.x1), "squirrel");
 }
 
 // ---------- bunny ----------
@@ -595,12 +549,20 @@ class Frog implements Entity {
 export function initAmbient(g: Game): void {
   const butterflies: Butterfly[] = [];
   const frogs: Frog[] = [];
+  const forceBunny = params.has("bunny");
+  const forceSquirrel = params.has("squirrel");
   let butterflyIn = rand(1, 4);
-  let crowIn = params.has("crow") ? 2 : rand(60, 150);
-  let bunnyIn = params.has("bunny") ? 3 : rand(80, 200);
+  let bunnyIn = forceBunny ? 3 : rand(80, 200);
+  let squirrelIn = forceSquirrel ? 2 : rand(40, 120);
   let frogIn = 2;
   let bunny: Bunny | null = null;
-  let crows = 0;
+  let squirrel: Squirrel | null = null;
+
+  onLayoutChange(g, "squirrel", () => {
+    // Its rail moved: it just hops down and goes home.
+    if (squirrel) squirrel.dead = true;
+    squirrel = null;
+  });
 
   onTick(g, "ambient", (dt) => {
     const env = g.env;
@@ -621,47 +583,29 @@ export function initAmbient(g: Game): void {
       }
     }
 
-    // Crows: now and then on dry days. Never land if there's a scarecrow (they just grumble past).
-    crowIn -= dt;
-    if (crowIn <= 0) {
-      crowIn = params.has("crow") ? 25 : rand(90, 220);
+    // A squirrel along the fence: busiest in fall (nuts!), rare in winter, never at night or in the rain.
+    if (squirrel?.dead) squirrel = null;
+    squirrelIn -= dt;
+    if (squirrelIn <= 0) {
+      squirrelIn = forceSquirrel ? 25 : season === "fall" ? rand(50, 120) : rand(110, 260);
       const dry = env.weather !== "rain" && env.weather !== "storm" && env.weather !== "snow";
-      if ((env.darkness < 0.4 && dry && crows === 0) || params.has("crow")) {
-        const flyover = hasScarecrow();
-        const n = flyover ? 1 : chance(0.3) ? 2 : 1;
-        for (let i = 0; i < n; i++) {
-          const s = pastureSpot(g.layout, 14);
-          const crow = new Crow(g, s.x, s.y, flyover);
-          crows++;
-          const add = () => {
-            addSafe(g, crow, "crow");
-          };
-          if (i === 0) add();
-          else setTimeout(add, 900);
-          const watch = g.on("tick", () => {
-            if (crow.dead) {
-              crows--;
-              watch();
-            }
-          });
-        }
-        if (!flyover) setTimeout(() => sfx("crow", { volume: 0.6 }), 1800);
-      }
+      const ok = env.darkness < 0.3 && dry && (season !== "winter" || chance(0.3));
+      if (!squirrel && (ok || forceSquirrel)) squirrel = spawnSquirrel(g);
     }
 
     // A forest bunny hops along the bottom of the pasture.
     if (bunny?.dead) bunny = null;
     bunnyIn -= dt;
     if (bunnyIn <= 0) {
-      bunnyIn = params.has("bunny") ? 30 : rand(120, 300);
+      bunnyIn = forceBunny ? 30 : rand(120, 300);
       const ok = env.darkness < 0.6 && env.weather !== "rain" && env.weather !== "storm";
-      if (!bunny && (ok || params.has("bunny"))) bunny = addSafe(g, new Bunny(g), "bunny");
+      if (!bunny && (ok || forceBunny)) bunny = addSafe(g, new Bunny(g), "bunny");
     }
 
-    // Frogs come out in the rain.
+    // Frogs come out in the rain (they sleep through the winter).
     for (let i = frogs.length - 1; i >= 0; i--) if (frogs[i]!.dead) frogs.splice(i, 1);
     const rainy = env.weather === "rain" || env.weather === "storm";
-    const frogWant = rainy ? 3 : 0;
+    const frogWant = rainy && season !== "winter" ? 3 : 0;
     let alive = 0;
     for (const f of frogs) if (!f.leaving) alive++;
     if (alive > frogWant) for (const f of frogs) f.leaving = true;

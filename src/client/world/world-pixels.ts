@@ -809,6 +809,52 @@ export function pondPx(season: Season): { rim: Px; water: Px; mask: Uint8Array }
   return { rim, water, mask };
 }
 
+/**
+ * The real Jack-O-Lantern (objects.png, item 746) standing on a soft lavender shadow (one row
+ * taller than the icon), plus its night overlay: only the carved face (the two dark browns inside
+ * the outline) lights up with candlelight, so a snowy cap or the body shading underneath stays put.
+ */
+export function jackOLanternPx(src: Px): { base: Px; lit: Px } {
+  const W = src.width;
+  const H = src.height + 1;
+  const base = newPx(W, H);
+  const shadow = parseColor("rgba(40,20,60,0.25)");
+  for (let y = H - 3; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const dx = (x + 0.5 - W / 2) / (W / 2 - 1.5);
+      const dy = (y + 0.5 - (H - 1.5)) / 1.5;
+      if (dx * dx + dy * dy > 1) continue;
+      const o = (y * W + x) * 4;
+      base.data[o] = shadow[0];
+      base.data[o + 1] = shadow[1];
+      base.data[o + 2] = shadow[2];
+      base.data[o + 3] = shadow[3];
+    }
+  }
+  blitPx(base, src, 0, 0);
+  const lit = newPx(W, H);
+  const holes: [RGBA, RGBA][] = [
+    [[84, 38, 41, 255], parseColor("#ffe68a")],
+    [[107, 49, 53, 255], parseColor("#ffad3d")],
+  ];
+  for (let y = 0; y < src.height; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      if (src.data[i + 3]! < 250) continue;
+      for (const [from, to] of holes) {
+        const d = Math.abs(src.data[i]! - from[0]) + Math.abs(src.data[i + 1]! - from[1]) + Math.abs(src.data[i + 2]! - from[2]);
+        if (d > 18) continue;
+        lit.data[i] = to[0];
+        lit.data[i + 1] = to[1];
+        lit.data[i + 2] = to[2];
+        lit.data[i + 3] = 255;
+        break;
+      }
+    }
+  }
+  return { base, lit };
+}
+
 /** A stone pedestal for the golden sheep statue. */
 export function pedestalPx(): Px {
   return rowsToPx(
@@ -829,17 +875,49 @@ export function pedestalPx(): Px {
   );
 }
 
+/** Swap exact opaque colors ("#rrggbb" -> any color), e.g. a seasonal palette for a real sprite. */
+export function remapPx(src: Px, map: Readonly<Record<string, string>>): Px {
+  const out = newPx(src.width, src.height);
+  out.data.set(src.data);
+  const to = new Map<number, RGBA>();
+  for (const [from, col] of Object.entries(map)) {
+    const f = parseColor(from);
+    to.set((f[0] << 16) | (f[1] << 8) | f[2], parseColor(col));
+  }
+  for (let i = 0; i < src.data.length; i += 4) {
+    if (src.data[i + 3]! < 255) continue; // soft shadows keep their color
+    const c = to.get((src.data[i]! << 16) | (src.data[i + 1]! << 8) | src.data[i + 2]!);
+    if (!c) continue;
+    out.data[i] = c[0];
+    out.data[i + 1] = c[1];
+    out.data[i + 2] = c[2];
+  }
+  return out;
+}
+
 /**
- * Winter barn: the grey-brown shingles (low saturation, warm hue) above `maxY` get a blanket of
- * snow, keeping the shingle texture as soft blue shading. Red walls & white trim are untouched.
+ * Winter barn: the brown shingles (low saturation, warm hue) above `maxY` get a blanket of snow,
+ * keeping the shingle texture as soft blue shading. The dark seams between shingles soften to blue
+ * too, so the snow doesn't look cracked; the roof's silhouette and eave line (next to sky, trim or
+ * walls) stay dark. Red walls, white trim and the metal vent are untouched.
  */
 export function snowRoofPx(src: Px, maxY: number): Px {
   const out = newPx(src.width, src.height);
   out.data.set(src.data);
+  const W = src.width;
+  const H = Math.min(maxY, src.height);
   const ramp = ["#5d6f94", "#a9bcdb", "#cbdaf0", "#e4edf9", "#f6f9ff", "#ffffff"].map(parseColor);
-  for (let y = 0; y < Math.min(maxY, src.height); y++) {
-    for (let x = 0; x < src.width; x++) {
-      const i = (y * src.width + x) * 4;
+  const seam = parseColor("#8fa3c8");
+  // Per pixel: 0 transparent, 1 shingle, 2 dark line, 3 anything else, 4 a seam already softened.
+  const SHINGLE = 1;
+  const DARK = 2;
+  const OTHER = 3;
+  const SOFT = 4;
+  const kind = new Uint8Array(W * src.height);
+  const level = new Float32Array(W * src.height);
+  for (let y = 0; y < src.height; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
       if (src.data[i + 3]! < 200) continue;
       const r = src.data[i]! / 255;
       const g = src.data[i + 1]! / 255;
@@ -848,21 +926,45 @@ export function snowRoofPx(src: Px, maxY: number): Px {
       const min = Math.min(r, g, b);
       const sat = max === 0 ? 0 : (max - min) / max;
       const l = r * 0.3 + g * 0.59 + b * 0.11;
-      if (l > 0.82 || l < 0.1) continue; // white trim / outlines stay
       let hue = 0;
       if (max > min) {
         const d = max - min;
         hue = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
         hue = (hue * 60 + 360) % 360;
       }
-      const brownish = sat < 0.6 && hue >= 12 && hue <= 50;
-      const greyish = sat < 0.18 && r >= b;
-      if (!brownish && !greyish) continue; // red walls, doors, the metal vent
-      const k = 1 + Math.min(ramp.length - 2, Math.max(0, Math.round(((l - 0.13) / 0.36) * (ramp.length - 2))));
-      const c = ramp[k]!;
-      out.data[i] = c[0];
-      out.data[i + 1] = c[1];
-      out.data[i + 2] = c[2];
+      const shingle = y < H && l >= 0.1 && l <= 0.82 && sat < 0.6 && hue >= 12 && hue <= 50;
+      kind[y * W + x] = shingle ? SHINGLE : l < 0.1 ? DARK : OTHER;
+      level[y * W + x] = l;
+    }
+  }
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= src.height ? 0 : kind[y * W + x]!);
+  const paint = (x: number, y: number, c: RGBA) => {
+    const i = (y * W + x) * 4;
+    out.data[i] = c[0];
+    out.data[i + 1] = c[1];
+    out.data[i + 2] = c[2];
+  };
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (at(x, y) !== SHINGLE) continue;
+      const l = level[y * W + x]!;
+      paint(x, y, ramp[1 + Math.min(ramp.length - 2, Math.max(0, Math.round(((l - 0.13) / 0.36) * (ramp.length - 2))))]!);
+    }
+  }
+  // Two passes, so the spots where two seams cross soften as well.
+  for (let pass = 0; pass < 2; pass++) {
+    const soft: number[] = [];
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (at(x, y) !== DARK) continue;
+        const nb = [at(x, y - 1), at(x, y + 1), at(x - 1, y), at(x + 1, y)];
+        if (nb.some((k) => k === 0 || k === OTHER)) continue;
+        if (nb.filter((k) => k === SHINGLE || k === SOFT).length >= 2) soft.push(y * W + x);
+      }
+    }
+    for (const p of soft) {
+      kind[p] = SOFT;
+      paint(p % W, Math.floor(p / W), seam);
     }
   }
   return out;

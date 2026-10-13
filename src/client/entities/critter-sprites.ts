@@ -147,16 +147,6 @@ export const BUNNY_PAL: Pal = {
   K: "#6d4a2c",
 };
 export const FROG_PAL: Pal = { o: "#1f3a18", G: "#6cbc4a", g: "#4a9334", y: "#d8e88a", e: "#101810", W: "#ffffff" };
-export const JUNIMO_PAL: Pal = {
-  o: "#1d3a1a",
-  J: "#7ad25a",
-  j: "#58aa3e",
-  h: "#b4f08c",
-  e: "#141414",
-  l: "#4aa838",
-  L: "#8be06a",
-  s: "#3c7a2c",
-};
 export const FX_PAL: Pal = { Y: "#ffe27a", W: "#ffffff", y: "#ffb43c", P: "#ff9ad8" };
 export const STARDROP_PAL: Pal = {
   o: "#3a1250",
@@ -166,14 +156,6 @@ export const STARDROP_PAL: Pal = {
   q: "#5e1f94",
   W: "#ffffff",
   Q: "#ff8ae0",
-};
-export const WITCH_PAL: Pal = {
-  D: "#1c1228",
-  d: "#3a2852",
-  G: "#86d46e",
-  Y: "#5c3e24",
-  y: "#a8844a",
-  e: "#ffe066",
 };
 export const JACK_PAL: Pal = {
   o: "#4a1a08",
@@ -200,7 +182,6 @@ export const BOUQUET_PAL: Pal = {
   R: "#e0383c",
 };
 export const CLOVER_PAL: Pal = { o: "#1f4a1a", L: "#a2ec7a", G: "#68c84a", g: "#34802a", v: "#e2ffc4", s: "#2f6e26" };
-export const CAT_PAL: Pal = { o: "#2a2026", C: "#8a7f80", c: "#6a5f62", W: "#e8ddd0", e: "#1a1418", n: "#f08a9a" };
 
 export const SNOWMAN_PAL: Pal = {
   o: "#4a5a7a",
@@ -211,6 +192,58 @@ export const SNOWMAN_PAL: Pal = {
   R: "#d8343c",
   r: "#a51f2e",
   k: "#5a3a2a",
+};
+
+/** The perched owl, in the real critters sheet's owl browns (its flying frames are real). */
+export const OWL_PAL: Pal = {
+  o: "#4a2604", // outline
+  D: "#874a00", // wing shade
+  M: "#ad6200",
+  L: "#d88a2b", // chest
+  l: "#e8a850",
+  C: "#fbe3b0", // face disc
+  c: "#e9c48a",
+  Y: "#ffc21f", // eyes
+  K: "#1e1008",
+  B: "#ffc21f", // beak
+  b: "#c27a12",
+  F: "#e4971f", // talons
+  s: "#874a00", // chest speckles
+};
+export const LADYBUG_PAL: Pal = {
+  R: "#e8302a",
+  r: "#a81c22",
+  W: "#ffa08c", // shine
+  K: "#1c1218",
+  w: "rgba(244,240,255,0.85)", // wings
+  x: "rgba(200,196,224,0.7)",
+};
+export const GOLDBUG_PAL: Pal = { ...LADYBUG_PAL, R: "#ffd23a", r: "#d08a10", W: "#fffbe0", K: "#5a3410" };
+export const BEE_PAL: Pal = {
+  Y: "#ffd23a",
+  y: "#d89a1c",
+  h: "#fff3a0", // fuzz highlight
+  k: "#2e2018",
+  K: "#1a1210",
+  W: "rgba(244,250,255,0.9)", // wings
+  w: "rgba(200,220,240,0.6)",
+};
+
+/** The Bumblesteed: a ladybug knight (helmet, plume, lance) riding a bumblebee. */
+export const STEED_PAL: Pal = {
+  ...BEE_PAL,
+  R: "#e8302a", // shell
+  r: "#a81c22",
+  e: "#ffa08c", // shell shine
+  B: "#1c1218", // knight's head & spots
+  E: "#fff6e0", // eyes
+  S: "#eef2f8", // helmet
+  s: "#a3aec4",
+  o: "#3c3a52", // helmet outline
+  P: "#ff6fa8", // plume
+  l: "#f0d7a0", // lance
+  d: "#a87c48",
+  T: "#ffffff", // lance tip
 };
 
 export const SPRITES: Record<string, PixelSprite> = {
@@ -800,56 +833,6 @@ export const SPRITES: Record<string, PixelSprite> = {
       "oGo....oGo",
     ],
   },
-  "junimo.green.0": {
-    pal: JUNIMO_PAL,
-    rows: [
-      "....oo.....",
-      "...oLlo....",
-      "....os.....",
-      "..ooooooo..",
-      ".oJhhJJJJo.",
-      "oJhJJJJJJJo",
-      "oJJeJJJeJJo",
-      "oJJeJJJeJJo",
-      "oJJJJJJJJJo",
-      ".ojJJJJJjo.",
-      "..ojjjjjo..",
-      "..oo...oo..",
-    ],
-  },
-  "junimo.green.1": {
-    pal: JUNIMO_PAL,
-    rows: [
-      "............",
-      ".....oo.....",
-      "....oLlo....",
-      ".....os.....",
-      ".oooooooooo.",
-      "oJhhJJJJJJJo",
-      "oJJJeJJJeJJo",
-      "oJJJeJJJeJJo",
-      "ojJJJJJJJJjo",
-      ".ojjjjjjjjo.",
-      ".oo......oo.",
-    ],
-  },
-  "junimo.green.2": {
-    pal: JUNIMO_PAL,
-    rows: [
-      "....oo.....",
-      "...oLlo....",
-      "....os.....",
-      "..ooooooo..",
-      "oooJhJJJJooo",
-      "oJoJJJJJJoJo",
-      ".ooeJJJeJoo.",
-      "..oeJJJeJo..",
-      "..oJJJJJJo..",
-      "...ojjjjo...",
-      "...oJ..Jo...",
-      "...oo..oo...",
-    ],
-  },
   "fx.sparkle.0": {
     pal: FX_PAL,
     rows: [
@@ -898,25 +881,6 @@ export const SPRITES: Record<string, PixelSprite> = {
       ".oPPpo....oPppo.",
       ".oPpo......oqpo.",
       ".ooo........ooo.",
-    ],
-  },
-  "critter.witch": {
-    pal: WITCH_PAL,
-    rows: [
-      "...............DD.................",
-      ".............DDDd.................",
-      "...........DDDDDD.................",
-      "..........DDDDDDDD................",
-      "............DDDDDDDD..............",
-      ".............DDDDDDDDDD...........",
-      "................DDDDD.............",
-      ".........DDDDDDDDDDDDGG...........",
-      "......DDDDDDDDDDDDDDDDG...........",
-      "....DDDDDDDDDDDDDDDDDD............",
-      "..DDDDDDDDDDDDDDDDDDD.............",
-      "yyYYYYYYYYYYYYYYYYYYYYYYYYYYYYY...",
-      "yYyyy...DDDD....DDD...............",
-      "yyy......DD......DD...............",
     ],
   },
   "world.jack.lit": {
@@ -1007,38 +971,6 @@ export const SPRITES: Record<string, PixelSprite> = {
       "............s",
     ],
   },
-  "critter.cat.sit": {
-    pal: CAT_PAL,
-    rows: [
-      ".o......o...",
-      "oCo....oCo..",
-      "oCcooooocCo.",
-      "oCCCCCCCCCo.",
-      "oCeCCCCCeCo.",
-      "oCWWCnCWWCo.",
-      ".oCWWWWWCo..",
-      "..oCCCCCo...",
-      ".oCCWWWCCo..",
-      ".oCCWWWCCoo.",
-      ".oCCCCCCCocoo",
-      ".oCcoCoCCCCo.",
-      "..oooooooooo.",
-    ],
-  },
-  "critter.cat.sleep": {
-    pal: CAT_PAL,
-    rows: [
-      "....oooooo....",
-      "..ooCCCCCCoo..",
-      ".oCCcCCCCcCCo.",
-      "oCCoCoCCoCoCCo",
-      "oCCCCCCCCCCCCo",
-      "oCcCooCCooCcCo",
-      "oCCCCCnnCCCCco",
-      ".oCCWWWWWWCco.",
-      "..oooooooooo..",
-    ],
-  },
   "fox.lie.1": {
     pal: FOX_PAL,
     rows: [
@@ -1075,6 +1007,109 @@ export const SPRITES: Record<string, PixelSprite> = {
       "kWWWWWWwok.",
       ".oWWkWwwo..",
       "..ooooooo..",
+    ],
+  },
+  // A barn-owl-ish little owl, perched and facing you (blink / look frames are derived in critter-art.ts).
+  "critter.owl.perch": {
+    pal: OWL_PAL,
+    rows: [
+      "..o.......o..",
+      ".oDo.....oDo.",
+      ".oMDoooooDMo.",
+      "oDMMMMMMMMMDo",
+      "oMcCCcMcCCcDo",
+      "oMCYYCMCYYCDo",
+      "oMCYKCBCKYCDo",
+      "oMccCcbcCccDo",
+      "oMDlLLLLLlDDo",
+      "oMDLsLLLsLDDo",
+      "oMDLLLsLLLDDo",
+      ".oMDsLLLsDDo.",
+      ".oMDDLsLDDDo.",
+      "..oDDDDDDDo..",
+      "...oFFoFFo...",
+    ],
+  },
+  // Ladybug, seen from above, crawling right: an oval red shell with spots and a little black head.
+  "critter.ladybug.0": {
+    pal: LADYBUG_PAL,
+    rows: [
+      ".WRr..",
+      "RKRRrK",
+      "RRrKrK",
+      ".rrr..",
+    ],
+  },
+  // Taking off: wings out, fluttering.
+  "critter.ladybug.fly.0": {
+    pal: LADYBUG_PAL,
+    rows: [
+      "w...w.",
+      ".WRr..",
+      "RKRRrK",
+      "RRrKrK",
+      ".rrr..",
+    ],
+  },
+  "critter.ladybug.fly.1": {
+    pal: LADYBUG_PAL,
+    rows: [
+      ".x.x..",
+      "xWRrx.",
+      "RKRRrK",
+      "RRrKrK",
+      ".rrr..",
+    ],
+  },
+  // A fuzzy bumblebee flying right; two wing frames flicker.
+  "critter.bee.0": {
+    pal: BEE_PAL,
+    rows: [
+      "..WW..",
+      ".khkYK",
+      "kYkYkK",
+      ".kykk.",
+    ],
+  },
+  "critter.bee.1": {
+    pal: BEE_PAL,
+    rows: [
+      ".w..w.",
+      ".khkYK",
+      "kYkYkK",
+      ".kykk.",
+    ],
+  },
+  // The Bumblesteed, galloping right: the knight's red dome shell, a helmet with a plume and a
+  // couched lance, on a striped bee whose wings beat behind the saddle (two frames).
+  "critter.bumblesteed.0": {
+    pal: STEED_PAL,
+    rows: [
+      "........P......",
+      "..ww...oSo.....",
+      ".wWWw.oSSso....",
+      "..wwrRRoBEo....",
+      "...rReRRBBBdllT",
+      "..rRBRRBRr.....",
+      "..khYkhYkKK....",
+      ".KkYYkYYkKEK...",
+      "..kyykyykKK....",
+      "...k...k.......",
+    ],
+  },
+  "critter.bumblesteed.1": {
+    pal: STEED_PAL,
+    rows: [
+      "........P......",
+      ".......oSo.....",
+      "......oSSso....",
+      "....rRRoBEo....",
+      ".w.rReRRBBBdllT",
+      "wWwrRBRRBRr....",
+      ".w.khYkhYkKK...",
+      ".KkYYkYYkKEK...",
+      "..kyykyykKK....",
+      "...k...k.......",
     ],
   },
 };

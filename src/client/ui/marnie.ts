@@ -1,4 +1,5 @@
-// Marnie's Ranch: buying a sheep = adding a plan. Also the "Edit sheep" form.
+// "Buy a Sheep" (the ranch): buying a sheep = adding a plan. Also the "Edit sheep" form.
+// No shopkeeper here: the lamb for sale does the talking (well, the baa-ing), plus a narrator.
 
 import "./marnie.css";
 import { sfx } from "../audio";
@@ -6,62 +7,69 @@ import { pick } from "../engine/game";
 import { api, pastureSheep, store } from "../net";
 import { daysBetween, parseDayKey, stardewDate } from "../../shared/calendar";
 import { CATEGORIES, CATEGORY_LABELS, LIMITS, type Category, type Sheep, type SheepPatch } from "../../shared/types";
-import { checkLink, farmMoment, friendlyError } from "./animal-common";
+import { checkLink, crispPx, farmMoment, friendlyError, realDateLabel } from "./animal-common";
+import { SheepSprite } from "./animal-sprite";
 import { el, openDialog, registerMenu, relativeDays, spriteIcon, toast, typewriter, type DialogHandle } from "./dom";
 import { categoryIcon } from "./marnie-art";
-import { PLACEHOLDERS, rollIdea } from "./marnie-ideas";
 
 export function initMarnie(): void {
-  registerMenu("marnie", (arg?: { date?: string }) => openMarnie(arg));
-  registerMenu("editSheep", (id: string) => openEditSheep(id));
+  registerMenu("marnie", (arg?: { date?: string }) => openBuySheep(arg));
+  // arg: a sheep id, or { id, focus: "date" } to jump straight to the date ("No date yet. Pick one?").
+  registerMenu("editSheep", (arg?: string | { id: string; focus?: "date" }) => {
+    if (typeof arg === "string") openEditSheep(arg);
+    else if (arg?.id) openEditSheep(arg.id, arg.focus);
+  });
 }
 
-// ---------- Marnie's lines ----------
+// ---------- the narrator (and the lamb) ----------
 
 const GREETINGS = [
-  "Oh, hi! Looking to add a sheep to the flock?",
-  "Hello, you two! What'll this one be?",
-  "Every good plan starts with a sheep. That's what I always say.",
-  "Back again? The sheep have missed you.",
-  "Shane says hi. Well, he grunted. Same thing.",
-  "Jas wants to name the next lamb. Don't let her pick “Sir Fluffington” again.",
-  "A new sheep? Wonderful! Every plan deserves a fluffy friend.",
-  "These little ones are well-fed and ready for an adventure.",
-  "I've got just the sheep for you. Fluffy, friendly, slightly judgmental.",
-  "Lewis came by asking about you two. Don't worry, I didn't tell him anything.",
+  "A fluffy new friend is waiting for a plan!",
+  "Every good plan starts with a sheep.",
+  "Baa! (This lamb would like a plan, please.)",
+  "One lamb, freshly fluffed, ready for an adventure.",
+  "Name it after something you two want to do!",
+  "This little one has been practicing its baa all morning.",
+  "Fluffy, friendly, slightly judgmental. Perfect for a plan.",
+  "The flock is ready to grow!",
+  "Psst. The lamb is already excited. No pressure.",
+  "A new plan? The pasture has room for one more.",
 ];
 
-function greetingFor(): string {
+function greetingFor(date: string | null): string {
   const m = farmMoment();
   const now = m.now;
   const flock = pastureSheep().filter((s) => s.shearedAt === null).length;
   const h = now.getHours();
   const special: string[] = [];
-  if (h >= 22 || h < 5) special.push("Oh! You're up late. The sheep are asleep, but I can still help.");
-  if (h >= 5 && h < 9) special.push("Mornin'! The sheep are up early today, just like you.");
-  if (now.getDay() === 3) special.push("Pierre's is closed on Wednesdays, so you came to me? Smart.");
-  if (now.getDay() === 1 || now.getDay() === 2) special.push("Technically I'm closed today... but for you two? Anything.");
-  if (m.weather === "rain" || m.weather === "storm") special.push("Come in out of the rain! The sheep are all huddled up.");
+  if (date) {
+    const d = parseDayKey(date);
+    if (d) special.push(`A plan for ${realDateLabel(d)}? This lamb loves a date on the calendar.`);
+  }
+  if (h >= 22 || h < 5) special.push("Shh... the flock is asleep. This lamb stayed up just for you two.");
+  if (h >= 5 && h < 9) special.push("Good morning! The lambs are up early today, just like you.");
+  if (m.weather === "rain" || m.weather === "storm") special.push("The lambs are huddled up out of the rain. This one is peeking out at you.");
   if (m.weather === "snow" || m.season === "winter") special.push("Brr! Good thing sheep come with built-in sweaters.");
-  if (m.season === "fall") special.push("Fall's here! Perfect weather for a cozy plan, if you ask me.");
+  if (m.season === "spring") special.push("Spring lambs are the bounciest lambs.");
+  if (m.season === "summer") special.push("Summer's here! Big skies, big plans.");
+  if (m.season === "fall") special.push("Fall's here! Perfect weather for a cozy plan.");
   if (flock === 0) special.push("Your pasture's looking awfully empty! Let's fix that.");
   if (flock >= 12) special.push("That's a lot of sheep... you two are BUSY! One more can't hurt.");
-  // Specials show up about half the time so the regulars still get airtime.
+  // A date from the calendar always gets its line; other specials show up about half the time.
+  if (date && special.length) return special[0]!;
   return special.length && Math.random() < 0.55 ? pick(special) : pick(GREETINGS);
 }
 
-const ROLL_REACTIONS = [
-  "Ooh, I like that one.",
-  "That one's got a twinkle in its eye.",
-  "A fine sheep, if I do say so myself.",
-  "Now THAT sounds like a good time.",
-  "Oh, how fun!",
-  "I'd do that one. Don't tell Lewis.",
-  "Good pick. The sheep approve.",
-  "That one's very fluffy.",
-];
+const PRICES = ["Free with one hug.", "Free with one hug. Two if it's raining.", "Payment accepted in forehead kisses.", "Free! It goes on your tab of hugs."];
 
-const PRICES = ["Free with one hug.", "Free with one hug. Two if it's raining.", "Payment accepted in forehead kisses.", "Free! I'll put it on your tab of hugs."];
+const PLACEHOLDERS = [
+  "e.g. Pottery class",
+  "e.g. Weekend in Big Sur",
+  "e.g. Bake a Pink Cake",
+  "e.g. Stargaze somewhere dark",
+  "e.g. Night market date",
+  "e.g. Visit a lavender farm",
+];
 
 // ---------- the sheep form (shared by "buy" and "edit") ----------
 
@@ -79,17 +87,15 @@ interface SheepForm {
   values(): FormValues;
   /** Returns an error message (and focuses the bad field) or null. */
   validate(): string | null;
-  /** Called after a dice roll, for Marnie's reaction line. */
-  onRoll?: (rolls: number) => void;
+  /** Bring the date field into view, focus it and (where allowed) pop the date picker open. */
+  focusDate(): void;
 }
 
 let formSeq = 0;
 
-function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: () => void }): SheepForm {
+function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: () => void; onCategory?: (c: Category) => void }): SheepForm {
   const id = `sf${++formSeq}`;
   let category: Category = initial.category ?? "date";
-  let userPickedCategory = initial.category !== undefined && initial.id !== undefined;
-  let rolls = 0;
 
   // Inline, per-field validation messages (the dialog's own error line can be scrolled out of view on phones).
   const errEl = () => el("p", { class: "mr-fielderr", role: "alert", hidden: true });
@@ -99,7 +105,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     errs[which].textContent = msg ?? "";
   };
 
-  // Name + dice
+  // Name
   const nameInput = el("input", {
     class: "sv-input mr-name",
     id: `${id}-name`,
@@ -118,55 +124,27 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     }
   });
 
-  const dice = el(
-    "button",
-    { class: "sv-btn mr-dice", type: "button", "aria-label": "Roll a random idea", title: "Roll a random idea" },
-    spriteIcon("ui.dice", { scale: 2 }),
-  );
-  dice.addEventListener("click", () => {
-    rolls++;
-    const taken = new Set((store.state?.sheep ?? []).map((x) => x.name.toLowerCase()));
-    const idea = rollIdea(userPickedCategory ? category : null, nameInput.value.trim(), taken);
-    nameInput.value = idea.name;
-    setErr("name", null);
-    if (!userPickedCategory) setCategory(idea.category, false);
-    dice.classList.remove("is-rolling");
-    nameInput.classList.remove("is-fresh");
-    void dice.offsetWidth; // restart the wobble animation
-    dice.classList.add("is-rolling");
-    nameInput.classList.add("is-fresh");
-    sfx("pop");
-    form.onRoll?.(rolls);
-  });
-
   const nameField = el(
     "div",
     { class: "sv-field" },
     el("label", { class: "sv-field__label", for: `${id}-name` }, "Name your sheep ", el("span", { class: "mr-soft" }, "(that's the plan!)")),
-    el("div", { class: "mr-namerow" }, nameInput, dice),
+    nameInput,
     errs.name,
   );
 
   // Category chips (real radio buttons, so arrow keys + screen readers just work)
   const chips = el("div", { class: "mr-chips" });
-  const radios = new Map<Category, HTMLInputElement>();
   for (const c of CATEGORIES) {
     const input = el("input", { type: "radio", name: `${id}-cat`, value: c, class: "visually-hidden" });
     input.checked = c === category;
     input.addEventListener("change", () => {
       if (input.checked) {
-        setCategory(c, true);
+        category = c;
         sfx("blip");
+        opts.onCategory?.(c);
       }
     });
-    radios.set(c, input);
     chips.append(el("label", { class: "mr-chip" }, input, el("span", { class: "mr-chip__face" }, spriteIcon(categoryIcon(c)), el("span", null, CATEGORY_LABELS[c]))));
-  }
-  function setCategory(c: Category, byUser: boolean): void {
-    category = c;
-    if (byUser) userPickedCategory = true;
-    const r = radios.get(c);
-    if (r) r.checked = true;
   }
   const catField = el("fieldset", { class: "sv-field mr-fieldset" }, el("legend", { class: "sv-field__label" }, "What kind of plan?"), chips);
 
@@ -186,7 +164,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     const founded = store.state?.foundedAt ?? Date.now();
     const when = stardewDate(d, founded);
     dateHint.textContent =
-      days < 0 ? `${when} · that's in the past! (Time travel is more of a Mr. Qi thing.)` : `${when} · ${relativeDays(days)}${days === 0 ? "!" : ""}`;
+      days < 0 ? `${when} · that's in the past! (Unless you two have a time machine.)` : `${when} · ${relativeDays(days)}${days === 0 ? "!" : ""}`;
   };
   dateInput.addEventListener("input", updateDateHint);
   dateInput.addEventListener("change", updateDateHint);
@@ -267,7 +245,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
       )
     : null;
 
-  const root = el("div", { class: "mr-form" }, nameField, catField, el("div", { class: "mr-grid" }, dateField, linkField), notesField, memoryField);
+  const root = el("div", { class: "mr-form", style: `--ipx: ${crispPx(1.25, 2)}` }, nameField, catField, el("div", { class: "mr-grid" }, dateField, linkField), notesField, memoryField);
 
   const form: SheepForm = {
     root,
@@ -303,6 +281,16 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
       }
       return null;
     },
+    focusDate() {
+      dateField.scrollIntoView({ block: "nearest" });
+      dateInput.focus({ preventScroll: true });
+      try {
+        // Chrome / Android / newer Safari open the native picker; elsewhere focus is enough.
+        dateInput.showPicker?.();
+      } catch {
+        // needs a fresh tap on some browsers; the field is focused and in view anyway
+      }
+    },
   };
   return form;
 }
@@ -328,29 +316,34 @@ function submitVia(getDialog: () => DialogHandle | undefined): () => void {
   };
 }
 
-// ---------- Marnie: buy a sheep ----------
+// ---------- buy a sheep ----------
 
-function openMarnie(arg?: { date?: string }): void {
+function openBuySheep(arg?: { date?: string }): void {
   let dialog: DialogHandle | undefined;
   const date = arg?.date && parseDayKey(arg.date) ? arg.date : null;
-  const form = buildForm({ category: "date", date }, { memory: false, onSubmit: submitVia(() => dialog) });
 
-  // No portraits on this farm (house rule), so Marnie gets a little name plate instead.
+  // The lamb that's for sale: blinks, baas when poked, hops when you pick a kind of plan.
+  const lamb = new SheepSprite(() => {});
+  const lambBox = el("div", { class: "mr-lamb" }, lamb.button);
+
+  const form = buildForm({ category: "date", date }, { memory: false, onSubmit: submitVia(() => dialog), onCategory: () => lamb.hop(false) });
+
   const say = el("span", { class: "mr-line" });
-  const sayBox = el("p", { class: "sv-say mr-say" }, el("span", { class: "mr-speaker" }, "Marnie"), say);
+  const sayBox = el("div", { class: "mr-say" }, lambBox, el("p", { class: "sv-say mr-say__text" }, say));
   const price = el(
     "p",
     { class: "mr-price" },
     el("span", { class: "mr-price__label" }, "Price:"),
-    spriteIcon("marnie.coin", { class: "mr-coin" }),
+    spriteIcon("ranch.coin", { class: "mr-coin" }),
     el("s", null, "8,000g"),
     el("span", null, ` just kidding. ${pick(PRICES)}`),
   );
 
   dialog = openDialog({
-    title: "Marnie's Ranch",
+    title: "Buy a Sheep",
     className: "mr-dialog",
     body: [sayBox, form.root, price],
+    onClose: () => lamb.stop(),
     buttons: [
       { label: "Never mind", kind: "plain" },
       {
@@ -374,7 +367,7 @@ function openMarnie(arg?: { date?: string }): void {
           if (sheep.golden) {
             setTimeout(() => {
               sfx("sparkle");
-              toast("A golden sheep?! Marnie's never seen one like it.", { icon: "ui.star", ms: 4500 });
+              toast("A golden lamb?! It's shimmering. Legendary.", { icon: "ui.star", ms: 4500 });
             }, 700);
           }
         },
@@ -382,28 +375,13 @@ function openMarnie(arg?: { date?: string }): void {
     ],
   });
 
-  void typewriter(say, `“${greetingFor()}”`);
-  form.onRoll = (rolls) => {
-    const line =
-      rolls === 12
-        ? "Can't decide? Lewis once took three seasons to pick a hat."
-        : rolls === 25
-          ? "That dice is going to wear out! (I believe in you.)"
-          : pick(ROLL_REACTIONS);
-    // Don't talk over the greeting while it's still being typed out.
-    if (say.classList.contains("sv-typing")) return;
-    if (Math.random() < 0.5 || rolls === 12 || rolls === 25) {
-      say.textContent = `“${line}”`;
-      sayBox.classList.remove("is-pop");
-      void sayBox.offsetWidth;
-      sayBox.classList.add("is-pop");
-    }
-  };
+  lamb.set({ look: "lamb", golden: false, asleep: false, hat: null, label: "Say hi to the lamb" });
+  void typewriter(say, greetingFor(date));
 }
 
 // ---------- edit a sheep ----------
 
-function openEditSheep(id: string): void {
+function openEditSheep(id: string, focus?: "date"): void {
   const s = store.sheep(id);
   if (!s) {
     toast("That sheep wandered off.");
@@ -417,7 +395,7 @@ function openEditSheep(id: string): void {
   // Sold on the other phone while we were editing? Don't leave a form for a sheep that's gone.
   const unsubscribe = store.changed.on(() => {
     if (store.sheep(id) || !dialog) return;
-    toast(`${s.name} wandered off to Marnie's.`, { icon: "ui.sheep" });
+    toast(`${s.name} trotted off to a cozy new home.`, { icon: "ui.sheep" });
     dialog.close();
   });
 
@@ -458,4 +436,6 @@ function openEditSheep(id: string): void {
       },
     ],
   });
+  // After the dialog's own first-frame focus handling.
+  if (focus === "date") requestAnimationFrame(() => form.focusDate());
 }

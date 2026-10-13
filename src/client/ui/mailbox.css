@@ -1,4 +1,5 @@
-/* The mailbox: Stardew letters on ruled parchment. */
+/* The mailbox: Stardew letters. With mail.png loaded (.is-real) each letter is the real
+   parchment (9-slice, see mailbox-art.ts); otherwise a CSS parchment stands in. */
 
 .sv-dialog.fm-mail-dialog {
   width: min(520px, 100%);
@@ -6,8 +7,15 @@
 
 .fm-mail {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
-  padding: 10px 8px 8px;
+  padding: 10px 6px 8px;
+}
+/* A slightly darker tray so the parchment letters stand out from the menu box. */
+.fm-mail.is-real {
+  padding: 12px 8px 10px;
+  background: rgba(150, 83, 58, 0.14);
+  box-shadow: inset 0 0 0 2px rgba(150, 83, 58, 0.22);
 }
 
 .fm-mail__empty {
@@ -30,6 +38,7 @@
 .fm-letter {
   --line: 1.5em;
   position: relative;
+  min-width: 0;
   margin: 0;
   padding: 10px 14px 10px;
   color: #4a2c1a;
@@ -42,10 +51,6 @@
     inset 0 0 0 3px #fdf3dc,
     inset 0 0 0 4px rgba(201, 160, 106, 0.55),
     0 3px 0 rgba(60, 28, 8, 0.3);
-  transform: rotate(-0.5deg);
-}
-.fm-letter.is-tilt-r {
-  transform: rotate(0.5deg);
 }
 .fm-letter.is-read {
   opacity: 0.8;
@@ -56,9 +61,25 @@
 }
 @keyframes fm-letter-in {
   from {
-    transform: translateY(10px) rotate(-2deg);
+    transform: translateY(10px);
     opacity: 0;
   }
+}
+
+/* The real Stardew letter paper: torn top-right corner, folded bottom-right corner. */
+.fm-mail.is-real .fm-letter {
+  padding: calc(var(--fm-px) * 8 + 4px) calc(var(--fm-px) * 12 + 4px) calc(var(--fm-px) * 9 + 4px) calc(var(--fm-px) * 7 + 6px);
+  color: #4a2a14;
+  background: none;
+  border: 1px solid transparent;
+  border-image: var(--fm-mail-paper) 16 40 14 12 fill / calc(var(--fm-px) * 16) calc(var(--fm-px) * 40) calc(var(--fm-px) * 14) calc(var(--fm-px) * 12) stretch;
+  image-rendering: pixelated;
+  box-shadow: none;
+  filter: drop-shadow(0 calc(var(--fm-px) * 2) 0 rgba(60, 28, 8, 0.28));
+}
+.fm-mail.is-real .fm-letter.is-read {
+  opacity: 0.85;
+  filter: sepia(0.2) drop-shadow(0 calc(var(--fm-px) * 2) 0 rgba(60, 28, 8, 0.2));
 }
 
 .fm-letter__date {
@@ -68,11 +89,14 @@
   text-align: right;
   padding-right: 22px;
 }
+.fm-mail.is-real .fm-letter__date {
+  color: #a0663a;
+}
 .fm-letter__greeting {
   margin: 0;
   font-weight: 700;
 }
-/* Handwritten-ish body on faint ruled lines. */
+/* Body text; ruled lines on the CSS paper only (the real letter is plain parchment). */
 .fm-letter__body {
   margin: 2px 0 0;
   line-height: var(--line);
@@ -83,6 +107,10 @@
   background-size: 100% var(--line);
   background-position: 0 -1px;
 }
+.fm-mail.is-real .fm-letter__body {
+  line-height: 1.45;
+  background: none;
+}
 .fm-letter__foot {
   display: flex;
   align-items: flex-end;
@@ -92,13 +120,16 @@
 }
 .fm-letter__sign {
   flex: 1;
+  min-width: 0;
   margin: 0;
   text-align: right;
+  overflow-wrap: anywhere;
   font-family: "Bradley Hand", "Segoe Print", "Noteworthy", "Comic Sans MS", cursive;
   font-size: 1.15em;
   font-weight: 700;
   color: #7a3a1c;
-  transform: rotate(-3deg);
+  /* A slight slant, kept small so a long (wrapped) sheep name doesn't dip into the button below. */
+  transform: rotate(-2deg);
   transform-origin: 100% 50%;
 }
 /* Items attached to a letter sit in a little slot, like in the game. */
@@ -116,18 +147,22 @@
   image-rendering: pixelated;
 }
 .fm-letter__action {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
   margin-top: 6px;
   min-height: 40px;
   padding: 4px 0;
   font: inherit;
   font-weight: 700;
+  text-align: left;
   color: #8a3c0e;
   background: none;
   border: 0;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
+  overflow-wrap: anywhere;
   touch-action: manipulation;
 }
 .fm-letter__action:hover,
@@ -136,7 +171,7 @@
   outline: none;
 }
 
-/* Red wax seal with a heart on new letters. */
+/* Red wax seal with a heart on new letters (on the real paper it sits over the torn corner). */
 .fm-letter__seal {
   position: absolute;
   top: -8px;
@@ -159,6 +194,10 @@
   font-size: 13px;
   line-height: 1;
   color: #ffd2c8;
+}
+.fm-mail.is-real .fm-letter__seal {
+  top: -6px;
+  right: -4px;
 }
 
 @media (prefers-reduced-motion: reduce) {

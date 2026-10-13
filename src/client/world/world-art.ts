@@ -4,10 +4,10 @@
 
 import type { Season } from "../../shared/calendar";
 import { DECOR_KINDS, type DecorKind } from "../../shared/types";
-import { draw, has, registerArt, type DrawOpts } from "../engine/sprites";
+import { OBJECT_IDS, objectRegion } from "../art/regions";
+import { draw, has, REGIONS, registerArt, type DrawOpts } from "../engine/sprites";
 import {
   BANG,
-  BEE,
   BILLBOARD,
   BUBBLE,
   CHEST_FALLBACK,
@@ -27,16 +27,20 @@ import {
   blitPx,
   cropPx,
   fruitTreePx,
-  hueShiftPx,
+  jackOLanternPx,
   newPx,
   pedestalPx,
   pondPx,
   rampPx,
+  remapPx,
   rowsToPx,
   snowCapPx,
   type Px,
 } from "./world-pixels";
 import { CRAFT, craftRect, pxCanvas, sheetPx } from "./world-sheets";
+
+/** Stardew item id of the Jack-O-Lantern in objects.png. */
+const JACK_O_LANTERN = 746;
 
 const art = (key: string, a: ArtData): HTMLCanvasElement => {
   const c = pxCanvas(rowsToPx(a.rows, a.pal));
@@ -87,9 +91,9 @@ export function drawArt(ctx: CanvasRenderingContext2D, key: string, x: number, y
 
 export const DECOR_VARIANTS: Partial<Record<DecorKind, number>> = { rarecrow: 8, scarecrow: 2, lamppost: 2, haybale: 2 };
 
-/** Names for kinds with several looks (for the carpenter's shop labels). */
+/** Names for kinds with several looks (for the carpenter's shop labels). Looks, never people. */
 export const VARIANT_NAMES: Partial<Record<DecorKind, string[]>> = {
-  rarecrow: ["Mr. Bones", "The Witch", "Little Green Visitor", "Frosty", "Farmer Jo", "Hoodie", "Squeaky the Mouse", "Tiki Pumpkin"],
+  rarecrow: ["Spooky Skeleton", "Pointy Hat", "Little Green Visitor", "Snowman", "Pigtails", "Hoodie", "Big Grey Mouse", "Tiki Pumpkin"],
   scarecrow: ["Scarecrow", "Deluxe Scarecrow"],
   lamppost: ["Iron Lamp-post", "Wooden Lamp-post"],
   haybale: ["Hay Bale", "Wheat Bundle"],
@@ -154,10 +158,20 @@ function buildDecorations(): void {
     registerArt("decor.campfire.0", pxCanvas(icon));
   }
 
-  const pumpkin = rowsToPx(PUMPKIN.rows, PUMPKIN.pal);
-  registerArt("decor.pumpkin.0", pxCanvas(pumpkin));
-  withWinter("decor.pumpkin.0", pumpkin);
-  registerArt("world.pumpkin.lit", pxCanvas(rowsToPx(PUMPKIN_LIT.rows, PUMPKIN_LIT.pal)));
+  // The pumpkin is Stardew's real Jack-O-Lantern; its carved face glows at night.
+  const jr = objectRegion(JACK_O_LANTERN);
+  const jack = sheetPx(jr.sheet, jr.x, jr.y, jr.w, jr.h);
+  if (jack) {
+    const j = jackOLanternPx(jack);
+    registerArt("decor.pumpkin.0", pxCanvas(j.base));
+    withWinter("decor.pumpkin.0", j.base);
+    registerArt("world.pumpkin.lit", pxCanvas(j.lit));
+  } else {
+    const pumpkin = rowsToPx(PUMPKIN.rows, PUMPKIN.pal);
+    registerArt("decor.pumpkin.0", pxCanvas(pumpkin));
+    withWinter("decor.pumpkin.0", pumpkin);
+    registerArt("world.pumpkin.lit", pxCanvas(rowsToPx(PUMPKIN_LIT.rows, PUMPKIN_LIT.pal)));
+  }
 
   const gnome = rowsToPx(GNOME.rows, GNOME.pal);
   registerArt("decor.gnome.0", pxCanvas(gnome));
@@ -185,7 +199,7 @@ function buildDecorations(): void {
   decorSizes.set("haybale", { w: 16, h: 19 });
   decorSizes.set("beehouse", { w: 16, h: 31 });
   decorSizes.set("campfire", { w: 16, h: 18 });
-  decorSizes.set("pumpkin", { w: 16, h: 15 });
+  decorSizes.set("pumpkin", { w: 16, h: 16 });
   decorSizes.set("gnome", { w: 12, h: 19 });
   decorSizes.set("pond", { w: pond.rim.width, h: pond.rim.height });
   decorSizes.set("flowers", { w: 16, h: 30 });
@@ -294,16 +308,36 @@ function buildStatue(): void {
 
 let builtSeason: Season | null = null;
 
+/**
+ * Autumn palette for the real Tub o' Flowers (exact colors of its sprite): the blue blooms turn
+ * sunflower gold, the purple ones crimson and peach, and the leaves go a warm olive. The reds and
+ * oranges are autumnal already, and the soft shadow under the tub is left alone.
+ */
+const FALL_TUB: Record<string, string> = {
+  "#14347a": "#7a3c0a",
+  "#3f60a8": "#d4861a",
+  "#6c8fdd": "#eeb030",
+  "#45aae0": "#ffc83a",
+  "#a8c3ff": "#ffeb8c",
+  "#7b3e8f": "#82222a",
+  "#c172c1": "#cc4436",
+  "#f7b4d8": "#ffb48a",
+  "#005015": "#2f5a1a",
+  "#009c14": "#5e9420",
+  "#3ed94b": "#a6c83a",
+  "#3a652b": "#4a5a22",
+};
+
 /** (Re)build the decorations that change with the seasons. Cheap; call on season change. */
 export function buildSeasonalArt(season: Season): void {
   if (builtSeason === season) return;
   builtSeason = season;
-  // Tub o' Flowers: spring/summer blooms, autumn colors in fall, an empty snowy tub in winter.
+  // Tub o' Flowers: the real blooms in spring & summer, autumn colors in fall, the real empty tub
+  // (with snow on it) in winter.
   const tub = craftPx(CRAFT.tubOFlowers);
   if (tub) {
     let look: Px = tub;
-    if (season === "fall") look = hueShiftPx(hueShiftPx(hueShiftPx(tub, 280, 360, 40, 1.1), 190, 250, 190, 1.0), 70, 160, -40, 0.9);
-    if (season === "summer") look = hueShiftPx(tub, 280, 350, 60, 1.05);
+    if (season === "fall") look = remapPx(tub, FALL_TUB);
     if (season === "winter") {
       const empty = craftPx(CRAFT.tubEmpty);
       look = empty ? snowCapPx(empty, 2) : snowCapPx(tub, 1);
@@ -410,7 +444,6 @@ function buildObjects(): void {
   art("world.letter", LETTER);
   art("world.bang", BANG);
   art("world.zed", ZED);
-  BEE.forEach((b, i) => art(`world.bee.${i}`, b));
 
   // Fire: the real 4-frame flame from the animations sheet, or hand-drawn flames.
   fireFrames = [];
@@ -437,35 +470,37 @@ export interface ForageDef {
   key: string;
 }
 
-/** Bounding boxes in forage.png (x, y, w, h); icons are centered into 16x16 cells. */
-const FORAGE_RECTS: Record<string, [number, number, number, number]> = {
-  "Wild Horseradish": [7, 6, 16, 16],
-  "Spring Onion": [34, 6, 15, 16],
-  Leek: [62, 6, 16, 16],
-  "Cave Carrot": [90, 9, 8, 14],
-  "Crystal Fruit": [109, 9, 12, 15],
-  "Winter Root": [132, 9, 15, 16],
-  "Spice Berry": [8, 36, 15, 15],
-  Grape: [35, 37, 15, 16],
-  Salmonberry: [61, 37, 15, 14],
-  Blackberry: [86, 36, 15, 16],
-  "Wild Plum": [132, 39, 11, 11],
-  "Sweet Pea": [9, 67, 14, 14],
-  Daffodil: [35, 68, 16, 16],
-  Dandelion: [63, 66, 14, 16],
-  Crocus: [88, 69, 15, 14],
-  Holly: [113, 69, 15, 15],
-  "Fiddlehead Fern": [134, 66, 16, 16],
-  "Common Mushroom": [10, 100, 12, 12],
-  Morel: [39, 98, 9, 15],
-  Chanterelle: [65, 99, 14, 14],
-  "Red Mushroom": [90, 99, 12, 14],
-  "Purple Mushroom": [112, 99, 14, 14],
-  Hazelnut: [11, 130, 12, 13],
-  "Snow Yam": [115, 131, 14, 14],
-  Acorn: [12, 157, 11, 14],
-  "Maple Seed": [37, 160, 14, 11],
-  "Pine Cone": [67, 158, 13, 16],
+/**
+ * Forage (and the seeds trees drop) are real objects.png icons, by Stardew item id. The ids the
+ * shared regions module knows come from OBJECT_IDS; the rest are the same game's ids.
+ */
+const FORAGE_IDS: Record<string, number> = {
+  "Wild Horseradish": 16,
+  Daffodil: OBJECT_IDS.daffodil,
+  Leek: OBJECT_IDS.leek,
+  Dandelion: OBJECT_IDS.dandelion,
+  "Spring Onion": 399,
+  Salmonberry: 296,
+  Morel: 257,
+  "Common Mushroom": OBJECT_IDS.commonMushroom,
+  "Spice Berry": OBJECT_IDS.spiceBerry,
+  Grape: 398,
+  "Sweet Pea": OBJECT_IDS.sweetPea,
+  "Fiddlehead Fern": 259,
+  "Red Mushroom": 420,
+  Blackberry: OBJECT_IDS.blackberry,
+  Hazelnut: OBJECT_IDS.hazelnut,
+  "Wild Plum": 406,
+  Chanterelle: 281,
+  "Purple Mushroom": 422,
+  "Crystal Fruit": OBJECT_IDS.crystalFruit,
+  Holly: OBJECT_IDS.holly,
+  "Snow Yam": 416,
+  "Winter Root": 412,
+  Crocus: 418,
+  Acorn: 309,
+  "Maple Seed": 310,
+  "Pine Cone": 311,
 };
 
 export const FORAGE_BY_SEASON: Record<Season, string[]> = {
@@ -479,19 +514,18 @@ export function forageKey(name: string): string {
   return `item.forage.${name.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 }
 
+// Registered at import, so the icons work in toasts and menus as soon as objects.png loads.
+for (const [name, id] of Object.entries(FORAGE_IDS)) REGIONS[forageKey(name)] ??= objectRegion(id);
+
+/** A little red berry sprig, for every forage key, in case objects.png never loads. */
 function buildForage(): void {
   const generic = rowsToPx(
     ["....gg....", "...gGGg...", "..gGgg....", ".oRRoRRo..", "oRWRRRRRo.", "oRRRRRRRo.", ".oRRRRRo..", "..ooooo..."],
     { g: "#3f8a3a", G: "#6cc04a", o: "#4a1020", R: "#d8344a", W: "#ffd0d8" },
   );
-  for (const [name, [x, y, w, h]] of Object.entries(FORAGE_RECTS)) {
-    const key = forageKey(name);
-    const src = sheetPx("forage", x, y, w, h);
-    const cell = newPx(16, 16);
-    if (src) blitPx(cell, src, Math.floor((16 - w) / 2), Math.floor((16 - h) / 2));
-    else blitPx(cell, generic, 3, 4);
-    registerArt(key, pxCanvas(cell));
-  }
+  const cell = newPx(16, 16);
+  blitPx(cell, generic, 3, 6);
+  for (const name of Object.keys(FORAGE_IDS)) registerArt(forageKey(name), pxCanvas(cell));
 }
 
 // ---------- entry ----------

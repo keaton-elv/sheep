@@ -406,7 +406,18 @@
     justify-content: center;
   }
   .an-actions .sv-btn {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 48px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .an-actions .an-act--main,
+  .an-actions .an-act--wide {
+    flex-basis: 100%;
+  }
+  .an-actions .an-act--main {
+    order: -1;
   }
 }
 
@@ -431,5 +442,230 @@
   to {
     opacity: 0;
     transform: translate(-50%, -8px);
+  }
+}
+
+/* ---------- lambs, hats ---------- */
+
+.an-chip--lamb {
+  color: #b0476a;
+}
+/* Hat icons (6-16px tall) inside buttons and chips: the small crisp scale, so even the tallest
+   hat stays button-sized and every art pixel lands on whole device pixels. */
+.an-card .an-hatbtn .sv-sprite,
+.an-card .an-chip--hat .sv-sprite {
+  width: calc(var(--w) * var(--ipx-sm, 1.5px));
+  height: calc(var(--h) * var(--ipx-sm, 1.5px));
+}
+.an-card .an-hatbtn .sv-sprite {
+  margin: -4px 0;
+}
+
+/* ---------- the hat picker ---------- */
+
+.an-hatdialog {
+  width: min(500px, 100%);
+}
+/* The fitting room stays pinned while you scroll the hat rack, so you always see the sheep
+   wearing what you just tapped. Filled with the menu box's parchment so tiles slide under it. */
+.an-hat__top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 -4px;
+  padding: 0 4px 8px;
+  background: var(--parchment);
+  border-bottom: calc(var(--px) * 1) dashed rgba(107, 74, 51, 0.35);
+}
+.an-frame--fitting {
+  flex: none;
+}
+.an-scene--fitting {
+  width: 104px;
+  height: 100px;
+}
+.an-scene--fitting .an-poke {
+  width: 88px;
+  height: 88px;
+  margin-left: -44px;
+}
+.an-scene--fitting .an-sprite {
+  width: 88px;
+  height: 88px;
+}
+.an-hat__info {
+  min-width: 0;
+  flex: 1;
+}
+.an-hat__name {
+  margin: 0;
+  font-size: 1.25em;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-shadow: calc(var(--px) * 1) calc(var(--px) * 1) 0 var(--ink-shadow);
+}
+.an-hat__price,
+.an-hat__wallet {
+  margin: 6px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.an-hat__wallet {
+  color: var(--ink-soft);
+  font-size: 0.92em;
+}
+.an-card .an-hat__price .sv-sprite,
+.an-card .an-hat__wallet .sv-sprite {
+  width: calc(var(--w) * var(--ipx-sm, 1.5px));
+  height: calc(var(--h) * var(--ipx-sm, 1.5px));
+}
+.an-hat__wallet b {
+  color: var(--ink);
+}
+.an-hat__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: var(--ok-ink);
+}
+.an-hat__tag--on {
+  color: #8a5a12;
+}
+.an-hat__tag--short {
+  color: var(--danger);
+}
+
+.an-hat__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+  gap: 5px;
+  margin-top: 10px;
+  /* Room for the "wearing it" check badges that poke out of the top row. */
+  padding-top: 4px;
+}
+.an-hat__tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 54px;
+  padding: 3px;
+  font: inherit;
+  color: var(--ink-soft);
+  background: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  border-style: solid;
+  border-width: calc(var(--px) * 3);
+  border-color: transparent;
+  border-image: var(--img-button) 4 fill / calc(var(--px) * 3) stretch;
+  image-rendering: pixelated;
+  transition: transform 80ms ease-out;
+}
+.an-hat__tile .sv-sprite {
+  max-width: 100%;
+  object-fit: contain;
+}
+@media (hover: hover) {
+  .an-hat__tile:hover {
+    transform: translateY(-1px);
+    border-image-source: var(--img-button-hover);
+  }
+}
+.an-hat__tile:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 0 var(--focus)) drop-shadow(0 0 calc(var(--px) * 1.5) var(--focus));
+}
+.an-hat__tile.is-selected {
+  border-image: var(--img-slot) 5 fill / calc(var(--px) * 3) stretch;
+  transform: translateY(1px);
+}
+.an-hat__tile.is-selected .sv-sprite {
+  animation: an-hat-hop 260ms ease-out;
+}
+.an-hat__tile.is-short:not(.is-selected) .sv-sprite {
+  opacity: 0.6;
+}
+.an-hat__none {
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+.an-hat__badge {
+  position: absolute;
+  /* Pokes out of the tile, but no further than the dialog's 4px content padding (a badge past
+     it would make the whole dialog scroll sideways on phones). */
+  top: -4px;
+  right: -4px;
+  display: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  background: var(--ok-ink);
+  border: 2px solid #fff3d6;
+  border-radius: 50%;
+}
+.an-hat__tile.is-current .an-hat__badge {
+  display: grid;
+}
+.an-hat__note {
+  margin: 10px 2px 0;
+  color: var(--ink-soft);
+}
+.an-hat__note:not(:empty) {
+  font-weight: 700;
+}
+.an-hat__note[hidden] {
+  display: none;
+}
+.an-hatdialog .sv-btn.is-blocked {
+  opacity: 0.6;
+}
+.an-hatdialog .sv-dialog__buttons .sv-sprite {
+  width: calc(var(--w) * var(--s, 1) * clamp(1.25px, var(--px), 2px));
+  height: calc(var(--h) * var(--s, 1) * clamp(1.25px, var(--px), 2px));
+}
+@keyframes an-hat-hop {
+  40% {
+    transform: translateY(-3px);
+  }
+}
+
+@media (max-width: 380px) {
+  .an-hat__top {
+    gap: 10px;
+  }
+  .an-scene--fitting {
+    width: 88px;
+    height: 86px;
+  }
+  .an-scene--fitting .an-poke,
+  .an-scene--fitting .an-sprite {
+    width: 72px;
+    height: 72px;
+  }
+  .an-scene--fitting .an-poke {
+    margin-left: -36px;
+  }
+  .an-hat__grid {
+    grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .an-hat__tile.is-selected .sv-sprite {
+    animation: none;
   }
 }

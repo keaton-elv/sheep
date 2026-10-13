@@ -1,9 +1,9 @@
-// Hand-drawn fallback art for the sheep menus (Marnie's portrait, plan-category icons,
-// a tiny sheep and a gold coin). Generated from pixel sketches; real Stardew regions
-// (REGIONS in engine/sprites.ts) replace any of these keys automatically once mapped.
+// Hand-drawn art for the sheep menus: plan-category icons, a tiny sheep and a gold coin.
+// Real Stardew regions (REGIONS in engine/sprites.ts) replace any of these keys automatically
+// once mapped. (No character portraits on this farm.)
 //
-// Keys other modules may reuse: "portrait.marnie", "ui.cat.<category>" for every CATEGORIES
-// entry, "ui.sheep" (16x16 sheep icon), "marnie.coin" (8x8 gold coin).
+// Keys other modules may reuse: "ui.cat.<category>" for every CATEGORIES entry,
+// "ui.sheep" (16x16 sheep icon), "ranch.coin" (8x8 gold coin).
 
 import { pixelArt } from "../engine/pixelart";
 import { has } from "../engine/sprites";
@@ -15,76 +15,6 @@ let registered = false;
 export function registerSheepMenuArt(): void {
   if (registered) return;
   registered = true;
-  pixelArt(
-    "portrait.marnie",
-    [
-      "................................................................",
-      "................................................................",
-      "................................................................",
-      "................................................................",
-      "................................................................",
-      "............................oooooooo............................",
-      "........................ooooJJHHHHHHoooo........................",
-      "......................ooJJHHHHHhHHHHHHHHoo......................",
-      ".....................oJJHHhHHHHhHHHhHHHHHHo.....................",
-      "...................ooJJHHHhHHHHhHHHhHHHHHHHoo...................",
-      "..................oJJHHHHhHHHHhHHHHHhHhHHHHHHo..................",
-      ".................oJJHHHHHhHHKKhKKKKHhHhHHHHHHHo.................",
-      "................oJJHHHHHHhKKJJhJJJJKKhHhHHHHHHHo................",
-      "................oJHHHHHKhJJJHHhHHHHJJhKhHHHHHHHo................",
-      "...............oJJHHHHKHhhHHHhHHHHHHHHhHhHHHHHHHo...............",
-      "...............oJHHHHHHhhhddHhHHHHHHHHhHhHHHHHHHo...............",
-      "..............oJJHHHHHhhhdssdhhHHHHHHHHhhHHHHHHHHo..............",
-      "..............oJHHHHHhhhdssssdhhdHHHHHHhHhHHHHHHHo..............",
-      ".............oJJHHHHHhhhsLLShsddsdHHHHHHhhHHHHHHHho.............",
-      ".............oJHHHHHhhHsLLSSSSssssddhHHHhHhHHHHHHho.............",
-      ".............oJHHHHHhhhhLSSSSSSSssssdddHHHhHHHHHHho.............",
-      ".............oJHHHHHhdsLLSSSSSSSSSSssssddHHhHHHHHho.............",
-      ".............oJHHHHhhdLLSSSSSSSSSSSSSssssdHhHHHHHho.............",
-      ".............oJHHHHhhdLLhhhSSSSSSSSShhhshsdHHHHHHho.............",
-      ".............oJHHHHhdsehSSSSSSSSSSSSSSShsesdHHHHHho.............",
-      ".............oJHHHHhdLLeeeeeSSSSSSSSeeeeessdJHHHHho.............",
-      ".............oJHHHHhdLLwewewSSSSSSSSwewewssdJHHHHho.............",
-      ".............oJHHHHhdLLweeewSSSSSSSSweeewssdJHHHHho.............",
-      ".............oJHHHHhdLLSiiiSSSSSSSSSSiiisssdJHHHhho.............",
-      ".............oJHHHHhdLLSSSSSSSSSSSSSSSSssssdJHHHhho.............",
-      "..............oHHHHhdLLSLLSSSSSSsSSSSSSssssdJHHhho..............",
-      "..............oJHHHhdccSSSSSSSSSsSSSSSSssccdJHHhho..............",
-      "...............oHHHhdLccSSSSSSSsDSSSSSSsccsdJHhho...............",
-      "...............oJHHHdLLSSSSSSSSSSSSSSSSssssdhhhho...............",
-      "................oHHHdLLSSSSDSSSSSSSSDSSssssdhhdo................",
-      "................oJHHHdLSSSSSmMttttMmSSssssdhddhJo...............",
-      ".................oHHHHdLSSSSSmmmmmmSSssssdhhdddddo..............",
-      "..................oHHHHdLSSSSSSSSSSSssssdhhdRRRRro..............",
-      "...................ooHHHdLSSSSSSSSSssssdhddRRRRrrro.............",
-      ".....................oHHhdssSSSSSSssssdhhddrrrrrrrdo............",
-      "......................oohdDDDssssssDDDdhooJdrrrrrdJo............",
-      "........................oosssDDDDDDDDDoo..oJdddddJJho...........",
-      "..........................osssssssDsso....oJHHHHHHHho...........",
-      "..........................osssssssssso....oJHHHhHHHho...........",
-      "..........................oDDDDDDDDDDo.....oHHJhHHhho...........",
-      "....................ooooooYxQQQQQgggxyooooogdHJhHHhho...........",
-      ".................oooxQGxYYYYxGGGgggxyyyxQgggdJHhHHhho...........",
-      "..............oooAAaxQGGxYYYYxGgggxyyyxQQgggdJHHhHhho...........",
-      "...........oooxAAAAaaxGGGxYYYYxggxyyyxQQGgxadJHHJHhho...........",
-      "..........oQQGxAAAAaaxQGGGxYYYYxxyyyxQQGGgxadJHHhHhhdo..........",
-      ".........oQQGGgxAAAaaxQGGGGxYYYyyyyxQQGGGgxadJHJhHhhdQo.........",
-      "........oQQGGGgxAAAAaxQGGGGGxYyyyyxQQGGGggxaadHHhHhhQQQo........",
-      ".......oQQGGGGgxAAAAaxQGGGGGGxyyZxQQGGGGggxaadJHhHhhQQGGo.......",
-      "......oQQGGGGGgxAAAAaaxGGGGGGGxyZQQGGGGGgxAaadJHhHhhQQGGGo......",
-      "......oQGGGGGGGxAAAnaaxggggggggxgggggggggxAaanJHhHhdQQGGGo......",
-      ".....oQQGGGgGGGxAAAbaaxxxxxxxxxxxxxxxxxxxxababJHHhhdgQGGGgo.....",
-      ".....oQGGGgGGGGgxAAabAAAAAAAAAAAAAAAAAAAAAaaadJHHhhdQgGGGgo.....",
-      ".....oQGGGGGgGGgxAAabAAAAAAAbbbbbbbbAAAAAAaaadJHHhdQQQgGGGo.....",
-      "....oQQGGGGGGGGgxAAabAAAAAAAbAARRAAbAAAAAAaaadJHHhdQQGGGGGo.....",
-      "....oQGGGGGGGGGGxAAabAAAAAAAbaarraabAAAAAAaabadHHhdQQGGGGGgo....",
-      "....oQGGGGGGGGGGxAAabAAAAAAAAAAAAAAAAAAAAAaabadJhhdQQGGGGGGo....",
-      "....oQGGGGGGGGGGgxAabAAAAAAAAAAAAAAAAAAAAAaabadJhhdQQGGGGGGo....",
-      "...oQQGGGGGGGGGGgxAabAAAAAAAAAAAAAAAAAAAAAaabadJhdQQQGGGGGGgo...",
-      "...oQGGGGGGGGGGGgxAabAAAAAAAAAAAAAAAAAAAAAaabadJhdQQGGGGGGGgo...",
-    ],
-    { "o": "#3d1a10", "L": "#ffe3c8", "S": "#f8c8a0", "s": "#e9a37c", "D": "#c8735a", "c": "#f39282", "m": "#9c3a34", "M": "#d9645a", "t": "#fff6ee", "K": "#e4935a", "J": "#c26a38", "H": "#9c4f28", "h": "#77381c", "d": "#55240f", "e": "#2b1a2a", "i": "#5a3a6a", "w": "#ffffff", "Q": "#a8cf78", "G": "#79a854", "g": "#567f3a", "x": "#3b5a27", "Y": "#fbf1d6", "y": "#ddc8a0", "Z": "#b09870", "A": "#a8703e", "a": "#80512a", "b": "#5c3618", "n": "#f2cf6a", "R": "#e86a7a", "r": "#b04456" },
-  );
   pixelArt(
     "ui.cat.date",
     [
@@ -262,7 +192,7 @@ export function registerSheepMenuArt(): void {
     { "o": "#5b3a29", "W": "#fff7e3", "w": "#e2d2b0", "F": "#f2d2b6", "E": "#d9a88a", "k": "#2b1b14", "L": "#6b4a34", "c": "#f0a0a0" },
   );
   pixelArt(
-    "marnie.coin",
+    "ranch.coin",
     [
       "..oooo..",
       ".oYYYYo.",

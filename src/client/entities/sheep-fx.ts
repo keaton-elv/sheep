@@ -1,6 +1,6 @@
 // Little sheep effects: dust puffs, wool tufts, golden twinkles, "+♥" floats, the shears swooping
 // in for a snip, and wool items arcing out of a freshly sheared sheep into the chest.
-// Everything lives in fixed pools (no per-frame allocation) and draws in one render pass.
+// Everything lives in fixed pools (no per-frame allocation) and draws in two render passes.
 
 import type { Game } from "../engine/game";
 import { draw, isReal, size } from "../engine/sprites";
@@ -235,10 +235,16 @@ function update(dt: number): void {
 
 const SPARKLE_SEQ = [0, 1, 2, 1, 0];
 
-function drawParticles(ctx: CanvasRenderingContext2D): void {
+/** Interaction feedback (twinkles, "+♥") that should stay bright at night, vs. dust and tufts. */
+function glows(kind: Kind): boolean {
+  return kind === Kind.Sparkle || kind === Kind.Heart;
+}
+
+/** `glowing` picks which half to draw: dust and tufts live in the world, the rest glows. */
+function drawParticles(ctx: CanvasRenderingContext2D, glowing: boolean): void {
   if (liveCount === 0) return;
   for (const p of pool) {
-    if (!p.on) continue;
+    if (!p.on || glows(p.kind) !== glowing) continue;
     const k = p.t / p.life;
     switch (p.kind) {
       case Kind.Puff: {
@@ -363,7 +369,12 @@ function report(err: unknown): void {
   console.error("[sheep-fx]", err);
 }
 
-/** Hook the effects into the game: one update per tick, one render pass above the entities. */
+/**
+ * Hook the effects into the game: one update per tick and two render passes above the entities.
+ * Dust and wool tufts are part of the world (dimmed at night like everything else); the shears,
+ * twinkles, "+♥" and wool flying to the chest are feedback, so they draw above the night overlay
+ * (100) and the glow (110) and stay readable when you two shear a plan in the evening.
+ */
 export function initSheepFx(g: Game): void {
   if (installed) return;
   installed = true;
@@ -376,9 +387,20 @@ export function initSheepFx(g: Game): void {
   });
   g.addPass({
     order: 4,
+    draw(ctx) {
+      try {
+        drawParticles(ctx, false);
+      } catch (err) {
+        report(err);
+      }
+      ctx.globalAlpha = 1;
+    },
+  });
+  g.addPass({
+    order: 111,
     draw(ctx, game) {
       try {
-        drawParticles(ctx);
+        drawParticles(ctx, true);
         drawShears(ctx);
         drawWool(ctx, game);
       } catch (err) {

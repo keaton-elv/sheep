@@ -11,6 +11,10 @@
   /* Stay under the HUD, toolbar and dialogs (we're the first child of #ui). */
   z-index: 0;
   contain: layout style;
+  /* Never laid out against (tags are absolutely positioned): sheep-tags.ts reads these as the
+     notch / home-bar insets so tags stay clear of them. */
+  padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  box-sizing: border-box;
 }
 #ui > .sheep-tags[hidden],
 .sheep-tags[hidden] {
@@ -34,7 +38,8 @@
   background: var(--tag-bg);
   color: var(--tag-ink);
   box-shadow: 0 max(1px, calc(var(--px) * 0.5)) 0 rgba(59, 35, 22, 0.35);
-  font: 600 clamp(11px, calc(var(--px) * 5.5), 15px) / 1.15 "Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  /* Compact on phones (11-12px), roomier and at least 13px on bigger screens (below). */
+  font: 600 clamp(11px, calc(var(--px) * 5.5), 12px) / 1.15 "Pixelify Sans", ui-rounded, system-ui, sans-serif;
   letter-spacing: 0.01em;
   white-space: nowrap;
   pointer-events: none;
@@ -46,6 +51,15 @@
 @media (min-width: 640px) {
   .sheep-tag {
     max-width: 20ch;
+  }
+}
+/* Tablets and desktops (a phone on its side stays compact). */
+@media (min-width: 768px) and (min-height: 500px) {
+  .sheep-tag {
+    max-width: 24ch;
+    padding: 0.12em 0.55em 0.18em;
+    font-size: clamp(13px, calc(var(--px) * 4.25), 16px);
+    letter-spacing: 0.015em;
   }
 }
 
@@ -88,19 +102,29 @@
 .sheep-tag.is-done .sheep-tag__icon {
   color: #3f7a26;
 }
-/* A little "done!" sticker slapped on the corner of the name plate. */
-.sheep-tag__done {
+/* Little stickers slapped on the corner of the name plate: "done!" and "lamb". */
+.sheep-tag__sticker {
   position: absolute;
   top: -0.85em;
-  right: -0.55em;
   padding: 0.02em 0.32em 0.08em;
   border-radius: 0.3em;
-  background: #4f8a32;
-  color: #f4ffe8;
   font-size: 0.68em;
   line-height: 1.1;
+}
+.sheep-tag__done {
+  right: -0.55em;
+  background: #4f8a32;
+  color: #f4ffe8;
   transform: rotate(9deg);
   box-shadow: 0 max(1px, calc(var(--px) * 0.4)) 0 rgba(30, 60, 15, 0.45);
+}
+/* Bought less than a day ago: a baby! */
+.sheep-tag__lamb {
+  left: -0.5em;
+  background: #f7b3c8;
+  color: #6e2440;
+  transform: rotate(-8deg);
+  box-shadow: 0 max(1px, calc(var(--px) * 0.4)) 0 rgba(110, 36, 64, 0.35);
 }
 
 /* Golden sheep get a golden name plate. */
