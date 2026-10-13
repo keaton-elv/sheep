@@ -303,7 +303,7 @@ function sheepAction(id: string | null, label: string): Letter["action"] {
 
 /** Bursts of "bought"/"sheared"/"hatted" (within a few minutes) become one letter; the rest are one letter each. */
 const BURST_MS = 15 * 60 * 1000;
-const BURSTY: ReadonlySet<FarmEventKind> = new Set<FarmEventKind>(["bought", "sheared", "hatted"]);
+const BURSTY: ReadonlySet<FarmEventKind> = new Set<FarmEventKind>(["bought", "sheared", "hatted", "original"]);
 
 function toLetters(events: FarmEvent[], isNew: boolean): Letter[] {
   const groups: FarmEvent[][] = [];
@@ -337,10 +337,13 @@ function groupLetter(kind: FarmEventKind, g: FarmEvent[], isNew: boolean): Lette
   if (kind === "hatted") {
     return { ...base, greeting: "Baa!", body: "Do you like our hats? We match. Sort of...", gift: hatGift(g[0]!.sheepId) };
   }
+  if (kind === "original") {
+    return { ...base, greeting: "Dear farmers,", body: "We ALL went with the ORIGINAL PLAN. Obviously.", gift: null };
+  }
   return {
     ...base,
     greeting: "Dear farmers,",
-    body: `All ${g.length} of us, done! We feel so light...`,
+    body: `${g.length === 2 ? "Both" : `All ${g.length}`} of us, done! We feel so light...`,
     gift: gift(spriteIcon("item.wool")),
   };
 }
