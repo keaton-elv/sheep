@@ -1226,16 +1226,35 @@ function guard(e: Entity, name: string): Entity {
   return e;
 }
 
+/** His face centered (by its visible pixels, not its frame) on a square of at least `size` px. */
+function centeredIcon(src: HTMLCanvasElement, size: number): HTMLCanvasElement {
+  const w = src.width;
+  const h = src.height;
+  const data = src.getContext("2d")?.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; data && y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (data[(y * w + x) * 4 + 3]! > 0) {
+        x0 = Math.min(x0, x);
+        y0 = Math.min(y0, y);
+        x1 = Math.max(x1, x);
+        y1 = Math.max(y1, y);
+      }
+  if (x1 < 0) [x0, y0, x1, y1] = [0, 0, w - 1, h - 1];
+  const bw = x1 - x0 + 1;
+  const bh = y1 - y0 + 1;
+  const side = Math.max(size, bw, bh);
+  const c = document.createElement("canvas");
+  c.width = side;
+  c.height = side;
+  c.getContext("2d")?.drawImage(src, x0, y0, bw, bh, Math.floor((side - bw) / 2), Math.floor((side - bh) / 2), bw, bh);
+  return c;
+}
+
 /** DOM-friendly art: "snickers.icon" (his face, 16x16) and "snickers.sit" (32x32). */
 function registerIcons(): void {
   const head = part("headFront");
-  if (head) {
-    const c = document.createElement("canvas");
-    c.width = 16;
-    c.height = 16;
-    c.getContext("2d")?.drawImage(head, 0, 1);
-    registerArt("snickers.icon", c);
-  }
+  if (head) registerArt("snickers.icon", centeredIcon(head, 16));
   registerArt(
     "snickers.sit",
     composite([

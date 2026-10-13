@@ -575,13 +575,12 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
 }
 
 function welcomeLetter(st: FarmState): Letter {
-  const mine = /snickers/i.test(st.farmName) ? " (Named after me.)" : "";
   return {
     key: "welcome",
     at: st.serverNow,
     greeting: "Humans,",
     body:
-      `Welcome to ${st.farmName}.${mine} Every sheep out there is a plan. Do the thing, then shear the sheep. ` +
+      `Welcome to ${st.farmName}. Every sheep out there is a plan. Do the thing, then shear the sheep. ` +
       "I will be supervising...\n\nP.S. Scratches accepted. Some spots more than others.\nP.P.S. Fancy Feast. Salmon, if you have it.",
     sign: SNICKERS,
     // Signed by Snickers, so his face goes on it (a sheep if his art somehow isn't there).
