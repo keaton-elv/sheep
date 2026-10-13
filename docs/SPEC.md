@@ -77,8 +77,8 @@ and desktop works great too.
 - **Real sprite sheets** replace hand-drawn stand-ins wherever they exist: emotes, craftables (loom, chest,
   scarecrows, rarecrows, lampposts...), tools (shears), objects (wool, cloth, stardrop, forage),
   seasonal tilesets, clock box, billboard, mail paper, title-screen sky and clouds, critters, hats,
-  lambs. (The fence is the log fence from the outdoor tilesets; the fonts are Pixelify Sans with Tiny5
-  digits and capital Z; Snickers is hand-drawn.)
+  lambs. (The fence is the log fence from the outdoor tilesets; the fonts are Pixelify Sans with its 2,
+  3, 5 and capital Z redrawn on its own pixel grid so they can't be misread; Snickers is hand-drawn.)
 - **Lambs:** a newly bought sheep arrives as a lamb (baby sheep sprite) and grows up after a day.
 - **Snickers** replaces the generic farm cat (see Critters). He's on the title page too, and his
   favorite toy (a secret item in the chest) is a piece of string.

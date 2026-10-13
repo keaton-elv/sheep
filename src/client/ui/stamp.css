@@ -1,6 +1,6 @@
 /* ORIGINAL PLAN: the big red rubber stamp, plus the little stamp badge on a sheep's card. */
 
-/* Tiny5's chunky capitals (style.css only borrows its digits). Same file, so it's one download.
+/* Tiny5's chunky capitals, used only for the stamp (the rest of the UI is all Pixelify Sans).
    Every Tiny5 glyph carries one font pixel (0.125em) of space on its right, so each line below gets a
    matching text-indent (that pixel + its letter-spacing) to sit dead centre inside the border. */
 @font-face {
