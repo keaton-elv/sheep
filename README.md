@@ -65,8 +65,11 @@ Changing either one logs every device out.
   sheets can be added one at a time.
 - Sounds live in `src/client/public/sounds/` (short effects as small WAVs, longer ones and the
   ambience loops in `ambience/` as AAC `.m4a`). Each recording is listed in `FILES` in
-  `src/client/audio.ts`. Anything without a recording (baa, meow, the fox's yip, Snickers' licks) is
+  `src/client/audio.ts`. Anything without a recording (the pet sound, Snickers' licks) is
   synthesized.
+- Music lives in `src/client/public/sounds/music/` as `title.m4a`, `spring.m4a`, `summer.m4a`,
+  `fall.m4a` and `winter.m4a`. Convert a download with
+  `afconvert -f m4af -d aac -b 96000 in.mp3 out.m4a`. A missing track just means silence.
 - Raw downloads (from The Spriters Resource) are kept in `assets/raw/` for reference.
 
 Stardew Valley art and sound © ConcernedApe. This is a private, non-commercial fan project.

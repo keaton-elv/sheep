@@ -65,15 +65,28 @@ and desktop works great too.
 ## Updates since the first build
 
 - **No characters or avatars:** no portraits, no speaker nameplates, no character-voiced
-  dialogue. Places can keep their names (the ranch, the carpenter's shop), and letters come
-  from "the farm". The witch easter egg becomes a shooting star.
+  dialogue. Places can keep their names (the ranch, the carpenter's shop). Letters come from the
+  animals (see Copy rules). The witch easter egg becomes a shooting star.
 - **No dice / random-idea button** when adding a sheep.
 - **No Junimos.** More birds, ladybugs and bumblebees instead.
 - **Real Stardew sounds:** effects plus ambience loops (seasonal days, crickets at night, rain, wind, campfire
   crackle), and real animal voices: the Stardew sheep (a goat bleat for lambs), bird tweets, seagulls, a bunny,
   a slug squelch for the banana slug, and a small bark pitched up for Otto. Snickers' voice is a random mix:
   "mow" (cut from a Stardew meow, ~60%), a real meow (~32%) and a funny meow (~8%). Only the pet and lick
-  sounds are synthesized.
+  sounds are synthesized. Dialogs open and close quietly (no sound).
+- **Sound is on by default and plays even with the iPhone's silent switch on.** One obvious off switch:
+  the speaker button by the clock (ON / OFF, remembered per device). Before the first tap it shows
+  "Tap for sound" (browsers only allow audio after one).
+- **Music:** the real soundtrack, quiet and looped with slow fades. The Overture on the title page, then
+  the season's song on the farm (`public/sounds/music/{title,spring,summer,fall,winter}.m4a`; a missing
+  track just means no music). Like the game, the farm goes quiet at night and in the rain. Music On/Off
+  lives in the toolbar's … menu.
+- **Title page:** "Hold it! How would you describe Snickers's beautiful eyes?" (the answer is the
+  password). A plain text field with nothing that iOS reads as a password or contact field, so no
+  AutoFill. Snickers sits on the logo, with the Golden Gate Bridge and the Painted Ladies on the skyline.
+- **Calendar:** Stardew festivals only where something happens on the farm (Spirit's Eve, the Feast of the
+  Winter Star...). The rest of the board is real holidays and Bay Area events.
+- **Page background** follows the season's grass color (and tints the phone's status bar). No scrollbars.
 - **Real sprite sheets** replace hand-drawn stand-ins wherever they exist: emotes, craftables (loom, chest,
   scarecrows, rarecrows, lampposts...), tools (shears), objects (wool, cloth, stardrop, forage),
   seasonal tilesets, clock box, billboard, mail paper, title-screen sky and clouds, critters, hats,
@@ -145,7 +158,7 @@ and desktop works great too.
   - `world/`: layout, ground, fence, barn, objects, decorations, sky, weather
   - `entities/`: sheep, emotes, critters, easter eggs
   - `ui/`: dialog system plus every menu, HUD, toolbar, password gate
-  - `audio.ts`: real sound files with WebAudio synth fallbacks
+  - `audio.ts`: real sound files and music, with WebAudio synth fallbacks
 - **Sprites:** one key per sprite (e.g. `item.wool`). A real sheet region wins when its sheet
   loads, otherwise the hand-drawn fallback under the same key is used.
 - **Backend** (`src/worker`): one Cloudflare Worker. A password cookie gate (HMAC-signed,

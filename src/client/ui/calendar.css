@@ -391,6 +391,35 @@
   top: 3px;
   right: 1px;
 }
+/* Small stuff (clocks, berries, meteor showers) and the later days of a multi-day event: a tiny
+   square instead of another flag, so a busy month stays readable on a phone. */
+.fm-cal__dot {
+  --tint: #8e4fbf;
+  display: inline-block;
+  flex: none;
+  width: calc(var(--fm-px) * 3);
+  height: calc(var(--fm-px) * 3);
+  background: var(--tint);
+  box-shadow: 0 calc(var(--fm-px) * 1) 0 rgba(60, 28, 8, 0.3);
+}
+.fm-cal__dot.is-sf {
+  --tint: #c8442c;
+}
+.fm-cal__dot.is-star {
+  --tint: #ffc93a;
+}
+.fm-cal__dot.is-quiet {
+  --tint: #b98a55;
+}
+.fm-cal__cell .fm-cal__dot.fm-cal__flag {
+  top: 4px;
+  right: 4px;
+}
+.fm-cal__fest .fm-cal__dot.is-big {
+  width: calc(var(--fm-px) * 4);
+  height: calc(var(--fm-px) * 4);
+  margin: 0.35em 6px 0;
+}
 .fm-cal__heads {
   flex: 1;
   min-width: 0;
@@ -486,6 +515,15 @@
 }
 .fm-cal__fest.is-sf .fm-cal__festicon {
   margin-top: 4px;
+}
+/* What you'll see on the farm (jack-o'-lantern, gift, bouquet, berries) sits a touch higher. */
+.fm-cal__fest .fm-cal__festicon.is-item {
+  margin-top: 0;
+}
+/* Small stuff: a plain pencil note, not a party. */
+.fm-cal__fest.is-quiet {
+  background: #fbf1da;
+  box-shadow: inset 0 0 0 1px #e2c79a;
 }
 .fm-cal__fest > span:last-child {
   flex: 1;

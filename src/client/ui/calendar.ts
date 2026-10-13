@@ -7,6 +7,8 @@ import { sfx } from "../audio";
 import { isRetired, store } from "../net";
 import { capitalize, dayKey, daysBetween, monthName, parseDayKey, seasonOf, stardewDate } from "../../shared/calendar";
 import { CATEGORY_LABELS, type FarmState, type Sheep } from "../../shared/types";
+import { has, size } from "../engine/sprites";
+import { isBigThursday, THURSDAY } from "./animal-lore";
 import { openMemory } from "./barn";
 import { billboardSkin, registerCalendarArt } from "./calendar-art";
 import { festivalsOn, type Festival } from "./calendar-festivals";
@@ -31,9 +33,13 @@ function ginkgoSeason(d: Date): boolean {
   return (d.getMonth() === 10 && d.getDate() >= 10) || (d.getMonth() === 11 && d.getDate() <= 10);
 }
 
-/** Some weeks, Thursday is THURSDAY!!!!! (more often when it's actually Thursday). */
+/**
+ * Some weeks, Thursday is THURSDAY!!!!! Decided per date (same as the new-day banner and the
+ * sheep), so the column header gets excited when this week's Thursday is one of those.
+ */
 function thursdayHype(today: Date): boolean {
-  return Math.random() < (today.getDay() === 4 ? 0.5 : 0.12);
+  const monFirst = (today.getDay() + 6) % 7;
+  return isBigThursday(new Date(today.getFullYear(), today.getMonth(), today.getDate() - monFirst + 3, 12));
 }
 
 export function initCalendar(): void {
@@ -128,7 +134,7 @@ function openCalendar(focus?: string): void {
       const key = dayKey(date);
       const plans = byDay.get(key) ?? [];
       const fests = festivalsOn(date, state?.foundedAt);
-      const fest = fests[0] ?? null;
+      const mark = cellMark(fests);
       const woolly = plans.filter((p) => p.shearedAt === null).length;
       const label = [
         `${monthName(viewM)} ${day}`,
@@ -155,7 +161,7 @@ function openCalendar(focus?: string): void {
             key === todayKey ? "is-today" : "",
             key === selected ? "is-selected" : "",
             plans.length ? "has-plans" : "",
-            fest ? "is-festival" : "",
+            mark ? "is-festival" : "",
             daysBetween(today, date) < 0 ? "is-past" : "",
             date.getDay() === 0 || date.getDay() === 6 ? "is-weekend" : "",
           ].join(" "),
@@ -164,7 +170,7 @@ function openCalendar(focus?: string): void {
           title: fests.length ? fests.map((f) => f.name).join(" · ") : undefined,
         },
         el("span", { class: "fm-cal__num" }, String(day)),
-        fest ? festIcon(fest, true) : null,
+        mark,
         plans.length ? heads : null,
       );
       cell.addEventListener("click", () => {
@@ -223,9 +229,10 @@ function openCalendar(focus?: string): void {
     let quip = QUIET_DAY[(date.getDate() + date.getMonth()) % QUIET_DAY.length]!;
     if (ginkgoSeason(date) && date.getDate() % 2 === 0) quip = "Wide open... perfect for a ginkgo walk.";
     if (date.getDay() === 3) quip = "Wine Wednesday... and wide open.";
-    if (date.getDay() === 4 && hype) quip = "...and nothing planned?!";
+    const big = isBigThursday(date);
+    if (big) quip = "...and nothing planned?!";
     if (rel < 0) quip = "Nothing happened here... or nobody wrote it down.";
-    const dayName = date.getDay() === 4 && hype ? "THURSDAY!!!!!" : DOW_FULL[date.getDay()];
+    const dayName = big ? THURSDAY : DOW_FULL[date.getDay()];
 
     return el(
       "div",
@@ -233,12 +240,17 @@ function openCalendar(focus?: string): void {
       el(
         "h3",
         { class: "fm-cal__dayname" },
-        `${dayName}${hype && date.getDay() === 4 ? "" : ","} ${monthName(date.getMonth())} ${date.getDate()}`,
+        `${dayName}${big ? "" : ","} ${monthName(date.getMonth())} ${date.getDate()}`,
         date.getDay() === 3 ? spriteIcon("ui.wineglass", { class: "fm-cal__wine" }) : null,
       ),
       el("p", { class: "fm-cal__sub" }, sub),
       ...fests.map((f) =>
-        el("p", { class: `fm-cal__fest ${f.sf ? "is-sf" : ""}` }, festIcon(f, false), el("span", null, el("b", null, f.name), " ", f.note)),
+        el(
+          "p",
+          { class: `fm-cal__fest ${f.sf ? "is-sf" : ""} ${f.quiet ? "is-quiet" : ""}` },
+          f.quiet && !iconKey(f) ? festDot(f, false) : festIcon(f, false),
+          el("span", null, el("b", null, f.name), " ", f.note),
+        ),
       ),
       plans.length ? list : el("p", { class: "fm-cal__quiet" }, state ? quip : "Pinning it up..."),
       state
@@ -353,12 +365,46 @@ function openCalendar(focus?: string): void {
 }
 
 /**
- * A festival's marker: the real waving purple pennant (the gold star for farm days, a little
- * Golden Gate for Bay Area days), with the hand-drawn flag as a fallback. `small` = the 3/4-size
+ * What a day cell shows for its events: one marker at most. The first flagged event gets its
+ * flag (or what shows up on the farm); otherwise small stuff gets a dot; otherwise nothing.
+ */
+function cellMark(fests: Festival[]): HTMLElement | null {
+  const flag = fests.find((f) => (f.mark ?? "flag") === "flag");
+  if (flag) return festIcon(flag, true);
+  const dot = fests.find((f) => f.mark === "dot");
+  return dot ? festDot(dot, true) : null;
+}
+
+/** The event's farm sprite, if it has one and it's registered. */
+function iconKey(fest: Festival): string | null {
+  return fest.icon && has(fest.icon) ? fest.icon : null;
+}
+
+/** A little colored square: small stuff, and later days of a multi-day event. */
+function festDot(fest: Festival, small: boolean): HTMLElement {
+  const kind = fest.star ? "is-star" : fest.sf ? "is-sf" : fest.tint ? "" : fest.quiet ? "is-quiet" : "is-fest";
+  return el("span", {
+    class: `fm-cal__dot ${kind} ${small ? "fm-cal__flag" : "fm-cal__festicon is-big"}`,
+    style: fest.tint ? `--tint: ${fest.tint}` : undefined,
+    "aria-hidden": "true",
+  });
+}
+
+/**
+ * A festival's marker: what actually shows up on the farm that day (the jack-o'-lantern, the
+ * gift, the bouquet), the gold star for farm days, a little Golden Gate for Bay Area days, or the
+ * real waving purple pennant, with the hand-drawn flag as a fallback. `small` = the 3/4-size
  * version for calendar cells.
  */
 function festIcon(fest: Festival, small: boolean): HTMLElement {
   const cls = small ? "fm-cal__flag" : "fm-cal__festicon";
+  const icon = iconKey(fest);
+  if (icon) {
+    // Cells fit about 11 art pixels; the day panel about 14.
+    const longest = Math.max(1, size(icon)?.w ?? 16, size(icon)?.h ?? 16);
+    const scale = Math.min(small ? 0.75 : 1, (small ? 11 : 14) / longest);
+    return spriteIcon(icon, { scale, class: `${cls} is-item` });
+  }
   if (fest.star) return spriteIcon("ui.feststar", { scale: small ? 0.75 : 1, class: cls });
   if (fest.sf) return spriteIcon("ui.sfday", { scale: small ? 0.75 : 1, class: `${cls} is-sf` });
   if (billboardSkin()) return el("span", { class: `fm-flag ${small ? "is-small" : ""} ${cls}`, "aria-hidden": "true" });

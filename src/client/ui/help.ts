@@ -50,6 +50,7 @@ const ENTRIES: Entry[] = [
   },
   { icons: [sprite("ui.icon.calendar"), sprite("ui.icon.mail")], title: "Calendar & mail.", text: "Dated plans. Letters from Snickers, Otto & the sheep." },
   { icons: [sprite("ui.heart.full", 2), sprite("ui.heart.full", 2)], title: "One farm, two farmers.", text: "Everything shows up live." },
+  { icons: [sprite("ui.hud.sound.on", 1.5, "ui.icon.sound")], title: "Sound.", text: "The speaker by the clock: tap for on or off." },
   {
     icons: [critter("fox.sit.0", "ui.star"), critter("hedgehog.idle.0", "ui.star")],
     title: "Otto & Milo.",

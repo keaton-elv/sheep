@@ -5,17 +5,21 @@
 // one, optionally weighted). Anything without a recording (pet, lick), or whose file fails to
 // load, is synthesized with WebAudio (oscillators, noise, filters, envelopes): every name has a
 // synth fallback. Only files listed in FILES / AMBIENCE_FILES are ever fetched: nothing probes
-// the server for recordings that might not exist.
+// the server for recordings that might not exist (except the music, below: once per track).
 // Also runs a quiet ambience bed (the real Stardew loops in public/sounds/ambience: seasonal days,
 // night insects, rain, wind gusts, a campfire's crackle, the pond's babble) while unmuted.
+// And the music (public/sounds/music/<title|spring|summer|fall|winter>.m4a, if they're there):
+// the title theme on the title page, the season's track on the farm, quiet under everything,
+// silent at night and in the rain (like Stardew). setMusicContext() says which.
+//
+// One switch: sound is on (the default) or off (farm.muted). When it's on, it plays even with the
+// iPhone's silent switch on: the "playback" audio session, plus a silent looping <audio> started
+// inside a tap (iOS doesn't always honor the session for Web Audio alone). Off stops all of it.
 //
 // Phones (iOS especially) only let a page make sound after a tap, and can stop it again at any
 // time (a call, Siri, a trip to the home screen: Safari's non-standard "interrupted" state). So
 // every tap/key re-wakes the engine inside the gesture (resume + a 1-sample silent buffer), a
 // "closed" context is rebuilt, and a stuck "interrupted" one is rebuilt after a few taps.
-// The audio session type is left alone ("auto": web audio respects the iPhone's silent switch)
-// unless the farmers turn on "Play in silent mode" (farm.sound.silentmode), which asks for
-// "playback" (plays on silent, pauses other apps' music).
 // getSoundStatus()/onSoundStatus() say whether sound is supposed to be playing right now, so the
 // HUD can show it (and a little sound check can explain it).
 
@@ -90,13 +94,21 @@ export interface Ambience {
   campfire?: boolean;
   /** A pond decoration is on the farm: a gentle babble of water. */
   pond?: boolean;
+  /** How dark the farm is (0 = day, 1 = deepest night). The farm's music rests once it's dark. */
+  darkness?: number;
 }
 
 const MASTER_VOLUME = 0.45;
 const AMBIENCE_VOLUME = 0.55;
+/** Music sits well under the effects (the tracks are mastered loud). */
+const MUSIC_VOLUME = 0.16;
+/** Seconds for the music to fade in or out. */
+const MUSIC_FADE = 2;
+/** Darker than this, the farm has no music (Stardew's nights are just crickets). */
+const MUSIC_NIGHT = 0.6;
 const MAX_VOICES = 8;
 const MUTE_KEY = "farm.muted";
-const SILENT_MODE_KEY = "farm.sound.silentmode";
+const MUSIC_KEY = "farm.music";
 const BASE = import.meta.env.BASE_URL;
 
 /**
@@ -238,13 +250,16 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let sfxBus: GainNode | null = null;
 let ambBus: GainNode | null = null;
+let musicBus: GainNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
 /** A tap/key has asked for sound at least once (the little UI sounds are queued to load). */
 let unlocked = false;
 /** The engine has really run at least once: the browser let us make sound. */
 let everRan = false;
+/** Sound is on unless the farmers turned it off (a choice that's remembered). */
 let muted = readFlag(MUTE_KEY);
-let silentMode = readFlag(SILENT_MODE_KEY);
+/** Music is on unless they turned it off (the speaker button still silences it with everything). */
+let musicOn = readFlag(MUSIC_KEY, true);
 let lastError: string | null = null;
 /** lastError came from starting the engine (cleared once it runs). */
 let errorFromEngine = false;
@@ -257,11 +272,21 @@ let lastRebuild = -Infinity;
 let seenState = "none";
 const muteListeners = new Set<(muted: boolean) => void>();
 
-function readFlag(key: string): boolean {
+// The music (see "music" at the bottom).
+/** Which track fits right now: the title page's theme until the farm says which season it is. */
+let musicWant: MusicContext = "title";
+/** The track playing (or about to fade in). */
+let tune: Tune | null = null;
+/** Audio-clock time the last track finishes fading out: the next one waits for it. */
+let tuneFreeAt = 0;
+
+/** A remembered on/off ("1" / "0"); `fallback` when it was never set (or there's no storage). */
+function readFlag(key: string, fallback = false): boolean {
   try {
-    return localStorage.getItem(key) === "1";
+    const v = localStorage.getItem(key);
+    return v === "1" ? true : v === "0" ? false : fallback;
   } catch {
-    return false;
+    return fallback;
   }
 }
 
@@ -296,15 +321,17 @@ export interface SoundStatus {
   engine: SoundEngine;
   /** The browser has let the engine run at least once (a tap unlocked it). */
   unlocked: boolean;
-  /** "Play in silent mode" is on. */
-  silentMode: boolean;
-  /** This browser can switch its audio session (Safari's navigator.audioSession), so "Play in silent mode" can work. */
-  sessionControl: boolean;
+  /** The Music setting (sound itself still has to be on for it to play). */
+  music: boolean;
+  /** The music track playing right now, if any ("title", "spring", ...). */
+  musicPlaying: MusicContext | null;
   /** Recordings decoded and ready, that failed (synthesized instead), and still on their way. */
   filesReady: number;
   filesFailed: number;
   filesLoading: number;
   lastError: string | null;
+  /** lastError, if it was about starting the engine (why sound can't play). */
+  engineError: string | null;
 }
 
 const statusListeners = new Set<(s: SoundStatus) => void>();
@@ -324,12 +351,13 @@ export function getSoundStatus(): SoundStatus {
     enabled: !muted,
     engine: engineState(),
     unlocked: everRan,
-    silentMode,
-    sessionControl: !!audioSession(),
+    music: musicOn,
+    musicPlaying: tune?.key ?? null,
     filesReady: ready,
     filesFailed: failed,
     filesLoading: fileLoad.size + ambLoad.size,
     lastError,
+    engineError: errorFromEngine ? lastError : null,
   };
 }
 
@@ -379,13 +407,14 @@ function audioSession(): AudioSessionLike | null {
 }
 
 /**
- * Left at the browser's "auto" (web audio follows the silent switch and mixes with her music)
- * unless "Play in silent mode" is on: then "playback" (plays on silent; iOS pauses other apps).
+ * Sound on: "playback" (plays even with the silent switch on; iOS pauses other apps' music while
+ * the farm makes sound). Sound off: back to "auto", so even waking the engine up never stops her
+ * music. Takes hold the next time the engine starts (it's always asleep while sound is off).
  */
 function applySession(): void {
   const s = audioSession();
   if (!s) return;
-  const want = silentMode ? "playback" : "auto";
+  const want = muted ? "auto" : "playback";
   try {
     if (s.type !== want) s.type = want;
   } catch (err) {
@@ -457,6 +486,9 @@ function buildGraph(c: AudioContext): void {
   ambBus = c.createGain();
   ambBus.gain.value = AMBIENCE_VOLUME;
   ambBus.connect(master);
+  musicBus = c.createGain();
+  musicBus.gain.value = MUSIC_VOLUME;
+  musicBus.connect(master);
 
   // Two seconds of white noise, reused by every noisy sound.
   const len = Math.floor(c.sampleRate * 2);
@@ -470,18 +502,20 @@ function dropContext(): void {
   const old = ctx;
   try {
     stopAmbience();
+    stopMusic(0);
   } catch {
     /* it's going away anyway */
   }
   for (const v of voices.splice(0)) clearTimeout(v.timer);
   ctx = null;
   seenState = "none";
-  master = sfxBus = ambBus = null;
+  master = sfxBus = ambBus = musicBus = null;
   noiseBuf = null;
   rainGain = rainFilter = null;
   // These hold the old context's clock times.
   lastPlayed.clear();
   soloUntil.clear();
+  tuneFreeAt = 0;
   if (old) {
     try {
       old.onstatechange = null;
@@ -510,6 +544,7 @@ function onEngineState(): void {
         errorFromEngine = false;
       }
       applyAmbience();
+      applyMusic();
     }
     emitStatus();
   } catch (err) {
@@ -526,7 +561,10 @@ function resume(): void {
   try {
     const p = ctx.resume() as Promise<void> | undefined;
     p?.then(
-      () => applyAmbience(),
+      () => {
+        applyAmbience();
+        applyMusic();
+      },
       () => {},
     );
   } catch {
@@ -608,11 +646,28 @@ function kick(c: AudioContext): void {
   }
 }
 
-// ---------- "Play in silent mode" keep-alive ----------
+// ---------- the silent-switch keep-alive ----------
 // navigator.audioSession = "playback" is the official switch, but iOS doesn't always honor it for
 // Web Audio. The classic belt-and-braces: a looping, silent <audio> element started inside a tap
-// puts the page's audio session into "playback", which ignores the silent switch.
+// puts the page's audio session into "playback", which ignores the silent switch. Runs whenever
+// sound is on (and the page is showing), on iPhones and iPads only: nothing else has a switch that
+// silences web audio. (On a computer it would grab the keyboard's play/pause key; on Android a
+// playing <audio> takes audio focus and would duck her music the whole time the farm is open.)
 let keepAliveEl: HTMLAudioElement | null = null;
+let iosDevice: boolean | null = null;
+
+function hasSilentSwitch(): boolean {
+  if (iosDevice === null) {
+    try {
+      const ua = navigator.userAgent;
+      // (iPadOS says it's a Mac, but Macs don't have touchscreens.)
+      iosDevice = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    } catch {
+      iosDevice = false;
+    }
+  }
+  return iosDevice;
+}
 
 function silentWavUrl(): string {
   const rate = 8000;
@@ -645,6 +700,7 @@ function keepAlive(on: boolean): void {
       keepAliveEl?.pause();
       return;
     }
+    if (!hasSilentSwitch()) return;
     if (!keepAliveEl) {
       keepAliveEl = new Audio(silentWavUrl());
       keepAliveEl.loop = true;
@@ -667,7 +723,7 @@ for (const ev of ["pointerup", "touchend", "click", "keydown"]) {
       try {
         if (!unlocked) unlockAudio();
         else if (!muted && !running()) wake();
-        if (silentMode && !muted && document.visibilityState === "visible") keepAlive(true);
+        if (!muted && document.visibilityState === "visible") keepAlive(true);
       } catch (err) {
         console.warn("[audio] gesture", err);
       }
@@ -681,10 +737,19 @@ document.addEventListener("visibilitychange", () => {
     if (!ctx) return;
     if (document.visibilityState === "hidden") {
       stopAmbience();
+      stopMusic(0.05);
       keepAlive(false);
       if (ctx.state === "running") void ctx.suspend().catch(() => {});
     } else if (unlocked && !muted) {
-      resume();
+      if (running()) {
+        // Back so fast it hasn't gone to sleep yet: a resume queued behind the pending suspend
+        // wins, and the loops and the music start again right here.
+        (ctx.resume() as Promise<void> | undefined)?.catch(() => {});
+        applyAmbience();
+        applyMusic();
+      } else {
+        resume();
+      }
     }
     emitStatus();
   } catch (err) {
@@ -713,17 +778,22 @@ setInterval(() => {
   }
 }, 1500);
 
-// ---------- mute & silent mode ----------
+// ---------- the sound switch ----------
 
 export function isMuted(): boolean {
   return muted;
 }
 
+/**
+ * The one sound switch (remembered). Call it from a tap when turning sound on: the engine and the
+ * silent-switch keep-alive can only start inside one.
+ */
 export function setMuted(m: boolean): void {
   if (muted === m) return;
   muted = m;
   writeFlag(MUTE_KEY, m);
-  keepAlive(!m && silentMode);
+  applySession();
+  keepAlive(!m && document.visibilityState === "visible");
   try {
     if (ctx && master && (ctx.state as string) !== "closed") {
       const t = ctx.currentTime;
@@ -732,9 +802,15 @@ export function setMuted(m: boolean): void {
       master.gain.linearRampToValueAtTime(m ? 0 : MASTER_VOLUME, t + 0.05);
       if (m) {
         stopAmbience();
+        stopMusic(0.05);
         setTimeout(() => muted && ctx?.state === "running" && void ctx.suspend().catch(() => {}), 80);
       } else {
         wake();
+        // (Turned back on before it had even gone to sleep: nothing to wake, so start things here.)
+        if (running()) {
+          applyAmbience();
+          applyMusic();
+        }
       }
     } else if (!m) {
       unlockAudio();
@@ -755,52 +831,6 @@ export function setMuted(m: boolean): void {
 export function onMuteChange(fn: (muted: boolean) => void): () => void {
   muteListeners.add(fn);
   return () => muteListeners.delete(fn);
-}
-
-export function getSilentMode(): boolean {
-  return silentMode;
-}
-
-/** A silent-mode bounce (suspend + resume) still landing. */
-let settling: Promise<unknown> | null = null;
-
-/**
- * "Play in silent mode" (iPhone): on = the "playback" audio session (plays even with the silent
- * switch on; iOS pauses other apps' music), off = back to "auto". Call it from a tap: the new
- * session only takes hold when the engine starts, so a live engine is bounced (suspend + resume)
- * right here inside the gesture.
- */
-export function setSilentMode(on: boolean): void {
-  try {
-    const changed = silentMode !== on;
-    silentMode = on;
-    if (changed) writeFlag(SILENT_MODE_KEY, on);
-    applySession();
-    keepAlive(on && !muted);
-    const c = ctx;
-    if (changed && c && (c.state as string) !== "closed" && !muted) {
-      if (c.state === "running") {
-        const p = c.suspend() as Promise<void> | undefined;
-        // Belt and braces: if the bounce leaves it asleep, wake it once the suspend lands. The
-        // test baa waits for this, so it doesn't start just before the engine pauses.
-        // (Never waits more than a moment: an engine that won't come back can't hold up later baas.)
-        const bounce: Promise<unknown> = Promise.race([
-          Promise.resolve(p)
-            .then(() => (c === ctx && !muted && !running() ? c.resume() : undefined))
-            .catch(() => {}),
-          new Promise((r) => setTimeout(r, 1500)),
-        ]);
-        settling = bounce;
-        void bounce.finally(() => {
-          if (settling === bounce) settling = null;
-        });
-      }
-      kick(c);
-    }
-  } catch (err) {
-    noteError(`silent mode: ${errText(err)}`);
-  }
-  emitStatus();
 }
 
 /**
@@ -839,7 +869,7 @@ export function playTestSound(): boolean {
         console.warn("[audio] test", err);
       }
     };
-    const ready = settling ?? (running() ? null : (c.resume() as Promise<void> | undefined));
+    const ready = running() ? null : (c.resume() as Promise<void> | undefined);
     if (!ready) go();
     else ready.then(go, () => {});
     return true;
@@ -1816,6 +1846,9 @@ export function setAmbience(next: Ambience): void {
     // Also kick things back on if they should be playing but aren't (e.g. after a resume).
     const idle = !ambTimer || (amb.rain && !layers.rain.src && !rainSrc);
     if (changed || (running() && idle)) applyAmbience();
+    // Dusk, dawn and the rain decide whether the farm has music (and this restarts it if it should
+    // be playing but isn't).
+    applyMusic();
   } catch (err) {
     console.warn("[audio] ambience", err);
   }
@@ -2050,4 +2083,240 @@ function bird(t: number): void {
 function owl(t: number): void {
   tone(ambBus!, t, { f: 390, f2: 360, dur: 0.32, vol: 0.05, attack: 0.05 });
   tone(ambBus!, t + 0.5, { f: 380, f2: 350, dur: 0.45, vol: 0.05, attack: 0.06 });
+}
+
+// ---------- music ----------
+// The real Stardew tracks, once they're in public/sounds/music (title.m4a, spring.m4a, summer.m4a,
+// fall.m4a, winter.m4a): the title theme while the title page is up, then the season's song on the
+// farm. Looped, quiet, with slow fades. Like the game, the farm goes quiet at night (the crickets
+// take over) and in the rain. Each track is asked for once, the first time it would play: one that
+// isn't there just means no music (and no asking again this visit). A song is tens of MB once
+// decoded, so only the one that's on is kept, and only while it's on.
+
+/** Which music fits: the title page's theme, or the farm's season. */
+export type MusicContext = "title" | Season;
+
+const MUSIC_TRACKS: ReadonlySet<string> = new Set<MusicContext>(["title", "spring", "summer", "fall", "winter"]);
+
+interface Tune {
+  key: MusicContext;
+  src: AudioBufferSourceNode;
+  gain: GainNode;
+  /** Audio-clock time it starts (or started) playing, `from` seconds into the track. */
+  at: number;
+  from: number;
+  loopStart: number;
+  loopEnd: number;
+}
+
+const musicBuf = new Map<MusicContext, AudioBuffer>();
+const musicLoad = new Map<MusicContext, Promise<AudioBuffer | null>>();
+/** Tracks that aren't there (this visit). */
+const musicMissing = new Set<MusicContext>();
+/** A track that couldn't be fetched (offline?): when it's worth trying again (performance.now()). */
+const musicRetryAt = new Map<MusicContext, number>();
+/** Where a paused track had got to, so it carries on from there. */
+const musicPos = new Map<MusicContext, number>();
+
+/**
+ * What the music should be: "title" while the title page is up, the farm's season after. Cheap to
+ * call as often as you like (the HUD calls it on its tick); a change fades the old track out, then
+ * the new one in.
+ */
+export function setMusicContext(next: MusicContext): void {
+  try {
+    if (next === musicWant || !MUSIC_TRACKS.has(next)) return;
+    musicWant = next;
+    applyMusic();
+  } catch (err) {
+    console.warn("[audio] music", err);
+  }
+}
+
+export function isMusicOn(): boolean {
+  return musicOn;
+}
+
+/** The Music switch (remembered). Sound has to be on as well: the speaker button silences everything. */
+export function setMusicOn(on: boolean): void {
+  if (musicOn === on) return;
+  musicOn = on;
+  writeFlag(MUSIC_KEY, on);
+  applyMusic();
+  emitStatus();
+}
+
+/**
+ * Why the farm has no music right now, when it's the farm's doing: "night" (Stardew's nights are
+ * just crickets) or "rain" (just the rain). null otherwise. (The title page always has its theme.)
+ */
+export function musicResting(): "night" | "rain" | null {
+  if (musicWant === "title") return null;
+  if (amb.rain) return "rain";
+  const dark = amb.darkness ?? (amb.night ? 1 : 0);
+  return dark > MUSIC_NIGHT ? "night" : null;
+}
+
+function farmQuiet(): boolean {
+  return musicResting() !== null;
+}
+
+/** The track that should be playing right now, or null for none. */
+function musicWanted(): MusicContext | null {
+  if (!musicOn || muted || !unlocked || document.visibilityState === "hidden") return null;
+  if (musicMissing.has(musicWant) || farmQuiet()) return null;
+  return musicWant;
+}
+
+function applyMusic(): void {
+  try {
+    const want = musicWanted();
+    if (tune && tune.key !== want) stopMusic(MUSIC_FADE);
+    // Off for a while (switched off, sound off, night, rain): let the song go. The morning (or the
+    // end of the rain) starts it from the top again. (Not when the page is only hidden.)
+    if (!musicOn || muted || farmQuiet()) {
+      musicBuf.clear();
+      if (farmQuiet()) musicPos.delete(musicWant);
+    }
+    // A track that no longer fits goes too (e.g. the title theme after logging in, even when the
+    // season's track turns out to be missing and nothing replaces it).
+    for (const k of [...musicBuf.keys()]) if (k !== musicWant) musicBuf.delete(k);
+    if (!want || tune || !running() || !ctx || !musicBus) return;
+    const buf = musicBuf.get(want);
+    if (buf) {
+      startMusic(want, buf);
+      return;
+    }
+    void loadMusic(want).then((b) => {
+      try {
+        if (b && !tune && running() && musicWanted() === want) startMusic(want, b);
+      } catch (err) {
+        console.warn("[audio] music", err);
+      }
+    });
+  } catch (err) {
+    console.warn("[audio] music", err);
+  }
+}
+
+/** Load (once) a track; null if it isn't there (or can't be fetched right now). Never rejects. */
+function loadMusic(key: MusicContext): Promise<AudioBuffer | null> {
+  const have = musicBuf.get(key);
+  if (have) return Promise.resolve(have);
+  let p = musicLoad.get(key);
+  if (p) return p;
+  if (musicMissing.has(key) || performance.now() < (musicRetryAt.get(key) ?? 0)) return Promise.resolve(null);
+  p = fetchMusic(key).then((b) => {
+    musicLoad.delete(key);
+    if (b && key === musicWant && musicOn && !muted) musicBuf.set(key, b);
+    return b;
+  });
+  musicLoad.set(key, p);
+  return p;
+}
+
+/** Fetch and decode one track, quietly: a track that isn't there is not an error, just no music. */
+async function fetchMusic(key: MusicContext): Promise<AudioBuffer | null> {
+  const retryLater = () => {
+    musicRetryAt.set(key, performance.now() + 60_000);
+    return null;
+  };
+  try {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}sounds/music/${key}.m4a`);
+    } catch {
+      return retryLater(); // offline?
+    }
+    if (res.status >= 500) return retryLater();
+    // Not there: a 404, or a dev server's web page standing in for it.
+    if (!res.ok || (res.headers.get("content-type") ?? "").includes("text/html")) {
+      musicMissing.add(key);
+      return null;
+    }
+    const data = await res.arrayBuffer();
+    const c = ctx;
+    if (!c) return null; // no engine to decode with: next time
+    const buf = await new Promise<AudioBuffer | null>((resolve) => {
+      try {
+        c.decodeAudioData(data, resolve, () => resolve(null))?.catch?.(() => resolve(null));
+      } catch {
+        resolve(null);
+      }
+    });
+    // (The engine rebuilt mid-decode is not the file's fault: it'll be asked for again.)
+    if (!buf && c === ctx) {
+      musicMissing.add(key);
+      console.warn(`[audio] music: couldn't decode ${key}.m4a`);
+    }
+    return buf;
+  } catch {
+    return retryLater(); // the download broke off
+  }
+}
+
+function startMusic(key: MusicContext, buf: AudioBuffer): void {
+  const c = ctx;
+  if (!c || !musicBus) return;
+  // Only the track that's on stays decoded, and the others start from the top next time.
+  for (const k of [...musicBuf.keys()]) if (k !== key) musicBuf.delete(k);
+  for (const k of [...musicPos.keys()]) if (k !== key) musicPos.delete(k);
+  const [loopStart, loopEnd] = loopBounds(buf);
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  src.loopStart = loopStart;
+  src.loopEnd = loopEnd;
+  const gain = c.createGain();
+  src.connect(gain).connect(musicBus);
+  // Never two songs at once: wait for the last one to finish fading out.
+  const at = Math.max(c.currentTime + 0.05, tuneFreeAt);
+  let from = musicPos.get(key) ?? 0;
+  if (!(from >= 0 && from < loopEnd)) from = 0;
+  gain.gain.setValueAtTime(0, c.currentTime);
+  gain.gain.setValueAtTime(0, at);
+  gain.gain.linearRampToValueAtTime(1, at + MUSIC_FADE);
+  src.onended = () => {
+    try {
+      gain.disconnect();
+    } catch {
+      /* already gone */
+    }
+  };
+  src.start(at, from);
+  tune = { key, src, gain, at, from, loopStart, loopEnd };
+  emitStatus();
+}
+
+/** How far into its track a tune is at audio-clock time `now`. */
+function tunePos(t: Tune, now: number): number {
+  const p = t.from + Math.max(0, now - t.at);
+  if (p < t.loopEnd) return p;
+  const len = t.loopEnd - t.loopStart;
+  return len > 0 ? t.loopStart + ((p - t.loopStart) % len) : 0;
+}
+
+/** Fade the playing track out over `seconds`, remembering where it had got to. */
+function stopMusic(seconds: number): void {
+  const t = tune;
+  tune = null;
+  if (!t) return;
+  try {
+    const c = ctx;
+    if (c && (c.state as string) !== "closed") {
+      const now = c.currentTime;
+      musicPos.set(t.key, tunePos(t, now));
+      const g = t.gain.gain;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+      g.linearRampToValueAtTime(0, now + seconds);
+      t.src.stop(now + seconds + 0.05);
+      tuneFreeAt = Math.max(tuneFreeAt, now + seconds);
+    } else {
+      t.src.stop();
+    }
+  } catch {
+    /* already stopped */
+  }
+  emitStatus();
 }

@@ -1,11 +1,10 @@
 // Stardew's toolbar along the bottom: Hand and Shears (tools), then shortcuts to the ranch
 // (+ a new sheep), the Flock list, the calendar, The Barn, the mailbox, and a "…" menu with the
-// rest (the carpenter's shop, loom, chest, name tags, sound, play in silent mode on phones, how
-// it works, log out).
+// rest (the carpenter's shop, loom, chest, name tags, sound, music, how it works, log out).
 // Copy is minimal on purpose: icons do the talking; hover labels are a name and a few words.
 // Mobile first: every slot is at least 40 CSS px, and the bar fits a 360px-wide phone.
 
-import { getSilentMode, isMuted, playTestSound, setMuted, setSilentMode, sfx } from "../audio";
+import { isMusicOn, isMuted, musicResting, playTestSound, setMuted, setMusicOn, sfx } from "../audio";
 import type { Game, Tool } from "../engine/game";
 import { flipped } from "../engine/pixelart";
 import { isReal, spriteCanvas, spriteUrl } from "../engine/sprites";
@@ -13,7 +12,6 @@ import { api } from "../net";
 import { confirmDialog, el, isDialogOpen, openMenu, spriteIcon, toast, uiRoot } from "./dom";
 import type { MenuName } from "./dom";
 import { closePopover, togglePopover } from "./hud-popover";
-import { silentModeMatters, silentModeWorks } from "./hud-sound";
 import { onMailChange, unreadMailCount } from "./mailbox";
 import { iconKey, registerToolbarArt } from "./toolbar-art";
 import "./toolbar.css";
@@ -209,27 +207,32 @@ export function initToolbar(g: Game): void {
       closePopover(true);
       toast(on ? "Name tags on. Hello, everyone!" : "Name tags off. Mystery sheep...", { icon: "ui.icon.tag" });
     });
+    // The same switch as the speaker by the clock.
     item(isMuted() ? "ui.icon.mute" : "ui.icon.sound", "Sound", isMuted() ? "Off" : "On", () => {
       const next = !isMuted();
       setMuted(next);
       closePopover(true);
-      const hint = silentModeMatters() && !getSilentMode() ? " No baa? Check the silent switch." : "";
-      toast(next ? "Sound off. baa... (quietly)" : `Sound on. Baaa!${hint}`, { icon: next ? "ui.icon.mute" : "ui.icon.sound" });
+      toast(next ? "Sound off. baa... (quietly)" : "Sound on. Baaa!", { icon: next ? "ui.icon.mute" : "ui.icon.sound" });
       // (This tap also wakes the sound up; the baa waits until it's really running.)
       if (!next) playTestSound();
     });
-    // iPhones: web sounds follow the silent switch unless this is on (only offered where the
-    // browser can actually do it).
-    if (silentModeWorks()) {
-      item("ui.icon.bell", "Play in silent mode", getSilentMode() ? "On" : "Off", () => {
-        const next = !getSilentMode();
-        setSilentMode(next);
-        closePopover(true);
-        const on = isMuted() ? "Plays on silent. (Sound is off, though.)" : "Baa! Even on silent. (Other music pauses.)";
-        toast(next ? on : "Shh. The silent switch is the boss again.", { icon: "ui.icon.bell" });
-        if (next && !isMuted()) playTestSound();
-      });
-    }
+    item("ui.icon.music", "Music", isMusicOn() ? "On" : "Off", () => {
+      const on = !isMusicOn();
+      setMusicOn(on);
+      sfx("select");
+      closePopover(true);
+      const rest = musicResting();
+      const text = !on
+        ? "Music off. Just the farm now."
+        : isMuted()
+          ? "Music on. (Sound's off: tap the speaker.)"
+          : rest === "night"
+            ? "Music on. It rests till morning..."
+            : rest === "rain"
+              ? "Music on. Just the rain for now..."
+              : "Music on. Baa la la!";
+      toast(text, { icon: "ui.icon.music" });
+    });
     item("ui.icon.help", "How it works", null, go("help"));
     // Arrow keys move between items (Tab works too; Escape closes the popover).
     list.addEventListener("keydown", (ev) => {
@@ -282,7 +285,7 @@ export function initToolbar(g: Game): void {
     if (isDialogOpen()) return;
     const t = ev.target as HTMLElement | null;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-    if (document.querySelector(".pw-gate")) return;
+    if (document.querySelector(".farm-gate")) return;
     const n = Number(ev.key);
     if (!Number.isInteger(n) || n < 1 || n > SLOTS.length) return;
     const def = SLOTS[n - 1]!;
@@ -363,7 +366,7 @@ export function initToolbar(g: Game): void {
     let tries = 0;
     const tryShow = () => {
       if (storageGet(HELP_KEY)) return;
-      if (isDialogOpen() || document.querySelector(".pw-gate")) {
+      if (isDialogOpen() || document.querySelector(".farm-gate")) {
         if (++tries < 30) setTimeout(tryShow, 2000);
         return;
       }

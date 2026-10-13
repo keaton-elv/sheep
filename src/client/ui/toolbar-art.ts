@@ -245,25 +245,25 @@ export function registerToolbarArt(): void {
     "................",
   ], SPEAKER);
 
-  // A little golden bell: "Play in silent mode" (the iPhone's silent switch is a bell).
-  pixelArt("ui.icon.bell", [
+  // Two beamed eighth notes (in the speaker's blue): the "Music" switch.
+  pixelArt("ui.icon.music", [
     "................",
-    ".......oo.......",
-    "......oYYo......",
-    ".....oYWYYo.....",
-    "....oYWYYYOo....",
-    "....oYWYYYOo....",
-    "....oYYYYYOo....",
-    "...oYYYYYYYOo...",
-    "...oYYYYYYYOo...",
-    "..oYYYYYYYYYOo..",
-    "..oOOOOOOOOOOo..",
-    "...oooooooooo...",
-    "......oKKo......",
-    ".......oo.......",
+    "......oooooooooo",
+    "......ohhhhhhhho",
+    "......oPPPPPPPPo",
+    "......oPooooooPo",
+    "......oPo....oPo",
+    "......oPo....oPo",
+    "......oPo....oPo",
+    "......oPo....oPo",
+    "....oooPo..oooPo",
+    "...ohPPPo.ohPPPo",
+    "..oPPPPPooPPPPPo",
+    ".oPPPPPooPPPPPo.",
+    ".oPPPPo.oPPPPo..",
+    "..oooo...oooo...",
     "................",
-    "................",
-  ], { o: "#7a3405", Y: "#f7ba00", W: "#fff3b0", O: "#dc7b05", K: "#8a3c0e" });
+  ], { o: "#1f2d5c", P: "#4d8fd6", h: "#a9d2ff" });
 
   pixelArt("ui.icon.tag", [
     "................",

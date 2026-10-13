@@ -1,5 +1,11 @@
-// Stardew festivals pinned to real dates (little flags on the billboard), plus the real Bay Area
-// days you two might actually go to (a little Golden Gate instead of a flag).
+// The billboard's special days, all computed per year (no table to update, except Lunar New Year):
+//  - real days you two might celebrate or go to (a little Golden Gate on the Bay Area ones), and
+//  - the valley's days only when something really happens on the farm: the jack-o'-lantern on
+//    Spirit's Eve, snow and a gift on the Winter Star, the bouquet on Valentine's Day, berries on
+//    the bushes, the golden ginkgo in fall, extra shooting stars during meteor showers.
+//
+// Shared: the HUD clock shows festivalOn()'s icon, and the new-day banner looks up the Bay Area
+// days by name ("Bay to Breakers", "Fleet Week", "Outside Lands", "Hardly Strictly Bluegrass").
 
 import { daysBetween } from "../../shared/calendar";
 
@@ -10,69 +16,55 @@ export interface Festival {
   star?: boolean;
   /** A real San Francisco day: gets the little Golden Gate instead of a festival flag. */
   sf?: boolean;
+  /** A sweetheart day (the clock can show the heart, like farm days). */
+  heart?: boolean;
+  /** What actually shows up on the farm that day (a sprite key), drawn instead of the flag. */
+  icon?: string;
+  /** How it shows on the billboard grid: the flag (default), a small dot, or only in the day panel. */
+  mark?: "flag" | "dot" | "none";
+  /** Small stuff (clocks, berries, the middle of a long fair): never the clock's festival of the day. */
+  quiet?: boolean;
+  /** Dot color for small stuff. */
+  tint?: string;
 }
 
-const FIXED: Record<string, Festival> = {
-  "01-08": { name: "Festival of Ice", note: "Ice fishing contest and snow sculptures. Bundle up!" },
-  "01-12": { name: "SquidFest", note: "Squid fishing at the beach. Bring warm socks and bait." },
-  "01-13": { name: "SquidFest", note: "Last day to catch the biggest squid of the winter." },
-  "02-14": { name: "Bouquet Day", note: "In the valley, handing someone a bouquet means you're sweethearts." },
-  "04-15": { name: "Desert Festival", note: "A party in the Calico Desert! Food stalls, races, makeovers." },
-  "04-16": { name: "Desert Festival", note: "Place a bet on the snail races. Totally not rigged." },
-  "04-17": { name: "Desert Festival", note: "Last day! Grab a makeover before the bus leaves." },
-  "05-24": { name: "Flower Dance", note: "Ask your sweetheart to dance in Cindersap Forest." },
-  "07-11": { name: "Luau", note: "Everyone adds something to the potluck soup. Choose wisely!" },
-  "07-20": { name: "Trout Derby", note: "Rainbow trout season at the river. Golden tags are lucky!" },
-  "07-21": { name: "Trout Derby", note: "Last day of the derby. One more cast..." },
-  "08-28": { name: "Dance of the Moonlight Jellies", note: "Watch the glowing jellies drift by from the docks." },
-  "10-16": { name: "Stardew Valley Fair", note: "Grange displays, the Strength Game, and star tokens!" },
-  "10-31": { name: "Spirit's Eve", note: "Find the golden pumpkin in the haunted maze." },
-  "12-15": { name: "Night Market", note: "Submarine rides and a mermaid show on the beach." },
-  "12-16": { name: "Night Market", note: "The mermaid show is still going. Bring a coffee." },
-  "12-17": { name: "Night Market", note: "Last night of the market! Don't miss the boats." },
-  "12-25": { name: "Feast of the Winter Star", note: "Secret gift exchange. Who drew who?" },
-};
+// ---------- date rules ----------
 
-/** Western Easter (anonymous Gregorian algorithm). Month is 0-based. */
-function easter(year: number): { month: number; day: number } {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return { month, day };
+const at = (y: number, m: number, d: number): Date => new Date(y, m, d, 12);
+const on = (d: Date, m: number, day: number): boolean => d.getMonth() === m && d.getDate() === day;
+
+/** Day of the month of the nth (1-based) `weekday` (0 = Sunday) of a month (0-based). */
+function nth(y: number, m: number, weekday: number, n: number): number {
+  return 1 + ((weekday - at(y, m, 1).getDay() + 7) % 7) + (n - 1) * 7;
 }
 
-// ---------- Bay Area days ----------
-
-/** Day of the month of the nth (1-based) Sunday of a month (0-based). */
-function nthSunday(year: number, month: number, n: number): number {
-  const first = new Date(year, month, 1, 12).getDay(); // 0 = Sunday
-  return 1 + ((7 - first) % 7) + (n - 1) * 7;
+/** Day of the month of the last `weekday` (0 = Sunday) of a month (0-based). */
+function last(y: number, m: number, weekday: number): number {
+  const end = at(y, m + 1, 0);
+  return end.getDate() - ((end.getDay() - weekday + 7) % 7);
 }
 
-function lastSunday(year: number, month: number): number {
-  const last = new Date(year, month + 1, 0, 12);
-  return last.getDate() - last.getDay();
+/** Which day (0-based) of a `len`-day run starting on `start` is `d`? -1 if it isn't in it. */
+function dayOf(d: Date, start: Date, len: number): number {
+  const i = daysBetween(start, d);
+  return i >= 0 && i < len ? i : -1;
 }
 
-/** Is `d` on the Fri–Sun weekend that ends on that Sunday? (The Friday may fall in the month before.) */
-function onWeekendEnding(d: Date, year: number, month: number, sunday: number): boolean {
-  const gap = daysBetween(d, new Date(year, month, sunday, 12));
-  return gap >= 0 && gap <= 2;
+/** Day of the Fri–Sun weekend ending on that Sunday (the Friday may fall in the month before). */
+function weekend(d: Date, y: number, m: number, sunday: number): number {
+  return dayOf(d, at(y, m, sunday - 2), 3);
+}
+
+/** Day i of a multi-day event: the flag on its first day, a dot after that. */
+function run(f: Festival, i: number, later: Partial<Festival> = {}): Festival | null {
+  if (i < 0) return null;
+  return i === 0 ? f : { ...f, mark: "dot", ...later };
 }
 
 /** Lunar New Year: [month (0-based), day, animal]. */
 const LUNAR_NEW_YEAR: Record<number, readonly [number, number, string]> = {
+  2024: [1, 10, "Dragon"],
+  2025: [0, 29, "Snake"],
   2026: [1, 17, "Horse"],
   2027: [1, 6, "Sheep"],
   2028: [0, 26, "Monkey"],
@@ -81,37 +73,144 @@ const LUNAR_NEW_YEAR: Record<number, readonly [number, number, string]> = {
   2031: [0, 23, "Pig"],
   2032: [1, 11, "Rat"],
   2033: [0, 31, "Ox"],
+  2034: [1, 19, "Tiger"],
+  2035: [1, 8, "Rabbit"],
 };
 
-function bayArea(d: Date): Festival | null {
-  const y = d.getFullYear();
-  const m = d.getMonth();
-  const day = d.getDate();
-  if (m === 4 && day === nthSunday(y, 4, 3)) {
-    return { name: "Bay to Breakers", note: "Twelve kilometers of costumes, Bay to Ocean Beach. Running optional.", sf: true };
-  }
-  if (m === 5 && day === lastSunday(y, 5)) return { name: "SF Pride", note: "The parade down Market Street. Rainbows everywhere!", sf: true };
-  if (onWeekendEnding(d, y, 7, nthSunday(y, 7, 2))) {
-    return { name: "Outside Lands", note: "Music in Golden Gate Park. Bring a jacket: it's August in San Francisco.", sf: true };
-  }
-  if (onWeekendEnding(d, y, 9, nthSunday(y, 9, 1))) {
-    return { name: "Hardly Strictly Bluegrass", note: "Free banjos in Golden Gate Park. Bring a blanket.", sf: true };
-  }
-  if (onWeekendEnding(d, y, 9, nthSunday(y, 9, 2))) return { name: "Fleet Week", note: "Blue Angels over the Bay. Snickers is under the bed.", sf: true };
-  if (m === 10 && day === 2) return { name: "Día de los Muertos", note: "Marigolds, candles and the procession through the Mission.", sf: true };
+/** Chinatown's night parade: the first Saturday at least 13 days after Lunar New Year (close enough). */
+function lunarParade(y: number): Date | null {
   const lny = LUNAR_NEW_YEAR[y];
-  if (lny && lny[0] === m && lny[1] === day) {
-    const note = lny[2] === "Sheep" ? "Year of the Sheep! (Some say Goat. The sheep disagree.)" : `Year of the ${lny[2]}! The Chinatown parade is coming.`;
-    return { name: "Lunar New Year", note, sf: true };
-  }
-  return null;
+  if (!lny) return null;
+  const earliest = at(y, lny[0], lny[1] + 13);
+  return at(y, earliest.getMonth(), earliest.getDate() + ((6 - earliest.getDay() + 7) % 7));
 }
+
+// Kept in step with the farm: berries in world-nature.ts, meteor showers in critter-star.ts.
+const SALMONBERRY: Festival = {
+  name: "Salmonberry season",
+  note: "The bushes are full. Give one a shake.",
+  icon: "item.forage.salmonberry",
+  mark: "dot",
+  quiet: true,
+  tint: "#e8743c",
+};
+const BLACKBERRY: Festival = {
+  name: "Blackberry season",
+  note: "Ripe on the bushes. Pick them before the birds do.",
+  icon: "item.forage.blackberry",
+  mark: "dot",
+  quiet: true,
+  tint: "#5a2a6e",
+};
+// Fall's first day: one of the farm's trees turns into the golden ginkgo until winter (world-nature.ts).
+const GINKGO: Festival = {
+  name: "Ginkgo gold",
+  note: "One of the farm's trees turns ginkgo gold for the fall.",
+  icon: "weather.leaf.ginkgo.0",
+  mark: "dot",
+  quiet: true,
+  tint: "#e9ab2f",
+};
+const METEORS = { mark: "dot", quiet: true, tint: "#e8c23a" } as const;
+
+type Rule = (d: Date, y: number) => Festival | null;
+
+const RULES: Rule[] = [
+  (d) => (on(d, 0, 1) ? { name: "New Year's Day", note: "New year, new plans. Same sheep." } : null),
+  (d, y) => {
+    const lny = LUNAR_NEW_YEAR[y];
+    if (!lny || !on(d, lny[0], lny[1])) return null;
+    const note = lny[2] === "Sheep" ? "Year of the Sheep! (Some say Goat. The sheep disagree.)" : `Year of the ${lny[2]}!`;
+    return { name: "Lunar New Year", note };
+  },
+  (d, y) => {
+    const p = lunarParade(y);
+    return p && daysBetween(p, d) === 0
+      ? { name: "Lunar New Year Parade", note: "A very long golden dragon winds through Chinatown. Firecrackers!", sf: true }
+      : null;
+  },
+  (d) =>
+    on(d, 1, 14)
+      ? { name: "Valentine's Day", note: "A bouquet by the mailbox. In the valley, that means sweethearts.", heart: true, icon: "item.bouquet" }
+      : null,
+  (d, y) => (on(d, 2, nth(y, 2, 0, 2)) ? { name: "Spring forward", note: "Clocks jump an hour ahead. The sheep are confused.", mark: "dot", quiet: true } : null),
+  (d) => (d.getMonth() >= 2 && d.getMonth() <= 4 && d.getDate() >= 15 && d.getDate() <= 18 ? SALMONBERRY : null),
+  (d, y) => {
+    // Two weekends in Japantown: the 2nd and 3rd Saturday–Sunday of April.
+    const i = dayOf(d, at(y, 3, nth(y, 3, 6, 2)), 9);
+    if (i < 0 || (i > 1 && i < 7)) return null;
+    const f: Festival = { name: "Cherry Blossom Festival", note: "Japantown in bloom: taiko, mochi and paper lanterns.", sf: true };
+    if (i === 8) return { ...f, mark: "dot", note: "Grand Parade day, from Civic Center to Japantown." };
+    return i === 0 || i === 7 ? f : { ...f, mark: "dot" };
+  },
+  (d) => (on(d, 3, 22) ? { name: "Earth Day", note: "The sheep do their part: lawn mowing, zero emissions." } : null),
+  (d, y) =>
+    on(d, 4, nth(y, 4, 0, 3))
+      ? { name: "Bay to Breakers", note: "Twelve kilometers of costumes, Bay to Ocean Beach. Running optional.", sf: true }
+      : null,
+  (d, y) => {
+    // Memorial Day weekend, Saturday and Sunday.
+    const i = dayOf(d, at(y, 4, last(y, 4, 1) - 2), 2);
+    return run({ name: "Carnaval", note: "Samba, feathers and a big parade in the Mission.", sf: true }, i);
+  },
+  (d) => (on(d, 5, 19) ? { name: "Juneteenth", note: "Freedom Day. Music and barbecue in the Fillmore." } : null),
+  (d, y) => (on(d, 5, last(y, 5, 0)) ? { name: "SF Pride", note: "The parade down Market Street. Rainbows everywhere!", sf: true } : null),
+  (d) => (on(d, 6, 4) ? { name: "Fourth of July", note: "Fireworks over the Bay... somewhere behind Karl the Fog." } : null),
+  (d, y) =>
+    run(
+      { name: "Outside Lands", note: "Music in Golden Gate Park. Bring a jacket: it's August in San Francisco.", sf: true },
+      weekend(d, y, 7, nth(y, 7, 0, 2)),
+    ),
+  (d) =>
+    d.getMonth() === 7 && d.getDate() >= 11 && d.getDate() <= 13
+      ? { name: "Perseids", note: "Meteor shower! More shooting stars over the farm tonight, Karl the Fog permitting.", ...METEORS }
+      : null,
+  (d, y) => {
+    // Puyallup, one town over from Sumner: the Friday before Labor Day through three Sundays later.
+    const len = 24;
+    const i = dayOf(d, at(y, 8, nth(y, 8, 1, 1) - 3), len);
+    const f: Festival = { name: "Washington State Fair", note: "Do the Puyallup! Fair scones, one town over from Sumner." };
+    if (i === len - 1) return run(f, i, { quiet: true, note: "Last day of the fair. One more scone?" });
+    return run(f, i, { mark: "none", quiet: true });
+  },
+  (d) => (on(d, 8, 1) ? GINKGO : null),
+  (d) => (d.getMonth() >= 8 && d.getMonth() <= 10 && d.getDate() >= 8 && d.getDate() <= 11 ? BLACKBERRY : null),
+  (d, y) =>
+    run({ name: "Hardly Strictly Bluegrass", note: "Free banjos in Golden Gate Park. Bring a blanket.", sf: true }, weekend(d, y, 9, nth(y, 9, 0, 1))),
+  // The air show weekend: the Fri–Sun before the second Monday of October.
+  (d, y) => run({ name: "Fleet Week", note: "Blue Angels over the Bay. Snickers is under the bed.", sf: true }, weekend(d, y, 9, nth(y, 9, 1, 2) - 1)),
+  (d) =>
+    on(d, 9, 31)
+      ? { name: "Spirit's Eve", note: "Happy Halloween! A jack-o'-lantern glows by the fence after dark.", icon: "world.jack.lit" }
+      : null,
+  (d) => (on(d, 10, 2) ? { name: "Día de los Muertos", note: "Marigolds, candles and the procession through the Mission.", sf: true } : null),
+  (d, y) => (on(d, 10, nth(y, 10, 0, 1)) ? { name: "Fall back", note: "Clocks go back an hour: one extra hour of loafing.", mark: "dot", quiet: true } : null),
+  (d, y) => (on(d, 10, nth(y, 10, 4, 4)) ? { name: "Thanksgiving", note: "Save room for pie. (Rhubarb, if Sumner gets a vote.)" } : null),
+  (d) =>
+    d.getMonth() === 11 && d.getDate() >= 13 && d.getDate() <= 14
+      ? { name: "Geminids", note: "The year's best meteor shower. Bundle up and look up.", ...METEORS }
+      : null,
+  (d) =>
+    on(d, 11, 25)
+      ? { name: "Feast of the Winter Star", note: "Merry Christmas! It snows on the farm, and someone left a gift...", icon: "item.gift" }
+      : null,
+  (d) => (on(d, 11, 31) ? { name: "New Year's Eve", note: "Fireworks over the Embarcadero at midnight. Just don't stay up past 2." } : null),
+];
 
 // ---------- lookup ----------
 
-/** Everything on a given local day: farm days first, then the Bay Area, then the valley's festivals. */
+const MARK_RANK = { flag: 0, dot: 1, none: 2 } as const;
+
+/** Farm days first, then the day's events (flags before dots), then the small stuff. */
+function rank(f: Festival): number {
+  if (f.star) return 0;
+  return 1 + (f.quiet ? 3 : 0) + MARK_RANK[f.mark ?? "flag"];
+}
+
+/** Everything on a given local day: farm days first, then the day's events. Never throws. */
 export function festivalsOn(d: Date, foundedAt?: number): Festival[] {
   const out: Festival[] = [];
+  if (Number.isNaN(d.getTime())) return out;
   if (foundedAt) {
     const f = new Date(foundedAt);
     const years = d.getFullYear() - f.getFullYear();
@@ -119,19 +218,19 @@ export function festivalsOn(d: Date, foundedAt?: number): Festival[] {
       out.push({ name: "Farm Anniversary", note: `${years} ${years === 1 ? "year" : "years"} of sheep! Time for cake.`, star: true });
     } else if (daysBetween(f, d) === 0) out.push({ name: "Farm Founding Day", note: "Where it all began...", star: true });
   }
-  const sf = bayArea(d);
-  if (sf) out.push(sf);
-  const e = easter(d.getFullYear());
-  if (e.month === d.getMonth() && e.day === d.getDate()) {
-    out.push({ name: "Egg Festival", note: "Egg hunt in the town square! Bring a basket." });
+  const y = d.getFullYear();
+  for (const rule of RULES) {
+    try {
+      const f = rule(d, y);
+      if (f) out.push(f);
+    } catch {
+      // one bad rule never blanks the billboard
+    }
   }
-  const key = `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const fixed = FIXED[key];
-  if (fixed) out.push(fixed);
-  return out;
+  return out.map((f, i) => ({ f, i })).sort((a, b) => rank(a.f) - rank(b.f) || a.i - b.i).map((x) => x.f);
 }
 
-/** The day's main festival (or farm anniversary), if any. */
+/** The day's main event (or farm day) for the clock, if any. Small stuff doesn't count. */
 export function festivalOn(d: Date, foundedAt?: number): Festival | null {
-  return festivalsOn(d, foundedAt)[0] ?? null;
+  return festivalsOn(d, foundedAt).find((f) => !f.quiet) ?? null;
 }

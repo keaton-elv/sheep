@@ -262,18 +262,50 @@
   }
 }
 
+/* "Tap for sound": spelled out beside the box while it waits (after a beat, so a quick first tap
+   never flashes it). Taps go straight through it to the farm: any tap wakes the sound anyway. */
+.hud-sound__hint {
+  position: absolute;
+  right: calc(100% + var(--px) * 3);
+  top: 50%;
+  display: none;
+  white-space: nowrap;
+  font-size: calc(var(--px) * 8);
+  line-height: 1;
+  font-weight: 700;
+  color: #fff6dc;
+  text-shadow:
+    calc(var(--px) * 1) 0 0 #4a2410,
+    calc(var(--px) * -1) 0 0 #4a2410,
+    0 calc(var(--px) * 1) 0 #4a2410,
+    0 calc(var(--px) * -1) 0 #4a2410;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+.hud-sound[data-state="wait"] .hud-sound__hint {
+  display: block;
+  animation: hud-sound-hint 0.25s ease-out 1.2s both;
+}
+@keyframes hud-sound-hint {
+  from {
+    opacity: 0;
+    transform: translate(calc(var(--px) * 3), -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
 /* ---------- the sound check card ---------- */
 
 .hud-sound-pop {
-  width: 270px;
-}
-.hud-sound-pop [hidden] {
-  display: none !important;
+  width: 250px;
 }
 .hud-sound__body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding: 2px 2px 0;
 }
 .hud-sound__title {
@@ -284,60 +316,7 @@
   font-size: 1.05em;
   font-weight: 700;
 }
-.hud-sound__rows {
-  list-style: none;
-  margin: 0;
-  padding: 6px 0 0;
-  border-top: 2px dashed rgba(138, 60, 14, 0.35);
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.hud-sound__row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  min-height: 22px;
-}
-.hud-sound__label {
-  flex: none;
-}
-.hud-sound__dots {
-  flex: 1;
-  min-width: 6px;
-  border-bottom: 2px dotted rgba(107, 74, 51, 0.45);
-  transform: translateY(4px);
-}
-.hud-sound__value {
-  flex: 0 1 auto;
-  min-width: 0;
-  text-align: right;
-  overflow-wrap: anywhere;
-  color: var(--ok-ink);
-}
-.hud-sound__value.is-off {
-  color: var(--ink-soft);
-}
-.hud-sound__value.is-warn {
-  color: #b0480a;
-}
-.hud-sound__nudge {
-  margin: 0;
-  font-size: 0.9em;
-  font-weight: 700;
-  color: #b0480a;
-}
-.hud-sound__err {
-  margin: 0;
-  font-size: 0.8em;
-  line-height: 1.25;
-  color: var(--danger);
-  overflow-wrap: anywhere;
-}
-.hud-sound__baa {
-  width: 100%;
-}
+/* The switch: the same one as the box itself. */
 .hud-sound__switch {
   display: flex;
   align-items: center;
@@ -376,15 +355,23 @@
 .hud-sound__pill.is-on {
   background: #3f8a2a;
 }
-.hud-sound__note {
-  margin: -3px 0 0;
-  font-size: 0.85em;
-  color: var(--ink-soft);
+.hud-sound__baa {
+  width: 100%;
 }
-.hud-sound__help {
+/* One line: is it playing, and if not, why. */
+.hud-sound__status {
   margin: 0;
   font-size: 0.9em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
   color: var(--ink-soft);
+}
+.hud-sound__status[data-tone="ok"] {
+  color: var(--ok-ink);
+}
+.hud-sound__status[data-tone="warn"] {
+  font-weight: 700;
+  color: #b0480a;
 }
 
 /* ---------- the farm report popover ---------- */
@@ -524,6 +511,9 @@
     animation: none;
     opacity: 0.9;
     inset: calc(var(--px) * -1);
+  }
+  .hud-sound[data-state="wait"] .hud-sound__hint {
+    animation: hud-sound-hint 0s linear 1.2s both;
   }
   .hud-wool__float.is-on {
     animation-duration: 1.4s;

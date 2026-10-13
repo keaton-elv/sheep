@@ -2,13 +2,16 @@
 // weather + season icons, the time in 10-minute ticks, and the money box underneath repurposed as
 // the WOOL counter (with Stardew's rolling digits).
 // Tap the clock for the farm report (date, weather, a few numbers, one line from the TV); tap the
-// wool for the chest. A little sound box hangs left of the wool (hud-sound.ts): it shows whether
-// sound is on, off, or waiting for a tap, and holding it opens a sound check.
+// wool for the chest. A little sound box hangs left of the wool (hud-sound.ts): the one sound
+// switch, showing on, off, or waiting for a tap; holding it opens a sound check.
+// Every couple of seconds the HUD also tells the audio what the farm sounds like: the ambience
+// (night, rain, decorations) and which music fits (the season's, or the title theme while the
+// password gate is up).
 //
 // The box is painted on a canvas at the farm's device-pixel scale, so the dial hand can rotate
 // smoothly (like the game draws it at 4x) while everything else stays crisp pixel art.
 
-import { setAmbience } from "../audio";
+import { setAmbience, setMusicContext } from "../audio";
 import { capitalize, clockDateLabel, clockTimeLabel, dayKey, daysBetween, parseDayKey, stardewDate } from "../../shared/calendar";
 import type { Season } from "../../shared/calendar";
 import type { FarmState, WeatherKind } from "../../shared/types";
@@ -133,13 +136,13 @@ let lastTrivia = -1;
 
 type Special = "festival" | "wedding" | null;
 
-/** Festival days get Stardew's confetti icon; Bouquet Day and farm anniversaries get the heart. */
+/** Festival days get Stardew's confetti icon; Valentine's Day and farm anniversaries get the heart. */
 function specialDay(now: Date, s: FarmState | null): { kind: Special; name: string | null } {
   try {
     const f = festivalOn(now, s?.foundedAt);
     if (!f) return { kind: null, name: null };
-    // Farm days (founding, anniversaries) and Bouquet Day get the heart; festivals the confetti.
-    const heart = f.star === true || /bouquet|anniversary|founding/i.test(f.name);
+    // Farm days (founding, anniversaries) and Valentine's Day get the heart; festivals the confetti.
+    const heart = f.star === true || f.heart === true || /anniversary|founding/i.test(f.name);
     return { kind: heart ? "wedding" : "festival", name: f.name };
   } catch {
     return { kind: null, name: null };
@@ -411,7 +414,10 @@ export function initHud(g: Game): void {
       windy: env.weather === "windy",
       campfire: decor.some((d) => d.kind === "campfire"),
       pond: decor.some((d) => d.kind === "pond"),
+      darkness: env.darkness,
     });
+    // The title theme while the password gate is up (logged out mid-visit), the season's after.
+    setMusicContext(document.querySelector(".farm-gate") ? "title" : env.season);
   };
 
   // This runs inside the game loop: a throw here would stop the whole farm, so never let one out.

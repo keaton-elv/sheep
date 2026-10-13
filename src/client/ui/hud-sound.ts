@@ -1,52 +1,40 @@
-// The little sound box hanging left of the wool counter. It says at a glance whether sound is
-// supposed to be playing:
-//   waves = on    red X = off    faint waves + a nudge = on, but the phone hasn't let it play yet
-// Tap: mute / unmute (while it's waiting, a tap wakes the sound instead, and plays a baa).
-// Hold (or right-click): a tiny "Sound check" card with what the engine is doing, a test baa and
-// (on iPhones that allow it) "Play in silent mode".
+// The little sound box hanging left of the wool counter: the one sound switch. It says at a glance
+// whether sound will play:
+//   waves = on    red X = off    faint waves + "Tap for sound" = on, but the phone hasn't let it
+//   play yet (any tap wakes it)
+// Sound is on unless they turn it off, and when it's on it plays even with the iPhone's silent
+// switch on.
+// Tap: on / off (while it's waiting, a tap wakes the sound instead, with a baa).
+// Hold (or right-click): a tiny "Sound check" card: the switch, a test baa, and one line saying
+// what's going on.
 
-import { getSilentMode, getSoundStatus, onSoundStatus, playTestSound, setMuted, setSilentMode, unlockAudio } from "../audio";
+import { getSoundStatus, onSoundStatus, playTestSound, setMuted, unlockAudio } from "../audio";
 import type { SoundStatus } from "../audio";
-import { el, spriteIcon, toast } from "./dom";
+import { el, spriteIcon } from "./dom";
 import { CLOCK } from "./hud-art";
 import { closePopover, currentPopover, togglePopover } from "./hud-popover";
 
 /** calc() for a length in game pixels (same as hud.ts). */
 const gp = (n: number) => `calc(var(--px) * ${n})`;
 const HOLD_MS = 500;
+/** How long sound can take to wake up before the box admits it's waiting for a tap. */
+const WAIT_GRACE_MS = 700;
 
 type Look = "on" | "off" | "wait";
-
-/** Phones and tablets: where the silent switch (and so "Play in silent mode") matters. */
-export function silentModeMatters(): boolean {
-  try {
-    return matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * "Play in silent mode" can actually do something: a phone whose browser lets a page pick its
- * audio session (Safari's navigator.audioSession). Elsewhere (Android has no silent switch for web
- * sounds; older iPhones can't opt out) the switch would be a lie, so it isn't shown.
- */
-export function silentModeWorks(): boolean {
-  try {
-    return silentModeMatters() && getSoundStatus().sessionControl;
-  } catch {
-    return false;
-  }
-}
 
 /** Sound is on, but the engine isn't running: the phone is waiting for a tap. */
 const waiting = (s: SoundStatus) => s.enabled && s.engine !== "running";
 const lookOf = (s: SoundStatus): Look => (!s.enabled ? "off" : s.engine === "running" ? "on" : "wait");
 
 const LABELS: Record<Look, string> = {
-  on: "Sound on. Tap to mute, hold for a sound check.",
-  off: "Sound off. Tap for sound, hold for a sound check.",
-  wait: "Sound is waiting for a tap. Tap to start it.",
+  on: "Sound on. Tap to turn it off.",
+  off: "Sound off. Tap to turn it on.",
+  wait: "Tap for sound.",
+};
+const TITLES: Record<Look, string> = {
+  on: "Sound: on",
+  off: "Sound: off",
+  wait: "Tap for sound",
 };
 
 /** Mount the sound box inside the clock widget (positioned in its game-pixel space). */
@@ -64,20 +52,45 @@ export function mountSoundBox(root: HTMLElement): void {
       type: "button",
       "aria-haspopup": "dialog",
       "aria-expanded": "false",
-      title: "Sound (hold for a sound check)",
       style: `left:${gp(S.x)};top:${gp(S.y)};width:${gp(S.w)};height:${gp(S.h)}`,
     },
     icons.on,
     icons.off,
     icons.wait,
+    el("span", { class: "hud-sound__hint", "aria-hidden": "true" }, "Tap for sound"),
   );
   root.appendChild(btn);
 
-  const show = (s: SoundStatus) => {
-    const look = lookOf(s);
+  const apply = (look: Look) => {
     if (btn.dataset.state === look) return;
     btn.dataset.state = look;
     btn.setAttribute("aria-label", LABELS[look]);
+    btn.title = TITLES[look];
+  };
+  // Turning sound on, or coming back to the page, wakes the engine in a blink: give it a moment
+  // before switching to the waiting look, so the box doesn't flicker on every tap (it shows "on").
+  let waitTimer = 0;
+  const confirmWait = () => {
+    waitTimer = 0;
+    try {
+      if (lookOf(getSoundStatus()) !== "wait") return;
+      if (document.visibilityState === "hidden") waitTimer = window.setTimeout(confirmWait, WAIT_GRACE_MS);
+      else apply("wait");
+    } catch (err) {
+      console.warn("[hud] sound", err);
+    }
+  };
+  const show = (s: SoundStatus) => {
+    const look = lookOf(s);
+    const shown = btn.dataset.state;
+    if (look !== "wait" || !shown || shown === "wait") {
+      clearTimeout(waitTimer);
+      waitTimer = 0;
+      apply(look);
+      return;
+    }
+    apply("on");
+    if (!waitTimer) waitTimer = window.setTimeout(confirmWait, WAIT_GRACE_MS);
   };
   show(getSoundStatus());
   onSoundStatus((s) => {
@@ -86,6 +99,12 @@ export function mountSoundBox(root: HTMLElement): void {
     } catch (err) {
       console.warn("[hud] sound", err);
     }
+  });
+  // Back on the page: the engine is resuming right now, so start the moment over.
+  document.addEventListener("visibilitychange", () => {
+    if (!waitTimer || document.visibilityState !== "visible") return;
+    clearTimeout(waitTimer);
+    waitTimer = window.setTimeout(confirmWait, WAIT_GRACE_MS);
   });
 
   // ---------- the sound check card ----------
@@ -104,18 +123,17 @@ export function mountSoundBox(root: HTMLElement): void {
   let holdTimer = 0;
   /** This press already opened the sound check, so its click is swallowed. */
   let held = false;
-  /** Whether sound was waiting when the finger went down (before this very tap woke it). */
+  /** Whether the box showed "waiting" when the finger went down (before this very tap woke it). */
   let downWaiting: boolean | null = null;
   let downAt = 0;
   /** A finger / the left button is down on the box right now. */
   let pressing = false;
-  let hinted = false;
 
   btn.addEventListener("pointerdown", (ev) => {
     if (ev.button > 0) return; // right-click: contextmenu handles it
     held = false;
     pressing = true;
-    downWaiting = waiting(getSoundStatus());
+    downWaiting = btn.dataset.state === "wait";
     downAt = performance.now();
     clearTimeout(holdTimer);
     holdTimer = window.setTimeout(() => {
@@ -155,7 +173,8 @@ export function mountSoundBox(root: HTMLElement): void {
       return;
     }
     const st = getSoundStatus();
-    const wasWaiting = downWaiting !== null && performance.now() - downAt < 2000 ? downWaiting : waiting(st);
+    // Goes by what the box showed: "on" (even in its moment's grace) means a tap turns it off.
+    const wasWaiting = downWaiting !== null && performance.now() - downAt < 2000 ? downWaiting : btn.dataset.state === "wait";
     downWaiting = null;
     if (wasWaiting) {
       wakeUp();
@@ -167,11 +186,6 @@ export function mountSoundBox(root: HTMLElement): void {
     }
     setMuted(false);
     playTestSound();
-    // The usual iPhone reason for "I hear nothing": say it once per visit.
-    if (!hinted && silentModeMatters() && !st.silentMode) {
-      hinted = true;
-      toast("Baa! No sound? Check the silent switch.", { icon: "ui.hud.sound.on", ms: 3800 });
-    }
   });
 
   /** A tap while waiting: wake the engine (this click is a gesture) and baa once it's up. */
@@ -191,85 +205,45 @@ export function mountSoundBox(root: HTMLElement): void {
 
 // ---------- the card ----------
 
-function engineWords(s: SoundStatus): string {
-  switch (s.engine) {
-    case "running":
-      return "running";
-    case "interrupted":
-      return "interrupted";
-    case "closed":
-      return "stopped";
-    default:
-      if (!s.enabled) return "resting";
-      return s.engine === "none" ? "waiting for a tap" : "asleep";
-  }
-}
+type Tone = "ok" | "warn" | "off";
 
-function filesWords(s: SoundStatus): string {
-  const total = s.filesReady + s.filesFailed + s.filesLoading;
-  if (!total) return "none yet";
-  return `${s.filesReady}/${total}${s.filesFailed ? ` · ${s.filesFailed} failed` : ""}`;
+/** The one status line: is sound playing, and if not, why. */
+function statusLine(s: SoundStatus): { text: string; tone: Tone } {
+  if (!s.enabled) return { text: "Sound is off.", tone: "off" };
+  if (s.engine === "running") return { text: "Playing! Can't hear it? Turn the volume up.", tone: "ok" };
+  const why = s.engineError ? ` (${s.engineError})` : "";
+  if (s.engine === "interrupted") return { text: `Paused by the phone. Tap for sound.${why}`, tone: "warn" };
+  return { text: `Tap for sound.${why}`, tone: "warn" };
 }
 
 function buildSoundCheck(): { node: HTMLElement; dispose: () => void } {
-  const row = (label: string) => {
-    const value = el("b", { class: "hud-sound__value" });
-    const li = el(
-      "li",
-      { class: "hud-sound__row" },
-      el("span", { class: "hud-sound__label" }, label),
-      el("span", { class: "hud-sound__dots", "aria-hidden": "true" }),
-      value,
-    );
-    return { li, value };
-  };
-  const sound = row("Sound");
-  const engine = row("Engine");
-  const silent = row("Silent mode");
-  const files = row("Files");
-  const phone = silentModeMatters();
-  const canSwitch = silentModeWorks();
-
-  const nudge = el("p", { class: "hud-sound__nudge" }, "Tap anywhere to wake it.");
-  const err = el("p", { class: "hud-sound__err" });
-  const baa = el("button", { class: "sv-btn hud-sound__baa", type: "button" }, "Play a baa");
   const pill = el("span", { class: "hud-sound__pill" });
   const sw = el(
     "button",
     { class: "hud-sound__switch", type: "button", role: "switch", "aria-checked": "false" },
-    el("span", { class: "hud-sound__swlabel" }, "Play in silent mode"),
+    el("span", { class: "hud-sound__swlabel" }, "Sound"),
     pill,
   );
-  const note = el("p", { class: "hud-sound__note" }, "(Other music pauses.)");
-  const help = el("p", { class: "hud-sound__help" });
+  const baa = el("button", { class: "sv-btn hud-sound__baa", type: "button" }, "Play a baa");
+  const status = el("p", { class: "hud-sound__status", role: "status" });
 
+  sw.addEventListener("click", () => {
+    const on = !getSoundStatus().enabled;
+    setMuted(!on);
+    if (on) playTestSound();
+  });
   baa.addEventListener("click", () => {
     if (!getSoundStatus().enabled) setMuted(false);
     playTestSound();
   });
-  sw.addEventListener("click", () => {
-    const on = !getSilentMode();
-    setSilentMode(on);
-    if (on) playTestSound();
-  });
 
   const render = (s: SoundStatus) => {
-    sound.value.textContent = s.enabled ? "on" : "off";
-    sound.value.classList.toggle("is-off", !s.enabled);
-    engine.value.textContent = engineWords(s);
-    engine.value.classList.toggle("is-warn", waiting(s));
-    engine.value.classList.toggle("is-off", !s.enabled && s.engine !== "running");
-    silent.value.textContent = s.silentMode ? "plays anyway" : "respected";
-    files.value.textContent = filesWords(s);
-    files.value.classList.toggle("is-warn", s.filesFailed > 0);
-    nudge.hidden = !waiting(s);
-    err.hidden = !s.lastError;
-    err.textContent = s.lastError ?? "";
-    sw.setAttribute("aria-checked", String(s.silentMode));
-    pill.textContent = s.silentMode ? "On" : "Off";
-    pill.classList.toggle("is-on", s.silentMode);
-    note.hidden = !s.silentMode;
-    help.textContent = phone && !s.silentMode ? "No sound? Check the silent switch." : "No sound? Check the volume.";
+    sw.setAttribute("aria-checked", String(s.enabled));
+    pill.textContent = s.enabled ? "On" : "Off";
+    pill.classList.toggle("is-on", s.enabled);
+    const line = statusLine(s);
+    status.textContent = line.text;
+    status.dataset.tone = line.tone;
   };
   render(getSoundStatus());
   const off = onSoundStatus((s) => {
@@ -284,13 +258,9 @@ function buildSoundCheck(): { node: HTMLElement; dispose: () => void } {
     "div",
     { class: "hud-sound__body" },
     el("p", { class: "hud-sound__title" }, spriteIcon("ui.hud.sound.on"), "Sound check"),
-    el("ul", { class: "hud-sound__rows" }, sound.li, engine.li, phone ? silent.li : null, files.li),
-    nudge,
-    err,
+    sw,
     baa,
-    canSwitch ? sw : null,
-    canSwitch ? note : null,
-    help,
+    status,
   );
   return { node, dispose: off };
 }

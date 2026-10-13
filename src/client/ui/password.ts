@@ -1,35 +1,53 @@
 // "Hold it!" A Stardew-style title screen over the (already running) farm, built from the game's
-// real title pieces (sky, the big cloud bank, drifting clouds, corner bushes, birds), with a
-// dialogue box asking for the password. Remembered afterwards by the server's cookie.
+// real title pieces (sky, the big cloud bank, drifting clouds, corner bushes, birds) plus a little
+// San Francisco along the bottom (the Golden Gate in the haze, the city on its hills, Postcard
+// Row), with a dialogue box asking a riddle about Snickers. Remembered afterwards by the server's
+// cookie.
 //
-// The password box is deliberately a plain text field outside any <form> (no type="password", no
-// "pass" in its name or id, password-manager opt-outs), so phones and password managers never
-// offer to save it: it's a riddle for sheep fans, not an account.
+// The answer box is deliberately a plain text field outside any <form>: no type="password", and
+// no "pass"/"pw" anywhere in its attributes (iOS reads the placeholder, label, name and id to
+// decide a field wants a password and pops its AutoFill bar), plus password-manager opt-outs. It's
+// a riddle for sheep fans, not an account.
 
-import { sfx } from "../audio";
+import { seasonOf, type Season } from "../../shared/calendar";
+import { setMusicContext, sfx } from "../audio";
+import { currentGame } from "../engine/game";
 import { size as spriteSize, spriteUrl } from "../engine/sprites";
 import { drawLayers, HEAD_FRONT, opaqueAt, type Layer, type PartName } from "../entities/snickers-art";
 import { api } from "../net";
 import { el, frameIcon, spriteIcon, uiRoot } from "./dom";
-import { LOGO, registerPasswordArt, TITLE_ART, TITLE_BIRD, TITLE_SHEETS, type Rect } from "./password-art";
+import {
+  BAY,
+  CITY_H,
+  LADIES_H,
+  LADIES_W,
+  LOGO,
+  paintBay,
+  paintCity,
+  paintFog,
+  paintLadies,
+  registerPasswordArt,
+  TITLE_ART,
+  TITLE_BIRD,
+  TITLE_SHEETS,
+  type Rect,
+} from "./password-art";
 import "./password.css";
 
-const GREETING = "Hold it! Only true sheep fans behind this gate. What's the password?";
-/** Once in a while, the gatekeeper is the cat on the logo. */
-const GREETING_RARE = "Mow. Papa Snickers is guarding the gate today. What's the password?";
+const GREETING = "Hold it! How would you describe Snickers's beautiful eyes?";
+/** Once in a while, the gatekeeper is the cat on the logo (same question, word for word). */
+const GREETING_RARE = `Mow. Papa Snickers is guarding the gate today. ${GREETING}`;
 const RARE_CHANCE = 1 / 10;
 
-// Wrong answers get a little reaction from the farm. (No hints, ever.)
+// Wrong answers get a little reaction from Snickers (and the farm). No hints, ever.
 const TEASES = [
-  "Baa...? That's not it.",
-  "The sheep stare at you suspiciously...",
-  "Nope! Even Milo knows that one. He's a hedgehog.",
-  "A crow caws. Judgmentally.",
-  "Ba-nope.",
-  "Otto yips. That's fox for \"nice try\".",
-  "The gate doesn't budge. A sheep chews thoughtfully...",
-  "Snickers opens one eye. Mlem. Back to sleep...",
-  "A ladybug lands on the gate, looks at you, and leaves...",
+  "Snickers blinks at you. Slowly. That's a no.",
+  "Mow?! Look into his eyes again...",
+  "Snickers stares deep into your soul. Nope.",
+  "Beautiful, yes. But that's not it.",
+  "His eyes say no. Very beautifully.",
+  "Snickers closes his eyes in protest...",
+  "A sheep gazes into his eyes too. Ba-nope.",
   "Close! (It wasn't close.)",
 ];
 
@@ -222,6 +240,9 @@ function cropEl(cls: string, sheet: { src: string; w: number; h: number }, r: Re
 
 let lastTease = -1;
 
+/** The row (above the bottom) of the red beacons on top of the bridge's towers. */
+const BEACON_ROW = BAY.water + BAY.tower + 1;
+
 function phase(): Phase {
   // Match the farm underneath, including the ?time=HH:MM debug override.
   const forced = /^(\d{1,2}):\d{2}$/.exec(new URLSearchParams(location.search).get("time") ?? "");
@@ -252,6 +273,11 @@ function drawCat(c: HTMLCanvasElement, head: PartName, flick = 0, bob = 0): void
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** The farm's season: the running game's own (so its ?season= and ?date= overrides agree with the HUD). */
+function farmSeason(): Season {
+  return currentGame?.env.season ?? seasonOf(new Date());
+}
+
 /** Show the password gate; resolves once the right word has been entered. */
 export function showPasswordGate(): Promise<void> {
   registerPasswordArt();
@@ -262,10 +288,10 @@ export function showPasswordGate(): Promise<void> {
     // ---------- sky ----------
 
     const ph = phase();
-    const sky = el("div", { class: "pw-sky", "aria-hidden": "true" });
-    const stars = el("div", { class: "pw-stars" });
+    const sky = el("div", { class: "gate-sky", "aria-hidden": "true" });
+    const stars = el("div", { class: "gate-stars" });
     for (let i = 0; i < 46; i++) {
-      const s = el("span", { class: "pw-star" });
+      const s = el("span", { class: "gate-star" });
       s.style.left = `${(i * 37.7) % 100}%`;
       s.style.top = `${((i * 53.3) % 60) + (i % 3)}%`;
       s.style.animationDelay = `${(i % 7) * 0.45}s`;
@@ -276,7 +302,7 @@ export function showPasswordGate(): Promise<void> {
 
     /** A cloud drifting across at `top` % of the screen. Negative delays spread them out. */
     const drift = (node: HTMLElement, top: number, dur: number, start: number) => {
-      node.classList.add("pw-cloud");
+      node.classList.add("gate-cloud");
       node.style.top = `${top}%`;
       node.style.animationDuration = `${dur}s`;
       node.style.animationDelay = `${-dur * start}s`;
@@ -303,7 +329,7 @@ export function showPasswordGate(): Promise<void> {
     };
     const fallbackBirds = () => {
       for (let i = 0; i < 2; i++) {
-        const bird = el("div", { class: "pw-bird is-drawn" });
+        const bird = el("div", { class: "gate-bird is-drawn" });
         bird.style.backgroundImage = `url("${spriteUrl("ui.title.bird")}")`;
         bird.style.top = `${14 + i * 7}%`;
         bird.style.animationDelay = `0s, ${-i * 3 - 4}s`;
@@ -314,7 +340,7 @@ export function showPasswordGate(): Promise<void> {
     // The real title screen: the cloud bank is drawn on a canvas (copies side by side, every
     // other one mirrored, so it reaches across any screen and can scroll slowly forever).
     const bank = document.createElement("canvas");
-    bank.className = "pw-bank";
+    bank.className = "gate-bank";
     let cloudsImg: HTMLImageElement | null = null;
     const BANK_STEP = 400; // art px between copies (they overlap a little, puff into puff)
     const buildBank = () => {
@@ -322,7 +348,7 @@ export function showPasswordGate(): Promise<void> {
       const cpCss = parseFloat(gate.style.getPropertyValue("--cp")) || 1;
       const { bank: b } = TITLE_ART;
       // Screen width in art px, plus one full mirrored pair so the scroll can loop seamlessly.
-      // (The canvas starts 120 art px left of the screen; see .pw-bank.)
+      // (The canvas starts 120 art px left of the screen; see .gate-bank.)
       const need = Math.ceil(window.innerWidth / cpCss) + 120 + BANK_STEP * 2 + b.w;
       const copies = Math.ceil(need / BANK_STEP) + 1;
       const w = (copies - 1) * BANK_STEP + b.w;
@@ -360,13 +386,13 @@ export function showPasswordGate(): Promise<void> {
       cloudsImg = img;
       const sheet = TITLE_SHEETS.clouds;
       // Far-away clouds first, then the bank, then the bright clouds in front of it.
-      TITLE_ART.faint.forEach((r, i) => drift(cropEl("pw-faint", sheet, r), [10, 26, 4][i]!, [260, 210, 300][i]!, [0.3, 0.75, 0.05][i]!));
+      TITLE_ART.faint.forEach((r, i) => drift(cropEl("gate-faint", sheet, r), [10, 26, 4][i]!, [260, 210, 300][i]!, [0.3, 0.75, 0.05][i]!));
       buildBank();
       sky.appendChild(bank);
-      TITLE_ART.clouds.forEach((r, i) => drift(cropEl("pw-puff", sheet, r), [6, 30, 18][i]!, [140, 105, 175][i]!, [0.55, 0.15, 0.85][i]!));
+      TITLE_ART.clouds.forEach((r, i) => drift(cropEl("gate-puff", sheet, r), [6, 30, 18][i]!, [140, 105, 175][i]!, [0.55, 0.15, 0.85][i]!));
       const v = BUSH_VARIANT[ph];
-      sky.appendChild(cropEl("pw-bush is-left", sheet, TITLE_ART.bushLeft[v]!));
-      sky.appendChild(cropEl("pw-bush is-right", sheet, TITLE_ART.bushRight[v]!));
+      sky.appendChild(cropEl("gate-bush is-left", sheet, TITLE_ART.bushLeft[v]!));
+      sky.appendChild(cropEl("gate-bush is-right", sheet, TITLE_ART.bushRight[v]!));
       sky.classList.add("is-real");
     });
     void loadImage(TITLE_SHEETS.title.src).then((img) => {
@@ -381,18 +407,86 @@ export function showPasswordGate(): Promise<void> {
         [16, -3.4],
       ];
       for (const [top, delay] of flock) {
-        const bird = cropEl("pw-bird", TITLE_SHEETS.title, { x: TITLE_BIRD.x, y: TITLE_BIRD.y, w: TITLE_BIRD.w, h: TITLE_BIRD.h });
+        const bird = cropEl("gate-bird", TITLE_SHEETS.title, { x: TITLE_BIRD.x, y: TITLE_BIRD.y, w: TITLE_BIRD.w, h: TITLE_BIRD.h });
         bird.style.top = `${top}%`;
         bird.style.animationDelay = `${(delay * 0.13).toFixed(2)}s, ${delay}s`;
         sky.appendChild(bird);
       }
     });
 
+    // ---------- San Francisco, along the bottom ----------
+    // Hand-drawn in password-art.ts (no sheets to wait for): the bay and the Golden Gate, Karl the
+    // Fog drifting through, the city on its hills, and the Painted Ladies, all behind the bushes.
+    // The wide layers are as wide as the screen, so they're repainted when the width changes.
+
+    const layer = (cls: string, w: number, h: number) => {
+      const c = document.createElement("canvas");
+      c.className = `gate-sf ${cls}`;
+      c.width = w;
+      c.height = h;
+      c.style.width = `calc(var(--cp) * ${w})`;
+      c.style.height = `calc(var(--cp) * ${h})`;
+      return c;
+    };
+    const paint = (c: HTMLCanvasElement, fn: (ctx: CanvasRenderingContext2D) => void) => {
+      try {
+        const ctx = c.getContext("2d");
+        if (!ctx) return;
+        ctx.clearRect(0, 0, c.width, c.height);
+        fn(ctx);
+      } catch {
+        /* scenery: never let it break the gate */
+      }
+    };
+    const bay = layer("gate-bay", 1, BAY.h);
+    const city = layer("gate-city", 1, CITY_H);
+    const ladies = layer("gate-ladies", LADIES_W, LADIES_H);
+    paint(ladies, (ctx) => paintLadies(ctx, ph));
+    // Two wisps of fog: a long one along the roadway, a thin one through the towers' tops.
+    const fogs = (
+      [
+        [150, 14, 3, BAY.water + BAY.deck - 7, 95, 0.42, -140],
+        [110, 9, 11, BAY.water + BAY.tower - 20, 130, 0.7, 30],
+      ] as const
+    ).map(([w, h, seed, bottom, dur, start, rest]) => {
+      const fog = layer("gate-fog", w, h);
+      fog.classList.remove("gate-sf");
+      paint(fog, (ctx) => paintFog(ctx, w, h, ph, seed));
+      fog.style.bottom = `calc(var(--cp) * ${bottom})`;
+      fog.style.animationDuration = `${dur}s`;
+      fog.style.animationDelay = `${-dur * start}s`;
+      return { fog, rest };
+    });
+    const beacons = [-1, 1].map(() => el("span", { class: "gate-beacon" }));
+    for (const b of beacons) b.style.bottom = `calc(var(--cp) * ${BEACON_ROW})`;
+    sky.append(bay, ...fogs.map((f) => f.fog), ...beacons, city, ladies);
+
+    let sfKey = "";
+    const buildSF = () => {
+      const cpCss = parseFloat(gate.style.getPropertyValue("--cp")) || 1;
+      const screenW = window.innerWidth / cpCss;
+      const w = Math.ceil(screenW) + 2;
+      const cx = Math.floor(screenW / 2);
+      const key = `${w}:${cx}`;
+      if (key === sfKey) return;
+      sfKey = key;
+      for (const c of [bay, city]) {
+        c.width = w;
+        c.style.width = `calc(var(--cp) * ${w})`;
+      }
+      paint(bay, (ctx) => paintBay(ctx, w, cx, ph));
+      paint(city, (ctx) => paintCity(ctx, w, cx, ph));
+      ladies.style.left = `calc(var(--cp) * ${cx - Math.floor(LADIES_W / 2)})`;
+      // With motion turned off the fog just rests near the bridge.
+      for (const { fog, rest } of fogs) fog.style.setProperty("--fog-rest", `translateX(calc(var(--cp) * ${cx + rest}))`);
+      beacons.forEach((b, i) => (b.style.left = `calc(var(--cp) * ${cx + (i ? 1 : -1) * (BAY.span / 2) - 1})`));
+    };
+
     // ---------- logo ----------
 
-    const logo = spriteIcon("ui.logo", { class: "pw-logo__text" });
-    const sheepOpen = frameIcon("sheep", 12, 32, 32, { class: "pw-logo__sheep" });
-    const sheepBlink = frameIcon("sheep", 13, 32, 32, { class: "pw-logo__sheep is-blink" });
+    const logo = spriteIcon("ui.logo", { class: "gate-logo__text" });
+    const sheepOpen = frameIcon("sheep", 12, 32, 32, { class: "gate-logo__sheep" });
+    const sheepBlink = frameIcon("sheep", 13, 32, 32, { class: "gate-logo__sheep is-blink" });
     for (const c of [logo, sheepOpen, sheepBlink]) c.removeAttribute("style");
     // A sheep stands on top of the lettering (never overlapping it)...
     const perch = sheepPerch(sheepOpen);
@@ -400,17 +494,17 @@ export function showPasswordGate(): Promise<void> {
     const cat = document.createElement("canvas");
     cat.width = CAT_W;
     cat.height = CAT_H;
-    cat.className = "pw-logo__cat";
+    cat.className = "gate-logo__cat";
     drawCat(cat, "headFront");
     const catSpot = catPerch(sheepOpen, perch.x);
     // Logo px of headroom above the lettering for whoever stands tallest.
     const head = 32 - Math.min(perch.y, catSpot ? catSpot.y : perch.y);
     const artW = Math.max(LOGO.w, perch.x + 32);
     const artH = head + LOGO.h;
-    const sheepWrap = el("span", { class: "pw-logo__sheepwrap" }, sheepOpen, sheepBlink);
+    const sheepWrap = el("span", { class: "gate-logo__sheepwrap" }, sheepOpen, sheepBlink);
     sheepWrap.style.left = `calc(var(--lp) * ${perch.x})`;
     sheepWrap.style.top = `calc(var(--lp) * ${head - (32 - perch.y)})`;
-    const art = el("span", { class: "pw-logo__art", "aria-hidden": "true" }, logo, sheepWrap);
+    const art = el("span", { class: "gate-logo__art", "aria-hidden": "true" }, logo, sheepWrap);
     if (catSpot) {
       cat.style.left = `calc(var(--lp) * ${catSpot.x})`;
       // Tucked one logo px down behind the lettering: --lp is a fraction of a CSS px on phones (7 device
@@ -423,18 +517,19 @@ export function showPasswordGate(): Promise<void> {
     art.style.setProperty("--logo-h", String(LOGO.h));
     art.style.setProperty("--art-w", String(artW));
     art.style.setProperty("--head", String(head));
-    const title = el("h1", { class: "pw-logo", id: "pw-title" }, el("span", { class: "visually-hidden" }, "Papa Snickers's Sheep Farm"), art);
+    const title = el("h1", { class: "gate-logo", id: "farm-title" }, el("span", { class: "visually-hidden" }, "Papa Snickers's Sheep Farm"), art);
 
     // ---------- the dialogue box ----------
 
-    const say = el("p", { class: "sv-say pw-say", "aria-live": "polite" });
-    // A plain text field, NOT in a <form>, so nothing offers to save it (see the top of the file).
+    const say = el("p", { class: "sv-say gate-say", "aria-live": "polite" });
+    // A plain text field, NOT in a <form>, with nothing credential-ish in any attribute (no
+    // "pass", no "pw"), so iOS and password managers leave it alone (see the top of the file).
     const input = el("input", {
-      class: "sv-input pw-input",
-      id: "farm-gate-word",
+      class: "sv-input gate-answer",
       type: "text",
-      name: "gate-word",
-      placeholder: "password",
+      // A throwaway name: Safari's field heuristics read names too (dom.ts does the same).
+      name: `g${Math.random().toString(36).slice(2, 8)}`,
+      placeholder: "his eyes are\u2026",
       autocomplete: "off",
       autocorrect: "off",
       autocapitalize: "none",
@@ -444,15 +539,15 @@ export function showPasswordGate(): Promise<void> {
       "data-1p-ignore": "",
       "data-lpignore": "true",
       "data-form-type": "other",
-      "aria-label": "Password",
+      "aria-label": "Answer",
     });
-    const ok = el("button", { class: "sv-btn sv-btn--primary pw-ok", type: "button" }, "OK");
-    const box = el("div", { class: "sv-box pw-box" }, say, el("div", { class: "pw-row" }, input, ok));
+    const ok = el("button", { class: "sv-btn sv-btn--primary gate-ok", type: "button" }, "OK");
+    const box = el("div", { class: "sv-box gate-box" }, say, el("div", { class: "gate-row" }, input, ok));
 
-    const main = el("div", { class: "pw-main" }, title, box);
+    const main = el("div", { class: "gate-main" }, title, box);
     const gate = el(
       "div",
-      { class: `pw-gate is-${ph}`, role: "dialog", "aria-modal": "true", "aria-labelledby": "pw-title" },
+      { class: `farm-gate is-${ph}`, role: "dialog", "aria-modal": "true", "aria-labelledby": "farm-title" },
       sky,
       main,
     );
@@ -483,6 +578,7 @@ export function showPasswordGate(): Promise<void> {
       const ck = Math.max(1, Math.min(6, Math.round((window.innerHeight * dpr * 0.42) / 330)));
       gate.style.setProperty("--cp", `${ck / dpr}px`);
       buildBank();
+      buildSF();
     };
     size();
     addEventListener("resize", size);
@@ -492,7 +588,7 @@ export function showPasswordGate(): Promise<void> {
     let typing = 0;
     const type = (text: string, cls = "") => {
       clearInterval(typing);
-      say.className = `sv-say pw-say ${cls}`;
+      say.className = `sv-say gate-say ${cls}`;
       if (reducedMotion()) {
         say.textContent = text;
         return;
@@ -587,7 +683,7 @@ export function showPasswordGate(): Promise<void> {
       later(catBlink, 1100);
       later(catTail, 2400);
       cat.addEventListener("click", mlem);
-      // Keep the caret in the password box when he's tapped.
+      // Keep the caret in the answer box when he's tapped.
       cat.addEventListener("mousedown", (ev) => ev.preventDefault());
     }
 
@@ -657,6 +753,8 @@ export function showPasswordGate(): Promise<void> {
       later(() => gate.classList.add("is-leaving"), 1050);
       later(() => {
         finish();
+        // Back to the farm's music (the HUD keeps it in step from here on).
+        setMusicContext(farmSeason());
         resolve();
       }, 1750);
     };
@@ -681,6 +779,7 @@ export function showPasswordGate(): Promise<void> {
 
     uiRoot.inert = true;
     document.body.appendChild(gate);
+    setMusicContext("title");
     type(catSpot && Math.random() < RARE_CHANCE ? GREETING_RARE : GREETING);
     requestAnimationFrame(() => {
       // Phones only open the keyboard on a real tap, so this is mostly for laptops.
