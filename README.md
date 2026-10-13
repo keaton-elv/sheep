@@ -63,8 +63,10 @@ Changing either one logs every device out.
   rectangles in `REGIONS` (`src/client/engine/sprites.ts` and the modules that use them).
   Anything without a real sprite falls back to hand-drawn art under the same key, so
   sheets can be added one at a time.
-- Sounds go in `src/client/public/sounds/<name>.ogg|mp3|wav`, using the names from `Sfx` in
-  `src/client/audio.ts` (e.g. `baa.ogg`, `snip.ogg`). Missing ones are synthesized.
+- Sounds live in `src/client/public/sounds/` (short effects as small WAVs, longer ones and the
+  ambience loops in `ambience/` as AAC `.m4a`). Each recording is listed in `FILES` in
+  `src/client/audio.ts`. Anything without a recording (baa, meow, the fox's yip, Snickers' licks) is
+  synthesized.
 - Raw downloads (from The Spriters Resource) are kept in `assets/raw/` for reference.
 
 Stardew Valley art and sound © ConcernedApe. This is a private, non-commercial fan project.

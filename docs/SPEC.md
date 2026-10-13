@@ -44,7 +44,11 @@ and desktop works great too.
 - **The fox and the hedgehog** live in the bottom-right corner. They're best friends who nuzzle, sleep curled
   up together at night, and wear seasonal accessories (scarves and hats in winter). Tapping them gets
   reactions, and sometimes a little line.
-- **The grey farm cat** naps by the barn. Tap to pet.
+- **Snickers** 🐈 is her real cat, a grey Himalayan: a cream cloud of a cat with a dark grey face, paws and a smoky
+  plume of a tail, plus a tiny pink tongue that's *always* sticking out. He wanders the yard by the barn, loafs, grooms,
+  and naps on the barn doorstep. Tap his head to pet him. Scratch **the spot on his butt** and he licks the air
+  uncontrollably (rapid tongue flicks, little "mlem"s, more frantic the more you scratch). The first time:
+  *"You found his lick button."*
 - **Birds:** sparrows, blue jays, cardinals, crows and woodpeckers. They hop, peck, perch on the fence and
   scatter as a flock when tapped. Crows never land if there's a scarecrow (the Stardew joke).
 - **Bugs:** butterflies, **ladybugs** (tap: "lucky day!", with a rare golden one), **bumblebees** bumbling
@@ -73,6 +77,7 @@ and desktop works great too.
   seasonal tilesets, fences, clock box, billboard, mail paper, title-screen sky and clouds, fonts,
   critters, cat.
 - **Lambs:** a newly bought sheep arrives as a lamb (baby sheep sprite) and grows up after a day.
+- **Snickers** replaces the generic farm cat (see Critters).
 - **Animal hats** 🎩: cloth can buy a hat for a sheep.
 - **Mobile-first pass:**
   - a "Flock" list to find any sheep fast
