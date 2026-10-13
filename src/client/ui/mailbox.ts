@@ -584,7 +584,8 @@ function welcomeLetter(st: FarmState): Letter {
       `Welcome to ${st.farmName}.${mine} Every sheep out there is a plan. Do the thing, then shear the sheep. ` +
       "I will be supervising...\n\nP.S. Scratches accepted. Some spots more than others.\nP.P.S. Fancy Feast. Salmon, if you have it.",
     sign: SNICKERS,
-    gift: gift(sheepHead(false, { scale: 1.5 })),
+    // Signed by Snickers, so his face goes on it (a sheep if his art somehow isn't there).
+    gift: gift(has("snickers.icon") ? spriteIcon("snickers.icon", { scale: 1.5 }) : sheepHead(false, { scale: 1.5 })),
     action: null,
     isNew: true,
   };
