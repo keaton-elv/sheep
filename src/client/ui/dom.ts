@@ -191,9 +191,40 @@ export function closeAllDialogs(): void {
   sync();
 })();
 
+// iOS Safari pops its contact AutoFill bar on fields it guesses are for names/addresses (it reads
+// labels, ids, names and placeholders). None of ours are: opt every field out before it focuses.
+let fieldSeq = 0;
+function quietField(t: HTMLInputElement | HTMLTextAreaElement): void {
+  if (t.dataset.quiet === "1" || (t instanceof HTMLInputElement && t.type === "password")) return;
+  t.dataset.quiet = "1";
+  t.setAttribute("autocomplete", "off");
+  // An unguessable name keeps Safari's field-type heuristics from matching "name", "address"...
+  if (!t.getAttribute("name")) t.setAttribute("name", `f${++fieldSeq}-${Math.random().toString(36).slice(2, 7)}`);
+  t.setAttribute("data-1p-ignore", "");
+  t.setAttribute("data-lpignore", "true");
+  t.setAttribute("data-form-type", "other");
+  if (t instanceof HTMLInputElement && !t.hasAttribute("enterkeyhint")) t.setAttribute("enterkeyhint", "done");
+}
+document.addEventListener(
+  "pointerdown",
+  (ev) => {
+    const t = (ev.target as HTMLElement | null)?.closest?.("input, textarea");
+    if (t) quietField(t as HTMLInputElement | HTMLTextAreaElement);
+  },
+  { capture: true, passive: true },
+);
+new MutationObserver((records) => {
+  for (const r of records)
+    for (const n of r.addedNodes)
+      if (n instanceof HTMLElement)
+        for (const f of n.matches("input, textarea") ? [n] : Array.from(n.querySelectorAll("input, textarea")))
+          quietField(f as HTMLInputElement | HTMLTextAreaElement);
+}).observe(document.documentElement, { childList: true, subtree: true });
+
 // Keep the focused field visible inside a scrolling dialog once the keyboard has opened.
 document.addEventListener("focusin", (ev) => {
   const t = ev.target as HTMLElement | null;
+  if (t?.matches?.("input, textarea")) quietField(t as HTMLInputElement | HTMLTextAreaElement);
   if (!t?.matches?.("input, textarea, select") || !t.closest(".sv-dialog")) return;
   setTimeout(() => t.scrollIntoView({ block: "center", behavior: "smooth" }), 280);
 });
@@ -448,11 +479,12 @@ export function promptDialog(opts: {
       onClose: () => resolve(result),
     });
     if (!opts.multiline) {
+      // Return just puts the keyboard away (like the ✓ above it); OK saves.
       input.addEventListener("keydown", (ev) => {
-        if ((ev as KeyboardEvent).key === "Enter") {
+        const k = ev as KeyboardEvent;
+        if (k.key === "Enter" && !k.isComposing) {
           ev.preventDefault();
-          result = input.value.trim();
-          d.close();
+          input.blur();
         }
       });
     }

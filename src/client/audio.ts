@@ -608,6 +608,55 @@ function kick(c: AudioContext): void {
   }
 }
 
+// ---------- "Play in silent mode" keep-alive ----------
+// navigator.audioSession = "playback" is the official switch, but iOS doesn't always honor it for
+// Web Audio. The classic belt-and-braces: a looping, silent <audio> element started inside a tap
+// puts the page's audio session into "playback", which ignores the silent switch.
+let keepAliveEl: HTMLAudioElement | null = null;
+
+function silentWavUrl(): string {
+  const rate = 8000;
+  const n = rate / 4; // a quarter second of silence, looped
+  const buf = new Uint8Array(44 + n);
+  const dv = new DataView(buf.buffer);
+  const str = (o: number, t: string) => [...t].forEach((ch, i) => (buf[o + i] = ch.charCodeAt(0)));
+  str(0, "RIFF");
+  dv.setUint32(4, 36 + n, true);
+  str(8, "WAVEfmt ");
+  dv.setUint32(16, 16, true);
+  dv.setUint16(20, 1, true); // PCM
+  dv.setUint16(22, 1, true); // mono
+  dv.setUint32(24, rate, true);
+  dv.setUint32(28, rate, true);
+  dv.setUint16(32, 1, true);
+  dv.setUint16(34, 8, true); // 8-bit
+  str(36, "data");
+  dv.setUint32(40, n, true);
+  buf.fill(0x80, 44); // 8-bit PCM silence is the midpoint
+  let bin = "";
+  for (const b of buf) bin += String.fromCharCode(b);
+  return `data:audio/wav;base64,${btoa(bin)}`;
+}
+
+/** Start (from a tap) or stop the silent loop that keeps iOS in "playback" mode. */
+function keepAlive(on: boolean): void {
+  try {
+    if (!on) {
+      keepAliveEl?.pause();
+      return;
+    }
+    if (!keepAliveEl) {
+      keepAliveEl = new Audio(silentWavUrl());
+      keepAliveEl.loop = true;
+      keepAliveEl.setAttribute("playsinline", "");
+      keepAliveEl.volume = 0.01;
+    }
+    if (keepAliveEl.paused) void keepAliveEl.play().catch(() => {});
+  } catch {
+    /* no HTML audio here */
+  }
+}
+
 // Touch "activation" only counts on pointerup/touchend/click (not pointerdown), and iOS can
 // suspend or interrupt the context after a call or a trip to the home screen, so keep
 // listening: every tap wakes it (synchronously, inside the gesture) if it isn't running.
@@ -618,6 +667,7 @@ for (const ev of ["pointerup", "touchend", "click", "keydown"]) {
       try {
         if (!unlocked) unlockAudio();
         else if (!muted && !running()) wake();
+        if (silentMode && !muted && document.visibilityState === "visible") keepAlive(true);
       } catch (err) {
         console.warn("[audio] gesture", err);
       }
@@ -631,6 +681,7 @@ document.addEventListener("visibilitychange", () => {
     if (!ctx) return;
     if (document.visibilityState === "hidden") {
       stopAmbience();
+      keepAlive(false);
       if (ctx.state === "running") void ctx.suspend().catch(() => {});
     } else if (unlocked && !muted) {
       resume();
@@ -672,6 +723,7 @@ export function setMuted(m: boolean): void {
   if (muted === m) return;
   muted = m;
   writeFlag(MUTE_KEY, m);
+  keepAlive(!m && silentMode);
   try {
     if (ctx && master && (ctx.state as string) !== "closed") {
       const t = ctx.currentTime;
@@ -724,6 +776,7 @@ export function setSilentMode(on: boolean): void {
     silentMode = on;
     if (changed) writeFlag(SILENT_MODE_KEY, on);
     applySession();
+    keepAlive(on && !muted);
     const c = ctx;
     if (changed && c && (c.state as string) !== "closed" && !muted) {
       if (c.state === "running") {

@@ -31,7 +31,7 @@ function openFarmSign(): void {
     autocomplete: "off",
     autocapitalize: "words",
     enterkeyhint: "done",
-    "aria-label": "Farm name",
+    "aria-label": "Farm sign",
   });
   // Preview the new name on the plank as you type.
   input.addEventListener("input", () => {
@@ -74,14 +74,10 @@ function openFarmSign(): void {
     ],
   });
 
+  // Return just puts the keyboard away; the paint goes on with the button.
   input.addEventListener("keydown", (ev) => {
-    if (ev.key !== "Enter") return;
+    if (ev.key !== "Enter" || ev.isComposing) return;
     ev.preventDefault();
-    d.error(null);
-    d.setBusy(true);
-    save()
-      .then(() => d.close())
-      .catch((err: unknown) => d.error(err instanceof Error ? err.message : String(err)))
-      .finally(() => d.setBusy(false));
+    input.blur();
   });
 }

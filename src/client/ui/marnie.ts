@@ -140,7 +140,7 @@ function buildForm(
   // Name
   const nameInput = el("input", {
     class: "sv-input mr-name",
-    id: `${id}-name`,
+    id: `${id}-plan`,
     type: "text",
     maxLength: LIMITS.name,
     placeholder: namePlaceholder(initial),
@@ -154,17 +154,18 @@ function buildForm(
     setErr("name", null);
     planChanged();
   });
+  // Return just puts the keyboard away (like the ✓ above it); you buy with the Purchase button.
   nameInput.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && !ev.isComposing) {
       ev.preventDefault();
-      opts.onSubmit();
+      nameInput.blur();
     }
   });
 
   const nameField = el(
     "div",
     { class: "sv-field" },
-    el("label", { class: "sv-field__label", for: `${id}-name` }, "Name your sheep ", el("span", { class: "mr-soft" }, "(that's the plan)")),
+    el("label", { class: "sv-field__label", for: `${id}-plan` }, "What's the plan?"),
     nameInput,
     errs.name,
   );
@@ -290,7 +291,7 @@ function buildForm(
   linkInput.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && !ev.isComposing) {
       ev.preventDefault();
-      opts.onSubmit();
+      linkInput.blur();
     }
   });
   const linkField = el(
