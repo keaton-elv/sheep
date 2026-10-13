@@ -56,13 +56,32 @@ function greetingFor(date: string | null): string {
 
 const PRICES = ["Free with one hug.", "Free with one hug. Two if it's raining.", "Payment accepted in forehead kisses.", "Free! It goes on your tab of hugs."];
 
-const PLACEHOLDERS = [
-  "e.g. Pottery class",
-  "e.g. Weekend in Big Sur",
-  "e.g. Bake a Pink Cake",
-  "e.g. Stargaze somewhere dark",
-  "e.g. Night market date",
-  "e.g. Visit a lavender farm",
+// The name placeholder: always the same plan, somewhere new. (Real San Francisco parks.)
+const SF_PARKS = [
+  "Dolores Park",
+  "Golden Gate Park",
+  "Alamo Square",
+  "Lands End",
+  "Crissy Field",
+  "Bernal Heights Park",
+  "Buena Vista Park",
+  "Corona Heights Park",
+  "Precita Park",
+  "Duboce Park",
+  "Lafayette Park",
+  "Alta Plaza Park",
+  "Washington Square",
+  "Huntington Park",
+  "Stern Grove",
+  "McLaren Park",
+  "Glen Canyon Park",
+  "Fort Funston",
+  "Presidio Tunnel Tops",
+  "Twin Peaks",
+  "Sutro Heights Park",
+  "Mountain Lake Park",
+  "Holly Park",
+  "Salesforce Park",
 ];
 
 // ---------- the sheep form (shared by "buy" and "edit") ----------
@@ -105,7 +124,7 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
     id: `${id}-name`,
     type: "text",
     maxLength: LIMITS.name,
-    placeholder: pick(PLACEHOLDERS),
+    placeholder: `Eat pizza in ${pick(SF_PARKS)}`,
     autocomplete: "off",
     enterKeyHint: "done",
   });
@@ -142,37 +161,63 @@ function buildForm(initial: Partial<Sheep>, opts: { memory: boolean; onSubmit: (
   }
   const catField = el("fieldset", { class: "sv-field mr-fieldset" }, el("legend", { class: "sv-field__label" }, "Kind"), chips);
 
-  // Date
+  // Date: empty means "no date" (never a default). iOS draws today's date inside an empty date
+  // input, so while it's empty the native text is hidden under a "No date" face (marnie.css), and
+  // the ✕ is the only way to un-set a date on phones, so it shows whenever one is set.
   const dateInput = el("input", { class: "sv-input mr-date", id: `${id}-date`, type: "date" });
   dateInput.value = initial.date && parseDayKey(initial.date) ? initial.date : "";
-  const clearDate = el("button", { class: "sv-btn mr-clear", type: "button", "aria-label": "Clear the date", title: "No date" }, "✕");
+  const dateBox = el(
+    "div",
+    { class: "mr-datebox" },
+    dateInput,
+    el("span", { class: "mr-dateface", "aria-hidden": "true" }, spriteIcon("ui.icon.calendar"), el("span", null, "No date")),
+  );
+  const clearDate = el("button", { class: "sv-btn mr-clear", type: "button", "aria-label": "Clear the date", title: "Clear the date" }, "✕");
   const dateHint = el("p", { class: "mr-hint", "aria-live": "polite" });
   const updateDateHint = () => {
     const d = parseDayKey(dateInput.value);
-    clearDate.hidden = !dateInput.value;
+    const empty = !dateInput.value;
+    dateBox.classList.toggle("is-empty", empty);
+    clearDate.hidden = empty;
     if (!d) {
-      dateHint.textContent = "No date? Sheep are patient...";
+      dateHint.textContent = "";
+      dateHint.hidden = true;
       return;
     }
     const days = daysBetween(farmMoment().now, d);
     const founded = store.state?.foundedAt ?? Date.now();
     const when = stardewDate(d, founded);
+    dateHint.hidden = false;
     dateHint.textContent =
       days < 0 ? `${when} · in the past... time machine?` : `${when} · ${relativeDays(days)}${days === 0 ? "!" : ""}`;
   };
-  dateInput.addEventListener("input", updateDateHint);
-  dateInput.addEventListener("change", updateDateHint);
-  clearDate.addEventListener("click", () => {
+  const onDate = () => {
+    setErr("date", null);
+    updateDateHint();
+  };
+  dateInput.addEventListener("input", onDate);
+  dateInput.addEventListener("change", onDate);
+  // Desktop: clicking the text part of a date input doesn't open the calendar by itself.
+  dateInput.addEventListener("click", () => {
+    try {
+      if (matchMedia("(pointer: fine)").matches) dateInput.showPicker?.();
+    } catch {
+      // already open, or not allowed here: typing works too
+    }
+  });
+  clearDate.addEventListener("click", (ev) => {
+    sfx("blip");
     dateInput.value = "";
     updateDateHint();
-    dateInput.focus();
+    // Keyboard users land back on the field; taps don't (focusing a date input can pop the picker).
+    if (ev.detail === 0) dateInput.focus({ preventScroll: true });
   });
   updateDateHint();
   const dateField = el(
     "div",
     { class: "sv-field" },
     el("label", { class: "sv-field__label", for: `${id}-date` }, "When?"),
-    el("div", { class: "mr-daterow" }, dateInput, clearDate),
+    el("div", { class: "mr-daterow" }, dateBox, clearDate),
     dateHint,
     errs.date,
   );

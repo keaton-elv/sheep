@@ -1,8 +1,7 @@
 // Art for the loom & chest menus: the real Stardew loom (a spinning wheel!) and chest from
-// craftables.png when it's there, a hand-drawn loom as the fallback, and the duck feather
-// Snickers keeps hidden in the chest (from objects.png).
+// craftables.png when it's there, a hand-drawn loom as the fallback, and the piece of string
+// Snickers keeps hidden in the chest (hand-drawn: Stardew has no string).
 
-import { objectRegion } from "../art/regions";
 import { pixelArt } from "../engine/pixelart";
 import { registerArt, REGIONS, SHEETS } from "../engine/sprites";
 
@@ -13,14 +12,43 @@ const craft = (index: number) => ({ sheet: "craftables", x: (index % 8) * 16, y:
 REGIONS["ui.menu.loom"] = craft(17);
 REGIONS["ui.menu.loom.working"] = craft(18);
 REGIONS["ui.menu.chest"] = craft(130);
-// Duck Feather (Stardew item 444): Snickers' favorite toy.
-REGIONS["item.feather"] = objectRegion(444);
 
 let done = false;
 
 export function registerLoomArt(): void {
   if (done) return;
   done = true;
+
+  // 16x16 Snickers's String: a loose loop of red string, tail wiggling off with a frayed pink end.
+  // Light/dark pixels alternate along the strand so it reads as twisted string.
+  pixelArt(
+    "item.string",
+    [
+      ".....oooo.......",
+      "...ooHRHRoo.....",
+      "..oHRooooRRo....",
+      ".oHoo....ooRo...",
+      "oHo.......oro...",
+      "oRo.......oRo...",
+      "oRo......oro....",
+      ".oRo....oRo.....",
+      "..orooooro......",
+      "...oRrRrHro.....",
+      "....ooooRo......",
+      ".......oHoo.oo..",
+      "........oRHoHRo.",
+      ".........ooRoofo",
+      "...........o..o.",
+      "................",
+    ],
+    {
+      o: "#6a1428",
+      R: "#e0384f",
+      r: "#a8203a",
+      H: "#ff8da0",
+      f: "#ffc4cf",
+    },
+  );
 
   // 22x26 loom (fallback): wooden frame, warp threads, a bolt of cloth, a ball of wool on top.
   const loom = pixelArt(

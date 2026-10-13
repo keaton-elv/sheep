@@ -183,11 +183,12 @@ function openAnimalCard(id: string): void {
     head.replaceWith(newHead);
     head = newHead;
 
-    const stamps = originalStamps(s);
-    const badgeKey = String(stamps);
+    // Just the stamp, never a count.
+    const stamped = originalStamps(s) > 0;
+    const badgeKey = String(stamped);
     if (badgeKey !== lastBadge) {
       lastBadge = badgeKey;
-      badgeSlot.replaceChildren(...(stamps > 0 ? [originalPlanBadge(stamps)] : []));
+      badgeSlot.replaceChildren(...(stamped ? [originalPlanBadge()] : []));
     }
 
     // --- details ---

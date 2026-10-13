@@ -118,7 +118,7 @@ function memoryRow(s: Sheep, st: FarmState, extra: string | null): HTMLElement {
         cat,
         `Sheared ${stardewDate(shearedDate(s), st.foundedAt)}`,
         s.golden ? el("span", { class: "fm-barn__gold" }, " · golden!") : null,
-        originalStamps(s) > 0 ? originalPlanBadge(originalStamps(s), { inline: true }) : null,
+        originalStamps(s) > 0 ? originalPlanBadge(1, { inline: true }) : null,
       ),
       extra ? el("span", { class: "fm-barn__extra" }, extra) : null,
       el("span", { class: `fm-barn__memory ${s.memory ? "" : "is-empty"}` }, s.memory ? `“${s.memory}”` : "No memory yet..."),
@@ -233,8 +233,8 @@ function memoryPage(s: Sheep, st: FarmState): (HTMLElement | null)[] {
   const real = `${DOW[sheared.getDay()]}, ${monthName(sheared.getMonth())} ${sheared.getDate()}, ${sheared.getFullYear()}`;
   const ago = relativeDays(daysBetween(farmNow(), sheared));
   const link = /^https?:\/\//i.test(s.link) ? s.link : "";
-  // Same rule as the sheep card: stamped while it's on its ORIGINAL PLAN.
-  const stamps = originalStamps(s);
+  // Same rule as the sheep card: stamped while it's on its ORIGINAL PLAN (no count, just the stamp).
+  const stamped = originalStamps(s) > 0;
 
   return [
     el(
@@ -244,7 +244,7 @@ function memoryPage(s: Sheep, st: FarmState): (HTMLElement | null)[] {
         "div",
         { class: "fm-mem__pic" },
         sheepPortrait(s, { scale: 2 }),
-        stamps > 0 ? originalPlanBadge(stamps) : null,
+        stamped ? originalPlanBadge(1) : null,
       ),
       el(
         "div",

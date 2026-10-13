@@ -78,12 +78,6 @@ const SEASON_NAMES: Record<Season, string> = { spring: "Spring", summer: "Summer
 
 let lastTrivia = -1;
 
-/** ORIGINAL PLAN: how many times any plan was renamed and then changed back. */
-function originalPlans(s: FarmState): number {
-  const n = s.originalPlans;
-  return typeof n === "number" && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
-}
-
 type Special = "festival" | "wedding" | null;
 
 /** Festival days get Stardew's confetti icon; Bouquet Day and farm anniversaries get the heart. */
@@ -524,7 +518,6 @@ function buildReport(g: Game): HTMLElement {
   );
 
   let stats: HTMLElement;
-  let stamp: HTMLElement | null = null;
   let next: HTMLElement | null = null;
   if (s) {
     const waiting = s.sheep.filter((x) => x.shearedAt === null).length;
@@ -540,15 +533,6 @@ function buildReport(g: Game): HTMLElement {
       stat("ui.heart.full", "Hearts", fmtHearts(halves)),
       golden ? stat("ui.star", "Golden", golden) : null,
     );
-    const n = originalPlans(s);
-    if (n > 0) {
-      stamp = el(
-        "div",
-        { class: "hud-report__stamp", role: "img", "aria-label": `ORIGINAL PLAN, ${n} ${n === 1 ? "time" : "times"}` },
-        el("span", { "aria-hidden": "true" }, "ORIGINAL PLAN"),
-        el("b", { "aria-hidden": "true" }, `×${n}`),
-      );
-    }
     const np = nextPlan(s, now);
     if (np) next = el("p", { class: "hud-report__next" }, "Next: ", el("b", null, np.name), ` (${np.when})`);
   } else {
@@ -564,7 +548,7 @@ function buildReport(g: Game): HTMLElement {
     store.connected ? "Live" : "Offline...",
   );
 
-  return el("div", { class: "hud-report__body" }, today, festival, weather, stats, stamp, next, tv, live);
+  return el("div", { class: "hud-report__body" }, today, festival, weather, stats, next, tv, live);
 }
 
 function nextPlan(s: FarmState, now: Date): { name: string; when: string } | null {

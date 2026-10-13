@@ -227,13 +227,13 @@ function openChest(): void {
     return list;
   };
 
-  const secret: ChestItem | null = has("item.feather")
+  const secret: ChestItem | null = has("item.string")
     ? {
-        id: "feather",
-        icon: "item.feather",
-        name: "Snickers's Feather",
+        id: "string",
+        icon: "item.string",
+        name: "Snickers's String",
         count: 1,
-        desc: "His favorite toy. He hid it in here. Do NOT tell him you found it...",
+        desc: "His favorite. Do not touch.",
       }
     : null;
 
@@ -259,7 +259,7 @@ function openChest(): void {
         "button",
         {
           type: "button",
-          class: `fm-slot ${selected === item.id ? "is-selected" : ""} ${item.id === "feather" ? "is-secret" : ""}`,
+          class: `fm-slot ${selected === item.id ? "is-selected" : ""} ${item.id === "string" ? "is-secret" : ""}`,
           role: "listitem",
           "aria-label": item.count > 1 ? `${item.name}, ${item.count}` : item.name,
           "aria-pressed": String(selected === item.id),
@@ -298,16 +298,16 @@ function openChest(): void {
   }
 
   function pick(item: ChestItem): void {
-    if (item.id === "feather" && selected === "feather") {
+    if (item.id === "string" && selected === "string") {
       secretPokes++;
       if (secretPokes === 1) {
         sfx("meow");
-        toast("Somewhere outside, a grey cat's ears just perked up...", { icon: "item.feather" });
+        toast("Somewhere outside, a grey cat's ears just perked up...", { icon: "item.string" });
         return;
       }
     }
     selected = item.id;
-    sfx(item.id === "feather" ? "rustle" : "select");
+    sfx(item.id === "string" ? "rustle" : "select");
     render();
   }
 

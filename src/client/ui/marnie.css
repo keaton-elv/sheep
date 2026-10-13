@@ -164,6 +164,58 @@
   cursor: pointer;
   opacity: 0.7;
 }
+
+/* "No date": an empty date input gets a face of its own. (iOS paints today's date into an empty
+   date input, which reads as if one were picked, so the native text hides until there's a value.) */
+.mr-datebox {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.mr-dateface {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  /* the input's own border + padding, so the face sits where the date text would */
+  padding: 0 calc(8px + var(--px) * 4);
+  color: #9b7b5f;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.mr-datebox.is-empty .mr-dateface {
+  display: flex;
+}
+/* (Separate rules: a browser that doesn't know one of these pseudo-elements drops its whole rule.) */
+.mr-datebox.is-empty .mr-date {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.mr-datebox.is-empty .mr-date::-webkit-date-and-time-value {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.mr-datebox.is-empty .mr-date::-webkit-datetime-edit {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+/* Mouse + keyboard: focusing the empty field shows the native mm/dd/yyyy so it can be typed. */
+@media (hover: hover) and (pointer: fine) {
+  .mr-datebox.is-empty .mr-date:focus {
+    color: var(--ink);
+    -webkit-text-fill-color: var(--ink);
+  }
+  .mr-datebox.is-empty .mr-date:focus::-webkit-datetime-edit {
+    color: var(--ink);
+    -webkit-text-fill-color: var(--ink);
+  }
+  .mr-datebox.is-empty .mr-date:focus + .mr-dateface {
+    display: none;
+  }
+}
 .mr-clear {
   flex: none;
   min-width: 44px;
@@ -185,6 +237,9 @@
   margin: 2px 2px 0;
   font-size: 0.9em;
   color: var(--ink-soft);
+}
+.mr-hint[hidden] {
+  display: none;
 }
 
 /* ---------- price ---------- */

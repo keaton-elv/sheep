@@ -131,7 +131,7 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
   return error(404, "Nothing out here but grass.");
 }
 
-// ---------- weather: make it rain on the farm when it rains where you are ----------
+// ---------- weather: make it rain on the farm when it rains in SF ----------
 
 function weatherKind(code: number, windKmh: number): WeatherKind {
   if (code >= 95) return "storm";
@@ -143,13 +143,12 @@ function weatherKind(code: number, windKmh: number): WeatherKind {
   return "sunny";
 }
 
-async function weather(request: Request): Promise<Weather> {
-  const cf = request.cf as { latitude?: string; longitude?: string; city?: string } | undefined;
-  const lat = Number(cf?.latitude);
-  const lon = Number(cf?.longitude);
-  const city = cf?.city ?? null;
+/** The farm is in San Francisco (IP geolocation can guess a neighboring city). */
+const FARM_LOCATION = { lat: 37.7749, lon: -122.4194, city: "San Francisco" } as const;
+
+async function weather(_request: Request): Promise<Weather> {
+  const { lat, lon, city } = FARM_LOCATION;
   const fallback: Weather = { kind: "sunny", tempC: null, city, isDay: true };
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return fallback;
 
   const api = new URL("https://api.open-meteo.com/v1/forecast");
   api.searchParams.set("latitude", lat.toFixed(1));

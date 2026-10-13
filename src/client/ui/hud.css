@@ -249,29 +249,6 @@
   overflow-wrap: anywhere;
 }
 
-/* ORIGINAL PLAN: a tiny red rubber stamp, inked a little crooked. */
-.hud-report__stamp {
-  align-self: flex-end;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  margin: 2px 6px 2px 0;
-  padding: 1px 7px;
-  font-size: 0.9em;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #c4121a;
-  border: 2px solid currentColor;
-  border-radius: 3px;
-  box-shadow: inset 0 0 0 1px rgba(196, 18, 26, 0.35);
-  opacity: 0.88;
-  transform: rotate(-4deg);
-  mix-blend-mode: multiply;
-}
-.hud-report__stamp b {
-  letter-spacing: 0;
-}
-
 /* One line from the TV (tips, jokes, the weather channel). */
 .hud-report__tv {
   margin: 0;

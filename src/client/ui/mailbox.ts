@@ -338,7 +338,7 @@ function groupLetter(kind: FarmEventKind, g: FarmEvent[], isNew: boolean): Lette
     return { ...base, greeting: "Baa!", body: "Do you like our hats? We match. Sort of...", gift: hatGift(g[0]!.sheepId) };
   }
   if (kind === "original") {
-    return { ...base, greeting: "Dear farmers,", body: "We ALL went with the ORIGINAL PLAN. Obviously.", gift: null };
+    return { ...base, greeting: "Dear farmers,", body: "We ALL went with the ORIGINAL PLAN.", gift: null };
   }
   return {
     ...base,
@@ -398,9 +398,9 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
       return {
         ...base,
         greeting: "Dear farmers,",
-        body: "We went with the ORIGINAL PLAN. Obviously.",
+        body: "We went with the ORIGINAL PLAN.",
         sign: me,
-        // The sheep card's stamp, uncounted: one letter, one trip back to the original.
+        // The sheep card's stamp: one letter, one trip back to the original.
         gift: originalPlanBadge(1),
         action: sheepAction(e.sheepId, "Visit"),
       };

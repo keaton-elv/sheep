@@ -8,6 +8,7 @@
 
 import { sfx } from "../audio";
 import { size as spriteSize, spriteUrl } from "../engine/sprites";
+import { drawLayers, HEAD_FRONT, type PartName } from "../entities/snickers-art";
 import { api } from "../net";
 import { el, frameIcon, spriteIcon, uiRoot } from "./dom";
 import { LOGO, registerPasswordArt, TITLE_ART, TITLE_BIRD, TITLE_SHEETS, type Rect } from "./password-art";
@@ -45,48 +46,101 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
+interface Spot {
+  x: number;
+  y: number;
+  air: number;
+}
+
+/** Each column's lowest opaque row (-1 for an empty column), plus the opaque column span. */
+function profile(frame: HTMLCanvasElement): { bottom: number[]; l: number; r: number } | null {
+  const w = frame.width;
+  const h = frame.height;
+  const px = frame.getContext("2d")?.getImageData(0, 0, w, h).data;
+  if (!px) return null;
+  const bottom: number[] = [];
+  for (let x = 0; x < w; x++) {
+    let b = -1;
+    for (let y = h - 1; y >= 0; y--) {
+      if (px[(y * w + x) * 4 + 3]! > 0) {
+        b = y;
+        break;
+      }
+    }
+    bottom.push(b);
+  }
+  const l = bottom.findIndex((b) => b >= 0);
+  if (l < 0) return null;
+  let r = w - 1;
+  while (bottom[r]! < 0) r--;
+  return { bottom, l, r };
+}
+
 /**
- * Where the sheep stands on the logo: drop its 32x32 frame straight down onto the lettering
- * (column by column, like a falling block) and pick the right-hand spot where it sits lowest and
- * flattest. Returns the frame's left edge (x) and the logo row its bottom edge lands on (y).
+ * Drop a frame straight down onto the lettering (column by column, like a falling block) at
+ * every left edge from `from` to `to`. Each spot is the frame's left edge (x), the logo row its
+ * bottom edge lands on (y), and how much air is left under it (air).
+ */
+function dropSpots(frame: HTMLCanvasElement, bottom: number[], from: number, to: number): Spot[] {
+  const h = frame.height;
+  const top = (x: number) => (x >= 0 && x < LOGO.w ? LOGO.tops[x]! : LOGO.h);
+  const spots: Spot[] = [];
+  for (let fx = from; fx <= to; fx++) {
+    let fy = LOGO.h;
+    for (let x = 0; x < bottom.length; x++) if (bottom[x]! >= 0) fy = Math.min(fy, top(fx + x) + h - 1 - bottom[x]!);
+    let air = 0;
+    for (let x = 0; x < bottom.length; x++) {
+      const t = top(fx + x);
+      if (bottom[x]! >= 0 && t < LOGO.h) air += t - (fy - h + bottom[x]! + 1);
+    }
+    spots.push({ x: fx, y: fy, air });
+  }
+  return spots;
+}
+
+/** The lowest spots, then the flattest of those (within `slack` px of air). */
+function bestSpots(spots: Spot[], slack: number): Spot[] {
+  const lowest = Math.max(...spots.map((s) => s.y));
+  const level = spots.filter((s) => s.y === lowest);
+  const flattest = Math.min(...level.map((s) => s.air));
+  return level.filter((s) => s.air <= flattest + slack);
+}
+
+/**
+ * Where the sheep stands on the logo: the right-hand spot where its 32x32 frame sits lowest and
+ * flattest on the lettering. Returns the frame's left edge (x) and the logo row its bottom edge
+ * lands on (y).
  */
 function sheepPerch(frame: HTMLCanvasElement): { x: number; y: number } {
   const fallback = { x: Math.max(0, LOGO.w - 34), y: 2 };
   try {
-    const px = frame.getContext("2d")?.getImageData(0, 0, 32, 32).data;
-    if (!px || !LOGO.w) return fallback;
-    const bottom: number[] = [];
-    for (let x = 0; x < 32; x++) {
-      let b = -1;
-      for (let y = 31; y >= 0; y--) {
-        if (px[(y * 32 + x) * 4 + 3]! > 0) {
-          b = y;
-          break;
-        }
-      }
-      bottom.push(b);
-    }
-    if (bottom.every((b) => b < 0)) return fallback;
-    const top = (x: number) => (x >= 0 && x < LOGO.w ? LOGO.tops[x]! : LOGO.h);
-    const spots: { x: number; y: number; air: number }[] = [];
-    for (let fx = Math.floor(LOGO.w / 2); fx <= LOGO.w - 28; fx++) {
-      let fy = LOGO.h;
-      for (let x = 0; x < 32; x++) if (bottom[x]! >= 0) fy = Math.min(fy, top(fx + x) + 31 - bottom[x]!);
-      let air = 0;
-      for (let x = 0; x < 32; x++) {
-        const t = top(fx + x);
-        if (bottom[x]! >= 0 && t < LOGO.h) air += t - (fy - 32 + bottom[x]! + 1);
-      }
-      spots.push({ x: fx, y: fy, air });
-    }
+    const p = profile(frame);
+    if (!p || !LOGO.w) return fallback;
+    const spots = dropSpots(frame, p.bottom, Math.floor(LOGO.w / 2), LOGO.w - 28);
     if (!spots.length) return fallback;
-    const lowest = Math.max(...spots.map((s) => s.y));
-    const level = spots.filter((s) => s.y === lowest);
-    const flattest = Math.min(...level.map((s) => s.air));
-    const pick = level.filter((s) => s.air <= flattest + 3).pop()!;
+    const pick = bestSpots(spots, 3).pop()!;
     return { x: pick.x, y: pick.y };
   } catch {
     return fallback;
+  }
+}
+
+/**
+ * Where Snickers sits: the lowest, flattest spot left of the sheep (he lands on "Papa", which is
+ * him). Null if there's no room, in which case he just stays off the title.
+ */
+function catPerch(cat: HTMLCanvasElement, sheep: HTMLCanvasElement, sheepX: number): { x: number; y: number } | null {
+  try {
+    const c = profile(cat);
+    if (!c || !LOGO.w) return null;
+    const sheepLeft = sheepX + (profile(sheep)?.l ?? 0);
+    // Keep his whole silhouette on the logo's left edge and a few pixels clear of the sheep.
+    const spots = dropSpots(cat, c.bottom, -c.l, sheepLeft - 4 - c.r - 1);
+    if (!spots.length) return null;
+    const pick = bestSpots(spots, 0)[0]!;
+    return { x: pick.x, y: pick.y };
+  } catch {
+    return null;
   }
 }
 
@@ -112,6 +166,26 @@ function phase(): Phase {
   if (h < 7) return "dawn";
   if (h >= 18) return "dusk";
   return "day";
+}
+
+/** Snickers's title-screen frame: his 32x32 sit, plus a column either side for the tail flick. */
+const CAT_W = 34;
+const CAT_H = 32;
+
+/** Paint Snickers sitting (front-facing) with a given head, tail flick (0/1) and head bob. */
+function drawCat(c: HTMLCanvasElement, head: PartName, flick = 0, bob = 0): void {
+  try {
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, c.width, c.height);
+    drawLayers(ctx, 1, 0, [
+      ["sitTail", flick, -flick],
+      ["sitBody", 0, 0],
+      [head, HEAD_FRONT.dx, HEAD_FRONT.dy + bob],
+    ]);
+  } catch {
+    /* he's decoration: never let him break the gate */
+  }
 }
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -258,14 +332,28 @@ export function showPasswordGate(): Promise<void> {
     const sheepOpen = frameIcon("sheep", 12, 32, 32, { class: "pw-logo__sheep" });
     const sheepBlink = frameIcon("sheep", 13, 32, 32, { class: "pw-logo__sheep is-blink" });
     for (const c of [logo, sheepOpen, sheepBlink]) c.removeAttribute("style");
-    // A sheep stands on top of the lettering (never overlapping it).
+    // A sheep stands on top of the lettering (never overlapping it)...
     const perch = sheepPerch(sheepOpen);
-    const head = 32 - perch.y; // logo px of headroom above the lettering for the sheep
+    // ...and Snickers sits on "Papa", left of it.
+    const cat = document.createElement("canvas");
+    cat.width = CAT_W;
+    cat.height = CAT_H;
+    cat.className = "pw-logo__cat";
+    drawCat(cat, "headFront");
+    const catSpot = catPerch(cat, sheepOpen, perch.x);
+    // Logo px of headroom above the lettering for whoever stands tallest.
+    const head = 32 - Math.min(perch.y, catSpot ? catSpot.y : perch.y);
     const artW = Math.max(LOGO.w, perch.x + 32);
     const artH = head + LOGO.h;
     const sheepWrap = el("span", { class: "pw-logo__sheepwrap" }, sheepOpen, sheepBlink);
     sheepWrap.style.left = `calc(var(--lp) * ${perch.x})`;
+    sheepWrap.style.top = `calc(var(--lp) * ${head - (32 - perch.y)})`;
     const art = el("span", { class: "pw-logo__art", "aria-hidden": "true" }, logo, sheepWrap);
+    if (catSpot) {
+      cat.style.left = `calc(var(--lp) * ${catSpot.x})`;
+      cat.style.top = `calc(var(--lp) * ${head - (CAT_H - catSpot.y)})`;
+      art.appendChild(cat);
+    }
     art.style.setProperty("--logo-w", String(LOGO.w));
     art.style.setProperty("--logo-h", String(LOGO.h));
     art.style.setProperty("--art-w", String(artW));
@@ -363,6 +451,81 @@ export function showPasswordGate(): Promise<void> {
     };
     later(blink, 1800);
 
+    // ---------- Snickers idling: blinks, tail flicks, and a mlem if you tap him ----------
+
+    // busy: mid-mlem (no blinking); happy: the password was right, so he stays pleased.
+    const kitty: { head: PartName; flick: number; bob: number; busy: boolean; happy: boolean } = {
+      head: "headFront",
+      flick: 0,
+      bob: 0,
+      busy: false,
+      happy: false,
+    };
+    const paintCat = () => drawCat(cat, kitty.head, kitty.flick, kitty.bob);
+    const catBlink = () => {
+      if (!kitty.busy) {
+        kitty.head = "headBlink";
+        paintCat();
+        later(() => {
+          if (kitty.busy) return;
+          kitty.head = "headFront";
+          paintCat();
+        }, 150);
+      }
+      later(catBlink, 2600 + Math.random() * 4200);
+    };
+    let flickUntil = 0;
+    const flickTail = (ms = 260) => {
+      flickUntil = performance.now() + ms;
+      kitty.flick = 1;
+      paintCat();
+      later(() => {
+        if (performance.now() < flickUntil - 5) return; // a newer flick is still going
+        kitty.flick = 0;
+        paintCat();
+      }, ms);
+    };
+    const catTail = () => {
+      flickTail();
+      later(catTail, 3800 + Math.random() * 5200);
+    };
+    /** Tongue out, curl, in (twice), bobbing his head like the real lick button does. */
+    const mlem = () => {
+      if (kitty.busy || closed) return;
+      kitty.busy = true;
+      const licks: [PartName, number][] = [
+        ["headLickOut", -1],
+        ["headLickCurl", -2],
+        ["headLickIn", -1],
+      ];
+      let n = 0;
+      const step = () => {
+        if (kitty.happy) return;
+        if (n >= licks.length * 2) {
+          kitty.busy = false;
+          kitty.head = "headFront";
+          kitty.bob = 0;
+          paintCat();
+          return;
+        }
+        const [face, bob] = licks[n % licks.length]!;
+        kitty.head = face;
+        kitty.bob = bob;
+        paintCat();
+        if (n % licks.length === 0) sfx("lick");
+        n++;
+        later(step, 110);
+      };
+      step();
+    };
+    if (catSpot) {
+      later(catBlink, 1100);
+      later(catTail, 2400);
+      cat.addEventListener("click", mlem);
+      // Keep the caret in the password box when he's tapped.
+      cat.addEventListener("mousedown", (ev) => ev.preventDefault());
+    }
+
     // ---------- submit ----------
 
     let busy = false;
@@ -407,6 +570,7 @@ export function showPasswordGate(): Promise<void> {
         if (i === lastTease) i = (i + 1) % TEASES.length;
         lastTease = i;
         shake();
+        flickTail(420);
         sfx("cancel");
         type(TEASES[i]!, "is-tease");
         input.value = "";
@@ -419,6 +583,11 @@ export function showPasswordGate(): Promise<void> {
       input.blur();
       type("Welcome home!", "is-welcome");
       sheepWrap.classList.add("is-hopping");
+      kitty.busy = true;
+      kitty.happy = true;
+      kitty.head = "headHappy";
+      kitty.bob = 0;
+      flickTail(600);
       later(() => box.classList.add("is-done"), 500);
       later(() => gate.classList.add("is-leaving"), 1050);
       later(() => {

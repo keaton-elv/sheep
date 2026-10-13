@@ -259,9 +259,6 @@
   align-items: baseline;
   gap: 3px;
 }
-.st-badge__n {
-  font-size: 1.15em;
-}
 
 .st-badge--inline {
   transform: rotate(-4deg);

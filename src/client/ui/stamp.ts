@@ -274,15 +274,14 @@ addEventListener(
 // ---------- the little badge on a sheep's card ----------
 
 /**
- * A tiny red "ORIGINAL PLAN ×N" stamp for a sheep that went back to its original plan.
+ * A tiny red "ORIGINAL PLAN" stamp for a sheep that's back on its original plan. No count: once
+ * is all it takes. (`_count` is accepted and ignored, so older call sites keep working.)
  * `inline` = one line, for lists.
  */
-export function originalPlanBadge(count: number, opts: { inline?: boolean } = {}): HTMLElement {
-  const n = Math.max(1, Math.floor(count));
-  const times = n > 1 ? el("span", { class: "st-badge__n" }, `×${n}`) : null;
+export function originalPlanBadge(_count?: number, opts: { inline?: boolean } = {}): HTMLElement {
   const ink = opts.inline
-    ? el("span", { class: "st-badge__ink" }, el("span", null, "ORIGINAL PLAN"), times)
-    : el("span", { class: "st-badge__ink" }, el("span", { class: "st-badge__l" }, "ORIGINAL"), el("span", { class: "st-badge__l" }, "PLAN", times));
+    ? el("span", { class: "st-badge__ink" }, el("span", null, "ORIGINAL PLAN"))
+    : el("span", { class: "st-badge__ink" }, el("span", { class: "st-badge__l" }, "ORIGINAL"), el("span", { class: "st-badge__l" }, "PLAN"));
   if (!badgeInk) badgeInk = inkTexture(40, 24, 46);
   applyInk(ink, badgeInk);
   return el(
@@ -290,8 +289,8 @@ export function originalPlanBadge(count: number, opts: { inline?: boolean } = {}
     {
       class: `st-badge${opts.inline ? " st-badge--inline" : ""}`,
       role: "img",
-      "aria-label": n > 1 ? `ORIGINAL PLAN, ${n} times` : "ORIGINAL PLAN",
-      title: n > 1 ? `Went back to the original plan ${n} times` : "Went back to the original plan",
+      "aria-label": "ORIGINAL PLAN",
+      title: "Back on the original plan",
     },
     ink,
   );

@@ -262,8 +262,8 @@ function openFlock(): void {
     const sheared = s.shearedAt !== null;
     const lamb = !sheared && isLamb(s, nowMs);
     const moveInDays = s.shearedAt !== null ? daysBetween(new Date(nowMs), new Date(s.shearedAt + RETIRE_AFTER_MS)) : 0;
-    const stamps = originalStamps(s);
-    const sig = [s.name, s.category, s.date, s.pets, s.golden, s.hat, s.shearedAt, lamb, moveInDays, stamps, dayKey(now)].join("|");
+    const stamped = originalStamps(s) > 0;
+    const sig = [s.name, s.category, s.date, s.pets, s.golden, s.hat, s.shearedAt, lamb, moveInDays, stamped, dayKey(now)].join("|");
     const cached = rowCache.get(s.id);
     if (cached && cached.sig === sig) return cached.el;
     const cat = CATEGORY_LABELS[s.category] ?? "Other";
@@ -293,11 +293,11 @@ function openFlock(): void {
     }
     if (lamb) badges.push(el("span", { class: "fl-badge fl-badge--lamb" }, "Lamb"));
     if (s.golden) badges.push(el("span", { class: "fl-badge fl-badge--gold" }, spriteIcon("ui.star"), "Golden"));
-    if (stamps > 0) badges.push(originalPlanBadge(stamps, { inline: true }));
+    if (stamped) badges.push(originalPlanBadge(undefined, { inline: true }));
     spoken.push(`${s.pets / 2} of 5 hearts`);
     if (lamb) spoken.push("a lamb");
     if (s.golden) spoken.push("golden");
-    if (stamps > 0) spoken.push("ORIGINAL PLAN");
+    if (stamped) spoken.push("ORIGINAL PLAN");
 
     const b = el(
       "button",

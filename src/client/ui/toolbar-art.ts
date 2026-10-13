@@ -185,6 +185,8 @@ export function registerToolbarArt(): void {
     "................",
   ], { o: "#5b3a29", P: "#fff8e6", s: "#e8d6b0", R: "#d6304a" });
 
+  // Three round wooden pegs. 4px dots with 1px gaps make 14px, so they sit dead center in the
+  // 16px icon (an odd-width row can't), and the slot centers the icon itself.
   pixelArt("ui.icon.more", [
     "................",
     "................",
@@ -192,11 +194,11 @@ export function registerToolbarArt(): void {
     "................",
     "................",
     "................",
-    ".ooo..ooo..ooo..",
-    "oLMMooLMMooLMMo.",
-    "oMMDooMMDooMMDo.",
-    "oMDDooMDDooMDDo.",
-    ".ooo..ooo..ooo..",
+    "..oo...oo...oo..",
+    ".oLMo.oLMo.oLMo.",
+    ".oMDo.oMDo.oMDo.",
+    "..oo...oo...oo..",
+    "................",
     "................",
     "................",
     "................",

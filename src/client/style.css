@@ -1,8 +1,9 @@
 @import "@fontsource/pixelify-sans/400.css";
 @import "@fontsource/pixelify-sans/700.css";
 
-/* Pixelify Sans has a backwards-looking 5 (so "25" reads like "28"). Borrow Tiny5's crisp digits:
-   this face only covers 0-9 and sits first in the font stack, so letters still use Pixelify. */
+/* Pixelify Sans has a backwards-looking 5 (so "25" reads like "28") and a capital Z that reads
+   like a 2 ("Zzz" -> "2zz"). Borrow Tiny5's crisp versions: this face only covers 0-9 and Z and sits
+   first in the font stack, so every other letter still uses Pixelify. */
 @font-face {
   font-family: "Farm Digits";
   src:
@@ -11,7 +12,7 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  unicode-range: U+0030-0039;
+  unicode-range: U+0030-0039, U+005A;
 }
 
 :root {

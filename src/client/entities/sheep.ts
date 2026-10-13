@@ -63,6 +63,27 @@ const LAMB_SPEED = 1.15;
 const LAMB_TROT = 1.4;
 /** Lambs baa higher. */
 const LAMB_PITCH = 1.3;
+/**
+ * Lambs tag along after a grown-up only now and then, and only for a few seconds (otherwise a
+ * young flock all chases the same one or two grown-ups into one clump). Seconds.
+ */
+const FOLLOW_MIN = 3;
+const FOLLOW_MAX = 6;
+const FOLLOW_COOLDOWN = 35;
+/** How close a grown-up has to be for a lamb to bother trotting after it (game px). */
+const FOLLOW_RANGE = 110;
+/** Sprites are wider than they are tall, so vertical gaps count a bit extra when judging room. */
+const ROOM_Y = 1.3;
+/** Wander targets, beds and spawn spots weigh up this many candidate spots and take the roomiest. */
+const CANDIDATES = 6;
+/** Personal space wanted around a spot, scaled to how full the pasture is (game px). */
+const ROOM_MIN = 22;
+const ROOM_MAX = 46;
+/** A crowd: CROWD_N other sheep within CROWD_R of us. Idling or grazing in one, we soon wander off. */
+const CROWD_R = 24;
+const CROWD_N = 2;
+/** Favorite spots (and so beds) are spread over this inner part of the pasture (fraction of each side). */
+const HOME_EDGE = 0.06;
 
 type Mode = "wait" | "enter" | "idle" | "walk" | "graze" | "sleep" | "shear" | "exit";
 
@@ -163,18 +184,57 @@ function personality(seed: number): Personality {
     hoppy: r(),
     chatty: 0.6 + r() * 0.9,
     pitch: 0.86 + r() * 0.32,
-    homeFx: 0.1 + r() * 0.8,
-    homeFy: 0.12 + r() * 0.76,
+    homeFx: HOME_EDGE + r() * (1 - 2 * HOME_EDGE),
+    homeFy: HOME_EDGE + r() * (1 - 2 * HOME_EDGE),
     blinkEvery: 2.4 + r() * 3,
   };
 }
 
 // ---------- pasture geometry ----------
 
+/**
+ * Is there a real pasture on screen? A very short viewport (a phone keyboard squeezing the page,
+ * say) can leave the fence with no inside at all; then the sheep just hold still where they are
+ * (clamping into a zero-height pasture would squash the whole flock onto one line).
+ */
+function pastureOk(l: Layout): boolean {
+  return l.pasture.w >= 24 && l.pasture.h >= 16;
+}
+
 function clampToPasture(e: { x: number; y: number }, l: Layout): void {
+  if (!pastureOk(l)) return;
   const P = l.pasture;
   e.x = clamp(e.x, P.x + 3, P.x + P.w - 3);
   e.y = clamp(e.y, P.y + 1, P.y + P.h - 1);
+}
+
+/** Distance as the eye judges sheep crowding (vertical gaps count a bit extra). */
+function roomDist(dx: number, dy: number): number {
+  return Math.hypot(dx, dy * ROOM_Y);
+}
+
+/**
+ * Personal space a sheep wants around a new spot: a fair share of the pasture, so a small flock
+ * spreads out and a big one still fits.
+ */
+function roomWanted(l: Layout): number {
+  let n = 0;
+  for (const e of list) if (e.claim()) n++;
+  const share = Math.sqrt((Math.max(1, l.pasture.w) * Math.max(1, l.pasture.h)) / Math.max(1, n));
+  return clamp(share * 0.55, ROOM_MIN, ROOM_MAX);
+}
+
+/** Room at (x, y): the distance to the nearest other sheep, or to where it's already headed. */
+function roomAt(x: number, y: number, self: SheepEntity): number {
+  let best = Infinity;
+  for (const e of list) {
+    if (e === self) continue;
+    const c = e.claim();
+    if (!c) continue;
+    const d = roomDist(c.x - x, c.y - y);
+    if (d < best) best = d;
+  }
+  return best;
 }
 
 /** Is a sheep standing at (x, y) clear of the HUD, the critter corner and decorations? */
@@ -324,6 +384,12 @@ class SheepEntity implements Entity {
   /** The grown-up a lamb is trotting after, and until when it bothers. */
   private follow: SheepEntity | null = null;
   private followUntil = 0;
+  /** A lamb doesn't feel like tagging along again until this long after the last time. */
+  private nextFollowAt: number;
+  /** Next time an idling or grazing sheep checks whether it's standing in a crowd. */
+  private crowdCheckAt = 0;
+  /** Favorite spot for the current layout (and decorations), worked out once. */
+  private homeCache: { l: Layout; decor: unknown; pt: Point } | null = null;
 
   constructor(s: Sheep) {
     this.data = s;
@@ -331,28 +397,49 @@ class SheepEntity implements Entity {
     this.nextAmbient = now() + 4 + Math.random() * 20;
     this.blinkAt = now() + Math.random() * this.p.blinkEvery;
     this.lambNow = s.shearedAt === null && isLamb(s);
+    this.nextFollowAt = now() + 6 + Math.random() * FOLLOW_COOLDOWN;
+  }
+
+  /**
+   * The spot this sheep takes up, for others judging how much room there is: where it's walking
+   * to, or where it stands. Null when it isn't out in the pasture (in the barn, heading back in).
+   */
+  claim(): Point | null {
+    if (this.dead || this.mode === "wait" || this.mode === "exit") return null;
+    if ((this.mode === "walk" || this.mode === "enter") && this.path.length) return this.path[this.path.length - 1] ?? this;
+    return this;
+  }
+
+  /**
+   * Standing in a crowd (CROWD_N or more other sheep right around us)? A packed pasture counts
+   * closer neighbours as normal, so a big flock doesn't spend all day shuffling about.
+   */
+  crowded(): boolean {
+    const r = game ? Math.min(CROWD_R, roomWanted(game.layout) * 0.8) : CROWD_R;
+    let n = 0;
+    for (const e of list) {
+      if (e === this || e.dead || !solid(e)) continue;
+      if (roomDist(e.x - this.x, e.y - this.y) < r && ++n >= CROWD_N) return true;
+    }
+    return false;
   }
 
   // ----- lifecycle -----
 
-  /** Appear at a seeded-random spot (sheep that were already out when the page loaded). */
+  /**
+   * Appear somewhere in the pasture (sheep that were already out when the page loaded): anywhere
+   * by day, at the roomiest of a few seeded spots, so the flock starts out spread over the whole
+   * field; asleep in bed at night.
+   */
   placeRandom(g: Game): void {
     const l = g.layout;
-    const r = seeded(this.data.seed);
-    const P = l.pasture;
-    let spot: Point = { x: P.x + P.w / 2, y: P.y + P.h / 2 };
-    for (let i = 0; i < 16; i++) {
-      const x = P.x + 4 + r() * (P.w - 8);
-      const y = P.y + 2 + r() * (P.h - 4);
-      if (freeSpot(x, y, l)) {
-        spot = { x, y };
-        break;
-      }
-    }
+    const night = g.env.darkness > NIGHT_SLEEP;
+    const spot = night ? this.bedSpot(l) : this.spawnSpot(l);
     this.x = spot.x;
     this.y = spot.y;
-    this.dir = r() < 0.5 ? DOWN : r() < 0.5 ? RIGHT : LEFT;
-    if (g.env.darkness > NIGHT_SLEEP) {
+    const roll = Math.random();
+    this.dir = roll < 0.5 ? DOWN : roll < 0.75 ? RIGHT : LEFT;
+    if (night) {
       this.startSleep();
       this.sleepEmoteAt = now() + Math.random() * 6;
     } else if (Math.random() < 0.4) {
@@ -506,6 +593,9 @@ class SheepEntity implements Entity {
       this.look = "auto";
     }
 
+    // No pasture to speak of right now (see pastureOk): hold still until there is one again.
+    if (!pastureOk(g.layout) && (this.mode === "idle" || this.mode === "walk" || this.mode === "graze")) return;
+
     switch (this.mode) {
       case "wait":
         if (t >= this.waitUntil) this.emerge(g);
@@ -517,9 +607,11 @@ class SheepEntity implements Entity {
         this.followPath(dt, g);
         break;
       case "idle":
+        this.leaveCrowd(t);
         this.updateIdle(t, g);
         break;
       case "graze":
+        this.leaveCrowd(t);
         if (this.modeT >= this.modeDur) this.decide(g);
         break;
       case "sleep":
@@ -559,6 +651,16 @@ class SheepEntity implements Entity {
       this.dir = roll < 0.45 ? DOWN : roll < 0.7 ? RIGHT : roll < 0.95 ? LEFT : UP;
     }
     if (this.modeT >= this.modeDur) this.decide(g);
+  }
+
+  /**
+   * Every second or so: standing around in a crowd? Then wrap up whatever we're doing soon and
+   * wander off somewhere roomier (decide() sends a crowded sheep off on a walk).
+   */
+  private leaveCrowd(t: number): void {
+    if (t < this.crowdCheckAt) return;
+    this.crowdCheckAt = t + 0.8 + Math.random() * 0.8;
+    if (this.modeDur - this.modeT > 1.6 && this.crowded()) this.modeDur = this.modeT + 0.5 + Math.random() * 1.1;
   }
 
   /** Little moods: rain blues, excitement on the big day, love at five hearts, the odd baa. */
@@ -608,17 +710,21 @@ class SheepEntity implements Entity {
 
   private decide(g: Game): void {
     if (g.env.darkness > NIGHT_SLEEP) return this.goToBed(g);
+    // Too many friends standing on our hooves: off somewhere roomier.
+    if (this.crowded()) return this.startWander(g);
     const rainy = isRainy(g);
     const lamb = this.lambNow;
-    // Lambs wander more, graze less, and like to tag along after a grown-up.
+    // Lambs wander more, graze less, and now and then tag along after a grown-up for a bit.
     const wWander = 0.42 * this.p.wanderlust * (rainy ? 0.55 : 1) * (lamb ? 1.2 : 1);
     const wGraze = 0.33 * this.p.appetite * (lamb ? 0.55 : 1);
     const wIdle = 0.25 * (rainy ? 1.5 : 1);
-    const wFollow = lamb ? 0.3 : 0;
+    const wFollow = lamb && now() >= this.nextFollowAt ? 0.14 : 0;
     const roll = Math.random() * (wWander + wGraze + wIdle + wFollow);
     if (roll < wFollow) {
       const adult = this.nearestAdult(g.layout);
       if (adult) return this.startFollow(adult, g.layout);
+      // Nobody to tag along after: ask again in a little while, not on every whim.
+      this.nextFollowAt = now() + FOLLOW_COOLDOWN * 0.3;
       return this.startWander(g);
     }
     if (roll < wFollow + wWander) this.startWander(g);
@@ -640,18 +746,26 @@ class SheepEntity implements Entity {
     this.modeDur = (3 + Math.random() * 5 * this.p.appetite) * (this.lambNow ? 0.6 : 1);
   }
 
-  /** The closest awake grown-up out in the pasture (for a lamb to trot after). */
+  /** Some other lamb is already trotting after this grown-up. */
+  private hasFollower(a: SheepEntity): boolean {
+    for (const o of list) if (o !== this && !o.dead && o.follow === a) return true;
+    return false;
+  }
+
+  /**
+   * The closest awake, woolly grown-up out in the pasture for a lamb to trot after. Never a
+   * sheared one (resting up), never one already crowded, and one lamb per grown-up at a time.
+   */
   private nearestAdult(l: Layout): SheepEntity | null {
     let best: SheepEntity | null = null;
-    let bestD = 130;
+    let bestD = FOLLOW_RANGE;
     for (const e of list) {
-      if (e === this || e.dead || e.lambNow || !inPasture(e.x, e.y, l)) continue;
+      if (e === this || e.dead || e.lambNow || e.showSheared() || !inPasture(e.x, e.y, l)) continue;
       if (e.mode !== "idle" && e.mode !== "walk" && e.mode !== "graze") continue;
       const d = Math.hypot(e.x - this.x, (e.y - this.y) * 1.4);
-      if (d < bestD) {
-        bestD = d;
-        best = e;
-      }
+      if (d >= bestD || this.hasFollower(e) || e.crowded()) continue;
+      bestD = d;
+      best = e;
     }
     return best;
   }
@@ -668,7 +782,8 @@ class SheepEntity implements Entity {
   private startFollow(adult: SheepEntity, l: Layout): void {
     this.setMode("walk");
     this.follow = adult;
-    this.followUntil = now() + 5 + Math.random() * 4;
+    this.followUntil = now() + FOLLOW_MIN + Math.random() * (FOLLOW_MAX - FOLLOW_MIN);
+    this.nextFollowAt = now() + FOLLOW_COOLDOWN * (0.7 + Math.random() * 0.8);
     this.path = [this.besideOf(adult, l)];
     this.onArrive = () => {
       this.follow = null;
@@ -683,7 +798,7 @@ class SheepEntity implements Entity {
   private chase(t: number, l: Layout): void {
     const a = this.follow;
     if (!a) return;
-    if (a.dead || t > this.followUntil || (a.mode !== "idle" && a.mode !== "walk" && a.mode !== "graze")) {
+    if (a.dead || t > this.followUntil || a.showSheared() || (a.mode !== "idle" && a.mode !== "walk" && a.mode !== "graze")) {
       // Lost interest: finish the trot to wherever we were headed.
       this.follow = null;
       return;
@@ -700,9 +815,7 @@ class SheepEntity implements Entity {
 
   private goToBed(g: Game): void {
     const l = g.layout;
-    const home = this.homeSpot(l);
-    const bed = { x: home.x + (Math.random() - 0.5) * 16, y: home.y + (Math.random() - 0.5) * 8 };
-    clampToPasture(bed, l);
+    const bed = this.bedSpot(l);
     if (Math.hypot(bed.x - this.x, bed.y - this.y) < 3) return this.startSleep();
     this.setMode("walk");
     this.path = [bed];
@@ -772,37 +885,118 @@ class SheepEntity implements Entity {
     else this.dir = dy > 0 ? DOWN : UP;
   }
 
+  /**
+   * Our favorite spot (where we drift back to, and sleep). Seeded, spread evenly over the whole
+   * pasture; if it's under the HUD, the critter corner or a decoration in this layout, the next
+   * seeded spot that's free (so blocked homes scatter evenly instead of all landing in one place).
+   */
   private homeSpot(l: Layout): Point {
-    const home = fromFraction(l, this.p.homeFx, this.p.homeFy);
-    if (freeSpot(home.x, home.y, l)) return home;
-    const alt = fromFraction(l, 1 - this.p.homeFx, 1 - this.p.homeFy);
-    return freeSpot(alt.x, alt.y, l) ? alt : fromFraction(l, 0.35, 0.4);
+    const decor = store.state?.decorations;
+    const c = this.homeCache;
+    if (c && c.l === l && c.decor === decor) return c.pt;
+    let pt = fromFraction(l, this.p.homeFx, this.p.homeFy);
+    if (!freeSpot(pt.x, pt.y, l)) {
+      const r = seeded(this.data.seed ^ 0x40e5);
+      let found = false;
+      for (let i = 0; i < 24 && !found; i++) {
+        const alt = fromFraction(l, HOME_EDGE + r() * (1 - 2 * HOME_EDGE), HOME_EDGE + r() * (1 - 2 * HOME_EDGE));
+        if (freeSpot(alt.x, alt.y, l)) {
+          pt = alt;
+          found = true;
+        }
+      }
+      if (!found) pt = fromFraction(l, 0.35, 0.4);
+    }
+    this.homeCache = { l, decor, pt };
+    return pt;
   }
 
-  /** A wander target: often near our favorite spot, otherwise a stroll from where we are. */
+  /**
+   * Weigh up candidate spots and take the first with room enough around it (the candidates come
+   * in order of preference), or else the roomiest one. Room = distance to the nearest other sheep
+   * or the spot it's headed for, so two sheep never set off for the same patch of grass.
+   */
+  private roomiest(l: Layout, want: number, tries: number, next: (i: number, out: Point) => void): Point | null {
+    let best: Point | null = null;
+    let bestRoom = -1;
+    let weighed = 0;
+    for (let i = 0; i < tries && weighed < CANDIDATES; i++) {
+      const pos = { x: 0, y: 0 };
+      next(i, pos);
+      clampToPasture(pos, l);
+      if (!freeSpot(pos.x, pos.y, l)) continue;
+      weighed++;
+      const room = Math.min(roomAt(pos.x, pos.y, this), want);
+      if (room > bestRoom) {
+        best = pos;
+        bestRoom = room;
+        if (room >= want) break;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * A wander target: often near our favorite spot, otherwise a stroll from where we are, now and
+   * then anywhere at all; always with some room around it.
+   */
   private pickTarget(l: Layout, from?: Point): Point {
     const P = l.pasture;
     const cx = from?.x ?? this.x;
     const cy = from?.y ?? this.y;
     const home = this.homeSpot(l);
-    const pos = { x: 0, y: 0 };
-    for (let i = 0; i < 10; i++) {
-      if (Math.random() < 0.5) {
+    const wander = this.p.wanderlust;
+    const pick = this.roomiest(l, roomWanted(l), 14, (_i, pos) => {
+      const roll = Math.random();
+      if (roll < 0.45) {
         pos.x = home.x + (Math.random() - 0.5) * P.w * 0.45;
         pos.y = home.y + (Math.random() - 0.5) * P.h * 0.45;
-      } else {
+      } else if (roll < 0.85) {
         const a = Math.random() * Math.PI * 2;
-        const dist = 12 + Math.random() * 55 * this.p.wanderlust;
+        const dist = 12 + Math.random() * 55 * wander;
         pos.x = cx + Math.cos(a) * dist;
         pos.y = cy + Math.sin(a) * dist * 0.6;
+      } else {
+        pos.x = P.x + Math.random() * P.w;
+        pos.y = P.y + Math.random() * P.h;
       }
-      clampToPasture(pos, l);
-      if (freeSpot(pos.x, pos.y, l)) return pos;
-    }
-    pos.x = cx;
-    pos.y = cy;
+    });
+    if (pick) return pick;
+    const pos = { x: cx, y: cy };
     clampToPasture(pos, l);
     return pos;
+  }
+
+  /** Where to sleep tonight: by our favorite spot if there's room, otherwise a bit further afield. */
+  private bedSpot(l: Layout): Point {
+    const P = l.pasture;
+    const home = this.homeSpot(l);
+    const pick = this.roomiest(l, roomWanted(l) * 0.85, 18, (i, pos) => {
+      // Right by home first, then the neighbourhood, then anywhere.
+      const reach = i < 2 ? 0.06 : i < 5 ? 0.3 : 1;
+      if (reach < 1) {
+        pos.x = home.x + (Math.random() - 0.5) * P.w * reach;
+        pos.y = home.y + (Math.random() - 0.5) * P.h * reach;
+      } else {
+        pos.x = P.x + Math.random() * P.w;
+        pos.y = P.y + Math.random() * P.h;
+      }
+    });
+    if (pick) return pick;
+    const pos = { ...home };
+    clampToPasture(pos, l);
+    return pos;
+  }
+
+  /** A seeded spot anywhere in the pasture with room around it (sheep already out on page load). */
+  private spawnSpot(l: Layout): Point {
+    const P = l.pasture;
+    const r = seeded(this.data.seed);
+    const pick = this.roomiest(l, roomWanted(l), 24, (_i, pos) => {
+      pos.x = P.x + 4 + r() * (P.w - 8);
+      pos.y = P.y + 2 + r() * (P.h - 4);
+    });
+    return pick ?? { x: P.x + P.w / 2, y: P.y + P.h / 2 };
   }
 
   // ----- reactions -----
@@ -866,8 +1060,14 @@ class SheepEntity implements Entity {
     }
   }
 
+  /** Being fussed over: don't wander off from the crowd check for a few seconds. */
+  private holdStill(secs: number): void {
+    this.crowdCheckAt = Math.max(this.crowdCheckAt, now() + secs);
+  }
+
   /** Stop strolling around when someone gives us attention. */
   private payAttention(): void {
+    this.holdStill(4);
     if (this.mode === "walk" && (!this.onArrive || this.follow)) {
       this.startIdle(2 + Math.random());
       this.dir = DOWN;
@@ -905,6 +1105,7 @@ class SheepEntity implements Entity {
       this.dir = DOWN;
       this.lookAt = now() + 1.4;
     }
+    this.holdStill(3);
     this.emote(Math.random() < 0.7 ? "exclaim" : "question");
     if (Math.random() < 0.4) this.hop(1, 2);
   }
@@ -919,6 +1120,7 @@ class SheepEntity implements Entity {
       this.startIdle(2.6);
       this.dir = DOWN;
     } else this.payAttention();
+    this.holdStill(4);
     this.hop(2, 6);
     const headY = this.y - (this.lambNow ? 14 : 20);
     for (let i = 0; i < (reducedMotion ? 1 : 5); i++) spawnSparkle(Math.round(this.x + (Math.random() - 0.5) * 24), Math.round(headY - Math.random() * 10), 0.4 + Math.random() * 0.35);
@@ -934,6 +1136,7 @@ class SheepEntity implements Entity {
   party(): void {
     if (this.dead || this.mode === "wait" || this.mode === "exit" || this.mode === "shear" || this.mode === "enter") return;
     if (this.mode === "sleep" || this.mode === "walk" || this.mode === "graze") this.startIdle(2.6);
+    this.holdStill(4);
     this.modeT = 0;
     this.dir = DOWN;
     this.hop(this.lambNow ? 4 : 3, 5);
@@ -1279,7 +1482,7 @@ export function initSheep(g: Game): void {
     console.error("[sheep] couldn't build the sheep art", err);
   }
   initSheepFx(g);
-  lastPasture = { ...g.layout.pasture };
+  lastPasture = pastureOk(g.layout) ? { ...g.layout.pasture } : null;
   forgetOldPets(today);
 
   // Name tags: on by default, toggled from the toolbar.
@@ -1312,7 +1515,7 @@ export function initSheep(g: Game): void {
   let todayCheck = 0;
   const tick = (dt: number) => {
     if (!list.length) return;
-    separate(dt, g.layout);
+    if (pastureOk(g.layout)) separate(dt, g.layout);
 
     retireCheck += dt;
     if (retireCheck > 2) {
@@ -1362,6 +1565,9 @@ export function initSheep(g: Game): void {
   g.on("resize", () =>
     guard(() => {
       markTagsDirty();
+      // No real pasture right now (keyboard up on a short phone?): the sheep hold still where they
+      // are, and get mapped across from the last real pasture once there's one again.
+      if (!pastureOk(g.layout)) return;
       const old = lastPasture;
       lastPasture = { ...g.layout.pasture };
       if (!old || (old.x === lastPasture.x && old.y === lastPasture.y && old.w === lastPasture.w && old.h === lastPasture.h)) return;
