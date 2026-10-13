@@ -222,12 +222,27 @@ function buildLogo(): void {
   const tw = top.canvas.width;
   const bw = bottom.canvas.width;
   const w = Math.max(tw, bw);
-  // Stack the lines so the top one's outline rests right on the bottom one's (no sky between).
-  const overlap = 3;
-  const h = top.canvas.height - overlap + bottom.canvas.height;
+  // Stack the lines as tightly as possible without any lettering touching: start with the top line's
+  // outline resting on the bottom one's, then nudge "Sheep Farm" down until the tails of "Papa"'s p's
+  // (and their extrusion) clear its letters, plus a pixel of breathing room.
   const bx = Math.floor((w - bw) / 2);
-  const by = top.canvas.height - overlap;
   const tx = Math.floor((w - tw) / 2);
+  const touches = (oy: number): boolean => {
+    for (let i = 0; i < top.solid.length; i++) {
+      if (!top.solid[i]) continue;
+      const x = tx + (i % tw) - bx;
+      const y = Math.floor(i / tw) - oy;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy;
+        if (x < 0 || x >= bw || yy < 0 || yy >= bottom.canvas.height) continue;
+        if (bottom.solid[yy * bw + x]) return true;
+      }
+    }
+    return false;
+  };
+  let by = top.canvas.height - 3;
+  while (touches(by) && by < top.canvas.height + 8) by++;
+  const h = by + bottom.canvas.height;
   makeCanvas("ui.logo", w, h, (ctx) => {
     ctx.drawImage(bottom.canvas, bx, by);
     // The top line goes over the bottom one, so the tail of "Papa"'s p stays visible.
