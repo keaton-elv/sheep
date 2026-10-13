@@ -1,7 +1,6 @@
 // Small anchored parchment popovers (the clock's stats card, the toolbar's "…" menu).
 // Lighter than a dialog: no backdrop, closes on outside tap / Escape / resize.
 
-import { sfx } from "../audio";
 import { el, uiRoot } from "./dom";
 import "./hud-popover.css";
 
@@ -99,7 +98,6 @@ export function openPopover(opts: PopoverOptions): PopoverHandle {
       removeEventListener("resize", onResize);
       root.classList.add("is-closing");
       setTimeout(() => root.remove(), 110);
-      if (!silent) sfx("menuClose");
       opts.onClose?.();
     },
   };
@@ -110,6 +108,6 @@ export function openPopover(opts: PopoverOptions): PopoverHandle {
   document.addEventListener("keydown", onKey, true);
   addEventListener("resize", onResize);
   current = handle;
-  sfx("menuOpen");
+  // Opens and closes quietly, like the dialogs (the swish got repetitive).
   return handle;
 }
