@@ -1,6 +1,6 @@
-node_modules/
-dist/
-.wrangler/
-.dev.vars
-.DS_Store
 *.log
+.DS_Store
+.dev.vars
+.wrangler/
+dist/
+node_modules/

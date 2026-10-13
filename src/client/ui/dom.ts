@@ -136,8 +136,9 @@ export interface DialogButton {
 
 export interface DialogOptions {
   title?: string;
-  /** Sprite key of a character portrait (e.g. "portrait.marnie"); shown on the right like Stardew. */
+  /** Ignored: the farm has no character portraits/avatars (kept so callers still typecheck). */
   portrait?: string;
+  /** Ignored, see `portrait`. */
   speaker?: string;
   body?: Child | Child[];
   buttons?: DialogButton[];
@@ -179,7 +180,10 @@ addEventListener("keydown", (ev) => {
   }
 });
 
-export function openDialog(opts: DialogOptions): DialogHandle {
+export function openDialog(rawOpts: DialogOptions): DialogHandle {
+  // House rule: no character portraits or speaker avatars on this farm. Menus may still pass
+  // them (the API keeps the fields), but they're intentionally never rendered.
+  const opts: DialogOptions = { ...rawOpts, portrait: undefined, speaker: undefined };
   const dismissable = opts.dismissable ?? true;
   const sounds = opts.sounds ?? true;
   const body = el("div", { class: "sv-dialog__body" });
