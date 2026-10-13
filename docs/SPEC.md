@@ -41,7 +41,7 @@ and desktop works great too.
 
 ## Critters & secrets
 
-- **The fox and the hedgehog** live in the bottom-right corner. They're best friends who nuzzle, sleep curled
+- **Otto (the fox) and Milo (the hedgehog)** live in the bottom-right corner. They're best friends who nuzzle, sleep curled
   up together at night, and wear seasonal accessories (scarves and hats in winter). Tapping them gets
   reactions, and sometimes a little line.
 - **Snickers** 🐈 is her real cat, a grey Himalayan: a cream cloud of a cat with a dark grey face, paws and a smoky
@@ -85,6 +85,25 @@ and desktop works great too.
   - notch and home-bar safe areas
   - haptics on pet and shear (Android)
   - add-to-home-screen app icon
+
+## Copy rules
+
+- **Minimal text.** Only write words when they're a reference, a joke, an easter egg, or a genuinely
+  necessary interface explainer. Prefer icons, short labels and one-line empty states.
+- **No characters:** no villager portraits, names or voices. The only "people" who talk are animals:
+  Snickers, Otto, Milo and the sheep themselves.
+- **Mailbox letters** are written by Snickers, Otto, or the sheep themselves (signed with the sheep's
+  name). No letters "from the flock" or "from the farm".
+
+## More easter eggs
+
+- **ORIGINAL PLAN:** every sheep remembers its original name. Rename a plan and later change it back,
+  and a big red rubber stamp slams onto the screen: **ORIGINAL PLAN**. The sheep gets a stamp badge, the
+  card offers "Go back to the ORIGINAL PLAN?" once a plan has changed, the clock popover counts how
+  many times it's happened, and the sheep writes a letter about it. (They always change plans, then
+  stick to the original.)
+- **The Bumblesteed:** a ladybug knight riding a bumblebee. A rare sighting drifts across the pasture,
+  and Otto sometimes writes in about spotting one.
 
 ## Mobile & accessibility rules
 
