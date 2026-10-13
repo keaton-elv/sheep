@@ -809,6 +809,11 @@ const SYNTHS: Record<Sfx, Synth> = {
     noise(d, t, { dur: 2.2, vol: 0.5, attack: 0.08, type: "lowpass", f: 320 * p, path: [[2.2, 70]] });
     return 2.25;
   },
+  lick(d, t, p) {
+    // A tiny wet "mlem": a quick bandpassed noise smack.
+    noise(d, t, { dur: 0.06, vol: 0.18, attack: 0.004, type: "bandpass", f: rand(1800, 2600) * p, path: [[0.06, 900 * p]] });
+    return 0.07;
+  },
 };
 
 // Some sounds would be annoying if they stacked up (typing blips, menu clicks).
