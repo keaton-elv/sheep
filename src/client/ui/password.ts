@@ -413,7 +413,9 @@ export function showPasswordGate(): Promise<void> {
     const art = el("span", { class: "pw-logo__art", "aria-hidden": "true" }, logo, sheepWrap);
     if (catSpot) {
       cat.style.left = `calc(var(--lp) * ${catSpot.x})`;
-      cat.style.top = `calc(var(--lp) * ${head - (CAT_H - catSpot.y)})`;
+      // Tucked one logo px down behind the lettering: --lp is a fraction of a CSS px on phones (7 device
+      // px / 3 = 2.333...), and its rounding could otherwise open a hairline of sky under his paws.
+      cat.style.top = `calc(var(--lp) * ${head - (CAT_H - catSpot.y) + 1})`;
       // Behind the lettering in the DOM too (password.css stacks the letters in front of him).
       art.insertBefore(cat, logo);
     }
