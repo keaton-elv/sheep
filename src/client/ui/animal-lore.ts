@@ -1,6 +1,7 @@
 // Lore for the sheep menus: what a plan is about (read from its name, then its notes), so the mood
 // lines, the lamb at the ranch and the shears can wink at it. San Francisco, a little Washington,
-// and Snickers. Winks, not walls: a plan only gets these when it actually mentions the thing.
+// Snickers, and the things she loves. Winks, not walls: a plan only gets these when it actually
+// mentions the thing.
 
 import { dayKey } from "../../shared/calendar";
 
@@ -35,17 +36,23 @@ export const SF_PARKS = [
 export type Topic =
   | "karaoke"
   | "sketch"
+  | "alexander"
   | "lavender"
   | "wine"
   | "snickers"
   | "kitkat"
   | "washington"
   | "festival"
+  | "tilden"
+  | "dolphins"
+  | "ginkgo"
+  | "loafing"
   | "salmon"
   | "coffee"
   | "bakery"
   | "pizza"
   | "icecream"
+  | "vampires"
   | "burrito"
   | "hike"
   | "park";
@@ -148,6 +155,15 @@ const TOPICS: readonly TopicDef[] = [
     memory: ["The best sketch was...", "We drew..."],
   },
   {
+    // Christopher Alexander: A Pattern Language, The Timeless Way of Building.
+    topic: "alexander",
+    re: /christopher alexander|pattern language|timeless way|\barchitect(s|ure|ural)?\b/,
+    mood: (n) => [`${n} is reading A Pattern Language. It has notes on the barn.`, `${n} is looking for the quality without a name.`],
+    done: (n) => [`${n} found the quality without a name.`],
+    dreams: () => ["light on two sides of every room"],
+    memory: ["It had the quality without a name..."],
+  },
+  {
     topic: "lavender",
     re: /lavender/,
     mood: (n) => [`${n} smells faintly of lavender. Fancy.`, `${n} is daydreaming about rows and rows of lavender...`, `${n} would like lavender everything, please.`],
@@ -213,6 +229,45 @@ const TOPICS: readonly TopicDef[] = [
     done: (n, place) => (place === "Bay to Breakers" ? [`${n} is still wearing its costume.`] : [`${n} is still humming.`]),
   },
   {
+    // Tilden Little Farm (Berkeley), where visitors feed celery to our sheep's cousins.
+    topic: "tilden",
+    re: /tilden|little farm|petting (zoo|farm)|celery/,
+    mood: (n) => [`${n} is visiting the cousins at Tilden Little Farm. It packed celery.`, `${n}'s cousins at Tilden get celery from visitors. ${n} is just saying.`],
+    done: (n) => [`${n}'s cousins at Tilden say thanks for the celery.`],
+    dreams: () => ["celery at Tilden Little Farm"],
+    memory: ["We fed the..."],
+  },
+  {
+    topic: "dolphins",
+    re: /dolphins?|porpoises?|\bwhales?\b|whale watching|aquarium|golden gate bridge/,
+    places: [[/porpoise|golden gate bridge/, "the Golden Gate"]],
+    mood: (n, place) =>
+      place === "the Golden Gate"
+        ? [`${n} is watching for the porpoises under the Golden Gate.`, `${n} heard the porpoises are back. It's bringing binoculars.`]
+        : [`${n} is practicing its dolphin noises. They come out "baa."`, `${n} would like to be friends with a dolphin. Or several.`],
+    done: (n) => [`${n} is still doing dolphin noises. They sound like baas.`],
+    dreams: () => ["dolphins", "the porpoises under the Golden Gate"],
+    memory: ["We saw..."],
+  },
+  {
+    // In fall the street ginkgos go gold (fan-shaped leaves everywhere).
+    topic: "ginkgo",
+    re: /ginkgo|gingko|leaf peep|fall colou?rs|fall leaves|autumn leaves/,
+    mood: (n) => [`${n} is hunting for the goldest ginkgo in the city.`, `${n} found a fan-shaped leaf. It's keeping it.`],
+    done: (n) => [`${n} has a ginkgo leaf stuck in its wool. On purpose.`],
+    dreams: () => ["streets full of golden ginkgo"],
+    memory: ["The goldest tree was..."],
+  },
+  {
+    // Her two favorite units of time.
+    topic: "loafing",
+    re: /\bloafing\b|\bloaf (around|day)\b|black hole|\bnaps?\b|napping|lazy (day|morning|saturday|sunday)|do(ing)? nothing/,
+    mood: (n) => [`${n} has 1 hour of loafing penciled in. Maybe two.`, `${n} is worried this turns into 3 hours in the black hole.`, `Snickers is a professional loafer. ${n} is taking notes.`],
+    done: (n) => [`${n} loafed like a pro. Snickers approves.`, `${n} made it out of the black hole. Eventually.`],
+    dreams: () => ["1 hour of loafing", "3 hours in the black hole"],
+    memory: ["We loafed for..."],
+  },
+  {
     topic: "salmon",
     re: /\b(salmon|sushi|sashimi|oysters?|seafood|fish|crab|cioppino)\b/,
     mood: (n) => [`Snickers keeps staring at ${n}. Something about salmon.`, `Snickers would like to come. He's heard there's salmon.`],
@@ -264,11 +319,23 @@ const TOPICS: readonly TopicDef[] = [
   },
   {
     topic: "icecream",
-    re: /ice cream|gelato|bi-?rite|mitchell'?s|creamery|sundaes?/,
-    mood: (n) => [`${n} can't decide: Bi-Rite or Mitchell's.`, `${n} wants two scoops. Minimum.`],
-    done: FOOD_DONE,
-    dreams: () => ["two scoops from Bi-Rite"],
+    re: /ice cream|gelato|bi-?rite|mitchell'?s|creamery|sundaes?|stinking rose/,
+    // Garlic ice cream (The Stinking Rose has it) keeps the vampires away.
+    places: [[/garlic|stinking rose/, "garlic"]],
+    mood: (n, place) =>
+      place === "garlic"
+        ? [`Garlic ice cream? ${n} is intrigued. The vampires are not.`, `${n} is going vampire-proof. One scoop at a time.`]
+        : [`${n} can't decide: Bi-Rite or Mitchell's.`, `${n} wants two scoops. Minimum.`],
+    done: (n, place) => (place === "garlic" ? [`${n} had the garlic ice cream. Vampire-proof for a week.`] : FOOD_DONE(n)),
+    dreams: (place) => [place === "garlic" ? "garlic ice cream" : "two scoops from Bi-Rite"],
     memory: ["The best scoop was..."],
+  },
+  {
+    topic: "vampires",
+    re: /\bvampires?\b|dracula|nosferatu|\bgarlic\b/,
+    mood: (n) => [`${n} packed garlic. Just in case.`, `${n} knows the trick for vampires: garlic ice cream.`],
+    done: (n) => [`No vampires. ${n} credits the garlic.`],
+    dreams: () => ["garlic ice cream"],
   },
   {
     topic: "burrito",

@@ -26,6 +26,11 @@ const QUIET_DAY = [
   "Zzz...",
 ];
 
+/** Mid-November into early December, San Francisco's street ginkgos go gold. */
+function ginkgoSeason(d: Date): boolean {
+  return (d.getMonth() === 10 && d.getDate() >= 10) || (d.getMonth() === 11 && d.getDate() <= 10);
+}
+
 /** Some weeks, Thursday is THURSDAY!!!!! (more often when it's actually Thursday). */
 function thursdayHype(today: Date): boolean {
   return Math.random() < (today.getDay() === 4 ? 0.5 : 0.12);
@@ -216,6 +221,7 @@ function openCalendar(focus?: string): void {
     for (const p of plans) list.appendChild(el("li", null, planRow(p, null)));
 
     let quip = QUIET_DAY[(date.getDate() + date.getMonth()) % QUIET_DAY.length]!;
+    if (ginkgoSeason(date) && date.getDate() % 2 === 0) quip = "Wide open... perfect for a ginkgo walk.";
     if (date.getDay() === 3) quip = "Wine Wednesday... and wide open.";
     if (date.getDay() === 4 && hype) quip = "...and nothing planned?!";
     if (rel < 0) quip = "Nothing happened here... or nobody wrote it down.";

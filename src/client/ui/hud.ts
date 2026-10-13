@@ -59,25 +59,29 @@ const TRIVIA = [
   "The Luau is on Summer 11. Don't put anything weird in the soup.",
   "The Moonlight Jellies arrive on Summer 28.",
   "The Fair is on Fall 16. Go for the star tokens!",
-  "Spirit's Eve is on Fall 27. Bring a lantern!",
+  "Spirit's Eve is on Fall 27. Bring a lantern. And garlic ice cream.",
   "The Feast of the Winter Star is on Winter 25.",
   "Every Stardrop raises your max energy.",
   "Crows won't land near a scarecrow. Rarecrows are just showing off.",
   "Ladybugs are lucky. A golden one is luckier...",
-  "Lambs grow up in a day. Blink and you'll miss it...",
-  "Shooting stars are rare. Look up on clear nights...",
-  "Snickers naps on the barn doorstep most afternoons. Zzz...",
-  "Otto and Milo nap curled up together. Zzz...",
   "Legend says a tiny knight rides a bumblebee over the pasture...",
   "Plans change. The ORIGINAL PLAN usually wins.",
   // The local news.
   "In the news: Mayor Lurie has not visited the farm yet. The sheep remain hopeful.",
   "Muni update: the N is running late. The sheep decided to walk.",
   "Wildlife report: the parrots of Telegraph Hill are loud today. As usual.",
+  "Traffic: light on the Golden Gate. Heavy porpoise traffic under it.",
+  "Tilden Little Farm, Berkeley: out of celery again. The cousins regret nothing.",
+  "A Pattern Language, no. 74: Animals. The sheep feel seen.",
   "Sumner, WA: still the Rhubarb Pie Capital of the World.",
   "Bonney Lake forecast: drizzle, with a chance of drizzle.",
   "Baa...",
 ];
+
+// In season, these join the pool.
+const SEASON_NEWS: Partial<Record<Season, string[]>> = {
+  fall: ["Leaf report: it's ginkgo season. The sheep are big fans."],
+};
 
 // Some days get their own news.
 const WINE_WEDNESDAY = ["It's Wine Wednesday. You know what to do."];
@@ -532,17 +536,19 @@ function stat(icon: string, label: string, value: string | number): HTMLElement 
 }
 
 /** One line from the TV: usually a tip or a joke, sometimes today's weather channel. */
-function tvLine(kind: WeatherKind, now: Date): string {
+function tvLine(kind: WeatherKind, season: Season, now: Date): string {
   const dow = now.getDay();
   if (dow === 3 || dow === 4) {
     // When the clock's already saying "Wine" / "THU!!", the TV is in on it too.
     if (Math.random() < (flairDay(now) ? 0.5 : 0.2)) return pick(dow === 3 ? WINE_WEDNESDAY : THURSDAY);
   }
   if (Math.random() < 0.3) return weatherLine(kind);
-  let i = Math.floor(Math.random() * TRIVIA.length);
-  if (i === lastTrivia) i = (i + 1) % TRIVIA.length;
+  const extra = SEASON_NEWS[season];
+  const pool = extra ? [...TRIVIA, ...extra] : TRIVIA;
+  let i = Math.floor(Math.random() * pool.length);
+  if (i === lastTrivia) i = (i + 1) % pool.length;
   lastTrivia = i;
-  return TRIVIA[i]!;
+  return pool[i]!;
 }
 
 function buildReport(g: Game): HTMLElement {
@@ -591,7 +597,7 @@ function buildReport(g: Game): HTMLElement {
     stats = el("p", { class: "hud-report__say" }, "Counting sheep...");
   }
 
-  const tv = el("p", { class: "hud-report__tv" }, spriteIcon("ui.icon.tv", { class: "hud-report__tvicon" }), el("span", null, tvLine(kind, now)));
+  const tv = el("p", { class: "hud-report__tv" }, spriteIcon("ui.icon.tv", { class: "hud-report__tvicon" }), el("span", null, tvLine(kind, env.season, now)));
 
   const live = el(
     "p",

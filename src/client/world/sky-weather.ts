@@ -422,7 +422,7 @@ export class SkyWeather {
         return { set: (r < 0.6 ? a.leaves.green : a.leaves.lime) ?? null, frame: -1 };
       case "fall":
         return {
-          set: (r < 0.35 ? a.leaves.orange : r < 0.6 ? a.leaves.red : r < 0.85 ? a.leaves.gold : a.leaves.brown) ?? null,
+          set: (r < 0.32 ? a.leaves.orange : r < 0.55 ? a.leaves.red : r < 0.75 ? a.leaves.gold : r < 0.87 ? a.leaves.ginkgo : a.leaves.brown) ?? null,
           frame: -1,
         };
       default:

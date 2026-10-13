@@ -62,6 +62,10 @@ const PET_LINES = [
   "Snickers misses his brother KitKat, way out in Arizona.",
   "His tongue is out. His tongue is always out.",
 ];
+/** Pet mid-loaf, now and then. */
+const LOAF_LINE = "Snickers is on minute 47 of his 1 hour of loafing.";
+/** Pet him asleep a few times. */
+const BLACK_HOLE_LINE = "Zzz... Snickers is doing his 3 hours in the black hole.";
 /** What the name tag says, now and then, instead of his name. */
 const TAG_MOW = "Mow!";
 const TAG_PAPA = "Papa Snickers";
@@ -248,6 +252,7 @@ class Snickers implements Entity {
   private nomIn = 0;
   private begMowed = false;
   private pets = 0;
+  private sleepPets = 0;
   private lastPetToast = -1e9;
   private petDeck: string[] = [];
   private lastBowlToast = -1e9;
@@ -684,13 +689,19 @@ class Snickers implements Entity {
       this.zzzIn = 2.2;
       const a = this.headAnchor();
       spawnMlem(this.g, a.x + (this.isFlipped() ? -13 : 13), a.y + 3, "purr...");
+      this.sleepPets++;
+      if (this.sleepPets % 3 === 0 && this.g.time - this.lastPetToast > 25) {
+        this.lastPetToast = this.g.time;
+        toast(BLACK_HOLE_LINE, { icon: "snickers.icon" });
+      }
       return;
     }
     this.pets++;
     if (this.pets % 4 === 0 && this.g.time - this.lastPetToast > 25) {
       this.lastPetToast = this.g.time;
       showNameTag();
-      toast(this.petLine(), { icon: "snickers.icon" });
+      const midLoaf = this.state === "loaf" || (this.state === "pet" && this.petLoaf);
+      toast(midLoaf && chance(0.5) ? LOAF_LINE : this.petLine(), { icon: "snickers.icon" });
     } else {
       const r = Math.random();
       showNameTag(r < 0.2 ? TAG_MOW : r < 0.3 ? TAG_PAPA : "Snickers");

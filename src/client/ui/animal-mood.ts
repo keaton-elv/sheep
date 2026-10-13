@@ -14,9 +14,9 @@ const DREAMS: Record<Category, string[]> = {
   workshop: ["clay", "a sketching meetup", "paint swatches", "glue guns", "a tiny apron", "hand-made mugs"],
   travel: ["train tickets", "a window seat", "visiting KitKat in Arizona", "BART to the airport", "airport snacks", "postcards"],
   adventure: ["the redwoods at Muir Woods", "the top of Mt. Tam", "a banana slug", "campfires", "the bottom of the Mines", "Point Reyes"],
-  food: ["an Arsicault croissant", "rhubarb pie from Sumner", "a square of Golden Boy", "Bi-Rite ice cream", "Pink Cake", "warm bread"],
+  food: ["an Arsicault croissant", "rhubarb pie from Sumner", "a square of Golden Boy", "Bi-Rite ice cream", "Pink Cake", "salmon sashimi"],
   cozy: ["blankets", "a Blue Bottle latte", "a crackling fireplace", "a foggy-day nap", "fuzzy socks", "lavender tea"],
-  other: ["something mysterious", "a stardrop", "the wild parrots of Telegraph Hill", "fairy lights", "shooting stars", "the Secret Woods"],
+  other: ["something mysterious", "a stardrop", "the wild parrots of Telegraph Hill", "dolphins", "shooting stars", "the Secret Woods"],
 };
 
 function hash(str: string): number {

@@ -18,7 +18,7 @@ const QUIPS = [
   "The auto-grabber is on strike again...",
   "Somebody left a truffle in the corner. Suspicious...",
   "A warm, cat-shaped dent in the hay. Snickers was here.",
-  "The heater hums... Zzz...",
+  "Old beams, warm hay. Built the timeless way...",
   "Baa... (from somewhere in the dark)",
 ];
 

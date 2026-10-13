@@ -438,7 +438,13 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
             ? `I'm ${name}. Another sketching meetup? I'll pose. Baa.`
             : /pizza/i.test(name)
               ? `I'm ${name}. Golden Boy or Tony's? ...Why not both.`
-              : pick([`I'm ${name}. Can't wait... baa!`, `I'm ${name}. Can't wait... baa!`, `I'm ${name}! I hear Dolores Park has the best grass...`]),
+              : /ice cream|gelato/i.test(name)
+                ? `I'm ${name}. Garlic, please. Keeps the vampires away...`
+                : pick([
+                    `I'm ${name}. Can't wait... baa!`,
+                    `I'm ${name}! My cousins at Tilden Little Farm say hi. ...Got any celery?`,
+                    `I'm ${name}! I hear Dolores Park has the best grass...`,
+                  ]),
         sign: me,
         gift: gift(sheepHead(false, { scale: 1.5 })),
         action: sheepAction(e.sheepId, "Say hi"),
@@ -561,7 +567,7 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
             sign: OTTO,
             gift: sack,
           }
-        : { ...base, greeting: "Mow.", body: "You put perfectly good snacks in a sack and got cloth. Next: a Salmon Bundle.", sign: SNICKERS, gift: sack };
+        : { ...base, greeting: "Mow.", body: "You put perfectly good snacks in a sack and got cloth. Next: a Salmon Sashimi Bundle.", sign: SNICKERS, gift: sack };
     }
     default:
       return { ...base, greeting: "Humans,", body: "Something happened on the farm. I was asleep. Zzz...", sign: SNICKERS };

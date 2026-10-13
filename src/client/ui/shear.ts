@@ -39,6 +39,11 @@ function memoryPlaceholder(lore: Lore, stuckToOriginal: boolean): string {
 function shearWink(lore: Lore, stuckToOriginal: boolean): string | null {
   if (lore.has("karaoke")) return "Karaoke: survived. Legends.";
   if (stuckToOriginal) return "Stuck to the ORIGINAL PLAN. Classic.";
+  if (lore.hits.some((h) => h.topic === "vampires" || (h.topic === "icecream" && h.place === "garlic"))) return "Vampires: zero. The garlic worked.";
+  if (lore.has("loafing") && Math.random() < 0.6) return pick(["Loafed. Professionally.", "Back from the black hole. Barely."]);
+  if (lore.has("tilden") && Math.random() < 0.6) return "Celery delivered. The cousins are thrilled.";
+  const fins = lore.hits.find((h) => h.topic === "dolphins");
+  if (fins && Math.random() < 0.5) return fins.place === "the Golden Gate" ? "Porpoises: spotted. Probably." : "Dolphins: spotted. Probably.";
   if (lore.has("sketch") && Math.random() < 0.5) return "Another sketching meetup, done!";
   try {
     if (isBigThursday(farmMoment().now)) return `Done on a ${THURSDAY}`;

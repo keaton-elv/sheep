@@ -359,3 +359,34 @@ export const CHEST_FALLBACK: ArtData = {
   ],
   pal: { o: "#3b1f12", W: "#d38a3a", w: "#9a5a22", G: "#5a5a6a", Y: "#ffd84a", s: SHADOW },
 };
+
+// ---------- fall: the golden ginkgo's fan-shaped leaves ----------
+
+const GINKGO_PAL = { o: "#8a5a12", L: "#fff3a0", M: "#ffd94a", D: "#e9ab2f", s: "#7a5418" };
+
+/** A ginkgo leaf: a little fan, notched at the top, on a long stem. */
+export const GINKGO_LEAF: ArtData = {
+  rows: [
+    ".ooooooo.",
+    "oLLLoMMMo",
+    "oLLLLMMDo",
+    ".oLLMDDo.",
+    "..oLMDo..",
+    "...oDo...",
+    "....s....",
+    "....s....",
+  ],
+  pal: GINKGO_PAL,
+};
+
+/** The same leaf turned edge-on mid-tumble (same cell size, so it stays centred). */
+export const GINKGO_LEAF_EDGE: ArtData = {
+  rows: [".........", "....o....", "...oLo...", "...oMo...", "...oDo...", "....o....", "....s....", "....s...."],
+  pal: GINKGO_PAL,
+};
+
+/** A smaller one (the golden carpet under the tree, and some of the shower). */
+export const GINKGO_LEAF_SMALL: ArtData = {
+  rows: [".ooooo.", "oLLoMMo", ".oLMDo.", "..oDo..", "...s...", "...s..."],
+  pal: GINKGO_PAL,
+};

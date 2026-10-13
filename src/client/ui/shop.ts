@@ -73,7 +73,7 @@ function shopLine(cloth: number, owned: number): string {
     "Built while you wait. (Valley magic.)",
     "Decorations improve sheep morale. That's just science.",
     "Full refunds. Even on gnomes.",
-    "Will build for cloth.",
+    "Light on two sides of every room. (See: A Pattern Language.)",
   ];
   return lines[Math.floor(Math.random() * lines.length)]!;
 }

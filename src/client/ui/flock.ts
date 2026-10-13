@@ -254,7 +254,7 @@ function openFlock(): void {
       emptyLamb = new SheepSprite(() => {});
       emptyLamb.set({ look: "lamb", golden: false, asleep: false, hat: null, label: "A lonely lamb says baa" });
     }
-    const text = kind === "none" ? "No sheep yet... baa?" : "All done! Everyone's in the barn...";
+    const text = kind === "none" ? "No sheep yet... baa?" : "All done! Time for 1 hour of loafing...";
     return el("div", { class: "fl-empty" }, el("div", { class: "fl-empty__lamb" }, emptyLamb.button), el("p", { class: "fl-empty__text" }, text));
   }
 

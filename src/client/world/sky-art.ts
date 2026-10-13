@@ -1,10 +1,12 @@
 // Art for the sky module: rain (real Stardew sheet, with a hand-copied fallback), cherry petals,
-// tumbling leaves, snowflakes, frost sparkles, firefly glows, soft cloud shadows and fog banks.
+// tumbling leaves and ginkgo fans, snowflakes, frost sparkles, firefly glows, soft cloud shadows and
+// fog banks.
 // Everything is built ONCE at init and cached as canvases; the hot paths only drawImage().
 
 import { rng } from "../engine/game";
 import { makeCanvas, pixelArt, tinted, type Palette } from "../engine/pixelart";
 import { REGIONS, SHEETS, spriteCanvas } from "../engine/sprites";
+import { GINKGO_LEAF } from "./world-artdata";
 
 // ---------- real sheet: rain.png (64x32 = 4x2 cells of 16x16) ----------
 // Cell 0 is the falling streak, cells 1-3 the splash. Row 0 is a grey variant, row 1 a pale one.
@@ -231,6 +233,8 @@ export function buildSkyArt(): SkyArt {
   const petals = Object.entries(PETAL_PALETTES).map(([name, pal]) => spinSet(`weather.petal.${name}`, PETAL, pal));
   const leaves: Record<string, ParticleSet> = {};
   for (const [name, pal] of Object.entries(LEAF_PALETTES)) leaves[name] = spinSet(`weather.leaf.${name}`, LEAF, pal);
+  // Golden ginkgo fans join the fall mix (the farm's ginkgo shares its leaves with the wind).
+  leaves.ginkgo = spinSet("weather.leaf.ginkgo", GINKGO_LEAF.rows, GINKGO_LEAF.pal);
 
   FLAKES.forEach((rows, i) => pixelArt(`weather.flake.${i}`, rows, FLAKE_PAL));
   const flakes = particleSet(FLAKES.map((_, i) => `weather.flake.${i}`));

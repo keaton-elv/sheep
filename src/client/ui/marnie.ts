@@ -61,6 +61,7 @@ function greetingFor(date: string | null): string {
   if (m.weather === "rain" || m.weather === "storm") special.push("Baa... (peeking out of the rain at you)");
   if (m.weather === "snow" || m.season === "winter") special.push("Brr! Good thing sheep come with built-in sweaters.");
   if (m.season === "spring") special.push("Spring lambs are the bounciest lambs.");
+  if (m.season === "fall") special.push("This lamb rolled through every leaf pile on the way over...");
   if (flock === 0) special.push("The pasture's awfully empty...");
   if (flock >= 12) special.push("That's a lot of sheep... one more can't hurt.");
   // A date from the calendar always gets its line; other specials show up about half the time.
@@ -68,7 +69,17 @@ function greetingFor(date: string | null): string {
   return special.length && Math.random() < 0.55 ? pick(special) : pick(GREETINGS);
 }
 
-const PRICES = ["Free with one hug.", "Free with one hug. Two if it's raining.", "Payment accepted in forehead kisses.", "Free! (Snickers takes his cut in Whisker Lickins.)"];
+// What the ranch takes instead of 8,000g (one per visit): the things she'd actually pay for.
+const PRICES = [
+  "1 hour of loafing",
+  "3 hours in the black hole",
+  "Salmon sashimi",
+  "A bag of Whisker Lickins",
+  "A scoop of garlic ice cream",
+  "One Arsicault croissant",
+  "A slice of Sumner rhubarb pie",
+  "One (1) karaoke song",
+];
 
 // The name placeholder: always one of two plans, somewhere new each time (real San Francisco
 // parks). It takes turns: pizza, then sketching, then pizza... The edit form doesn't take a turn:
@@ -174,9 +185,11 @@ function buildForm(
   }
   const catField = el("fieldset", { class: "sv-field mr-fieldset" }, el("legend", { class: "sv-field__label" }, "Kind"), chips);
 
-  // Date: empty means "no date" (never a default). iOS draws today's date inside an empty date
-  // input, so while it's empty the native text is hidden under a "No date" face (marnie.css), and
-  // the ✕ is the only way to un-set a date on phones, so it shows whenever one is set.
+  // Date: empty means "no date" (never a default). An empty date input still paints something (iOS:
+  // today's date, which reads as if one were picked; desktop: mm/dd/yyyy), so while it's empty and
+  // idle it wears a "No date" face instead (marnie.css). The face and the native text both follow the
+  // box's classes, so only one ever shows: focus or a value hides the face, and it comes back on blur
+  // with nothing picked. The ✕ is the only way to un-set a date on phones, so it shows whenever one is set.
   const dateInput = el("input", { class: "sv-input mr-date", id: `${id}-date`, type: "date" });
   dateInput.value = initial.date && parseDayKey(initial.date) ? initial.date : "";
   const dateBox = el(
@@ -187,11 +200,18 @@ function buildForm(
   );
   const clearDate = el("button", { class: "sv-btn mr-clear", type: "button", "aria-label": "Clear the date", title: "Clear the date" }, "✕");
   const dateHint = el("p", { class: "mr-hint", "aria-live": "polite" });
-  const updateDateHint = () => {
-    const d = parseDayKey(dateInput.value);
-    const empty = !dateInput.value;
+  let dateFocused = false;
+  let dateSeen = dateInput.value;
+  const syncDateFace = () => {
+    // Half-typed ("10/dd/yyyy") has no value yet, but it isn't "No date" either: keep it visible (and clearable).
+    const empty = !dateInput.value && !dateInput.validity.badInput;
     dateBox.classList.toggle("is-empty", empty);
+    dateBox.classList.toggle("is-focused", dateFocused);
     clearDate.hidden = empty;
+  };
+  const updateDateHint = () => {
+    syncDateFace();
+    const d = parseDayKey(dateInput.value);
     if (!d) {
       dateHint.textContent = "";
       dateHint.hidden = true;
@@ -207,12 +227,25 @@ function buildForm(
       days < 0 ? `${when} · in the past... time machine?` : `${when} · ${relativeDays(days)}${days === 0 ? "!" : ""}${wink}`;
   };
   const onDate = () => {
+    dateSeen = dateInput.value;
     setErr("date", null);
     updateDateHint();
     planChanged();
   };
+  // A picker that closes without a pick fires nothing (and a few commit their pick only as they
+  // close), so settle up from the field itself: a new value counts as a pick, else just re-sync the face.
+  const settleDate = () => (dateInput.value !== dateSeen ? onDate() : syncDateFace());
   dateInput.addEventListener("input", onDate);
   dateInput.addEventListener("change", onDate);
+  dateInput.addEventListener("focus", () => {
+    dateFocused = true;
+    syncDateFace();
+  });
+  dateInput.addEventListener("blur", () => {
+    dateFocused = false;
+    settleDate();
+    requestAnimationFrame(settleDate);
+  });
   // Desktop: clicking the text part of a date input doesn't open the calendar by itself.
   dateInput.addEventListener("click", () => {
     try {
@@ -223,9 +256,10 @@ function buildForm(
   });
   clearDate.addEventListener("click", (ev) => {
     sfx("blip");
+    // (A half-typed date already has the value "", and some browsers only wipe its fields on a real change.)
+    if (dateInput.validity.badInput) dateInput.value = "2000-01-01";
     dateInput.value = "";
-    updateDateHint();
-    planChanged();
+    onDate();
     // Keyboard users land back on the field; taps don't (focusing a date input can pop the picker).
     if (ev.detail === 0) dateInput.focus({ preventScroll: true });
   });
@@ -323,7 +357,7 @@ function buildForm(
         nameInput.focus();
         return msg;
       }
-      if (dateInput.value && !parseDayKey(dateInput.value)) {
+      if (dateInput.validity.badInput || (dateInput.value && !parseDayKey(dateInput.value))) {
         const msg = "That date looks a little scrambled.";
         setErr("date", msg);
         dateInput.focus();

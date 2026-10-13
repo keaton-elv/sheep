@@ -72,7 +72,7 @@ const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.len
 const FOX_LINES = [
   'Otto swishes his tail. That\'s fox for "hello..."',
   "Otto hiked Mt. Tam this morning. He'd like a nap now.",
-  "Otto yawns a big fox yawn. So many tiny teeth...",
+  "Otto spotted dolphins off Crissy Field! (Porpoises. Don't tell him.)",
   "Otto would like you to know this is HIS blanket. (Milo may borrow it.)",
   "Otto sniffs your hand. You smell like sheep...",
   "Otto is watching the sheep. Not hungrily. Just... supervising.",

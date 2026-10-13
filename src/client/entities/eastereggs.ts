@@ -3,7 +3,8 @@
 // (More live with the critters: five quick knocks on the stump, the golden ladybug, the Bumblesteed...)
 //
 // The new-day banner knows a few local things: Wine Wednesdays, the occasional THURSDAY!!!!!,
-// Karl the Fog, and the Bay Area days on the calendar (Bay to Breakers, Fleet Week...).
+// Karl the Fog, the odd garlic ice cream, and the Bay Area days on the calendar (Bay to Breakers,
+// Fleet Week...).
 //
 // Debug: ?star=1 ?stardrop=1 ?raccoon=1 ?birds=1 ?crow=1 ?woodpecker=1 ?owl=1 ?ladybug=1 ?golden=1
 // ?bees=1 ?bumblesteed=1 ?squirrel=1 ?bunny=1 ?parrots=1 ?gulls=1 ?hummingbird=1 ?slug=1 ?opossum=1
@@ -300,6 +301,7 @@ function dayFlavor(now: Date, season: Season, hour: number, weather: WeatherKind
   if (weather === "fog" && chance(0.7)) return "Karl the Fog is visiting. He may stay a while.";
   if ((weather === "rain" || weather === "storm") && chance(0.5)) return "Rain! The banana slugs are thrilled.";
   if (weather === "sunny" && hour < 16 && chance(0.25)) return "Sunny! A Bi-Rite cone kind of day.";
+  if (chance(0.05)) return "Garlic ice cream for dessert tonight? The vampires won't dare.";
   const hello = hour < 12 ? "good morning" : hour < 18 ? "hello" : "good evening";
   return pickLine([
     `Baa... (The sheep say ${hello}.)`,

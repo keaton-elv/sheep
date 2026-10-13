@@ -171,8 +171,13 @@
   opacity: 0.7;
 }
 
-/* "No date": an empty date input gets a face of its own. (iOS paints today's date into an empty
-   date input, which reads as if one were picked, so the native text hides until there's a value.) */
+/* "No date": an empty date input still paints something (iOS: today's date, which reads as if one
+   were picked; desktop: mm/dd/yyyy), so while it's empty and idle it wears a face of its own.
+   The face and the native text both key off one state on the box, so only one of them ever shows:
+   focus or a value hides the face, and blur with nothing picked brings it back. (Not `.mr-date:focus
+   + .mr-dateface`: that sibling rule can miss its restyle when focus lands inside the date input's own
+   fields, leaving the face on top of the text. .is-focused comes from focus/blur in marnie.ts, and
+   :focus-within backs it up.) */
 .mr-datebox {
   position: relative;
   flex: 1;
@@ -192,35 +197,27 @@
   white-space: nowrap;
   overflow: hidden;
 }
-.mr-datebox.is-empty .mr-dateface {
+.mr-datebox.is-empty:not(.is-focused):not(:focus-within) .mr-dateface {
   display: flex;
 }
 /* (Separate rules: a browser that doesn't know one of these pseudo-elements drops its whole rule.) */
-.mr-datebox.is-empty .mr-date {
+.mr-datebox.is-empty:not(.is-focused):not(:focus-within) .mr-date {
   color: transparent;
   -webkit-text-fill-color: transparent;
 }
+.mr-datebox.is-empty:not(.is-focused):not(:focus-within) .mr-date::-webkit-datetime-edit {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+/* In use but still empty: the native mm/dd/yyyy, soft like a placeholder, ready for typing. */
+.mr-datebox.is-empty .mr-date {
+  color: #9b7b5f;
+}
+/* iOS's empty "value" is today's date: it stays hidden while the picker is up, too (a blank box
+   until a day is picked, then the face again if the picker closes without one). */
 .mr-datebox.is-empty .mr-date::-webkit-date-and-time-value {
   color: transparent;
   -webkit-text-fill-color: transparent;
-}
-.mr-datebox.is-empty .mr-date::-webkit-datetime-edit {
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-/* Mouse + keyboard: focusing the empty field shows the native mm/dd/yyyy so it can be typed. */
-@media (hover: hover) and (pointer: fine) {
-  .mr-datebox.is-empty .mr-date:focus {
-    color: var(--ink);
-    -webkit-text-fill-color: var(--ink);
-  }
-  .mr-datebox.is-empty .mr-date:focus::-webkit-datetime-edit {
-    color: var(--ink);
-    -webkit-text-fill-color: var(--ink);
-  }
-  .mr-datebox.is-empty .mr-date:focus + .mr-dateface {
-    display: none;
-  }
 }
 .mr-clear {
   flex: none;
