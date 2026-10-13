@@ -25,7 +25,7 @@ export type Result<T> = { ok: true; value: T } | { ok: false; status: number; er
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const fail = (status: number, error: string): Result<never> => ({ ok: false, status, error });
 
-const DEFAULT_FARM_NAME = "Baaaah Farm";
+const DEFAULT_FARM_NAME = "Papa Snickers's Sheep Farm";
 const EVENT_CAP = 50;
 /** Roughly 1 in 20 sheep shows up golden. */
 const GOLDEN_CHANCE = 0.05;

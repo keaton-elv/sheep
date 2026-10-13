@@ -1,4 +1,4 @@
-# Baaaah Farm: spec
+# Papa Snickers's Sheep Farm: spec
 
 This is the living spec the build agents worked from. It's cleaned up from the brief inside the
 workflow script and updated with every decision made since. **Updates** marks changes made after
@@ -27,7 +27,7 @@ and desktop works great too.
 | Cloth → carpenter's shop decorations, placed by tapping the pasture | Decorate the farm together |
 | Billboard calendar | Dated plans by month |
 | Mailbox letters | What happened while you were away |
-| Farm sign | Rename the farm (default "Baaaah Farm") |
+| Farm sign | Rename the farm (default "Papa Snickers's Sheep Farm") |
 
 ## The world
 

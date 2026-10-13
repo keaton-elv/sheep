@@ -1,6 +1,6 @@
 {
-  "name": "Baaaah Farm",
-  "short_name": "Baaaah",
+  "name": "Papa Snickers's Sheep Farm",
+  "short_name": "Sheep Farm",
   "description": "Our little farm of plans. Every sheep is an adventure.",
   "start_url": "/sheep/",
   "scope": "/sheep/",
@@ -9,8 +9,21 @@
   "background_color": "#5a8f3c",
   "theme_color": "#5a8f3c",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

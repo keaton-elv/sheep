@@ -1,4 +1,4 @@
-# 🐑 Baaaah Farm
+# 🐑 Papa Snickers's Sheep Farm
 
 A tiny private Stardew Valley–style farm that doubles as our shared todo list.
 Every plan (dates, workshops, trips...) is a sheep. Did the thing? Shear the sheep.
