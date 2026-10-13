@@ -4,6 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#5a8f3c" />
+    <script>
+      // The season's color from the very first paint (iOS keeps the bar tint it sees first); main.ts keeps it in sync.
+      (function () {
+        var bg = { spring: "#64a33f", summer: "#4c8c2e", fall: "#cf8f3e", winter: "#d9e6ee" };
+        var m = new Date().getMonth();
+        var q = /[?&]season=(spring|summer|fall|winter)\b/.exec(location.search);
+        var s = q ? q[1] : m >= 2 && m <= 4 ? "spring" : m >= 5 && m <= 7 ? "summer" : m >= 8 && m <= 10 ? "fall" : "winter";
+        document.documentElement.style.setProperty("--season-bg", bg[s]);
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", bg[s]);
+      })();
+    </script>
     <meta name="robots" content="noindex, nofollow" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />

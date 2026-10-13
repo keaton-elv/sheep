@@ -72,6 +72,8 @@ export class Game {
   /** Logical size in game pixels. */
   w = 320;
   h = 240;
+  /** What the canvas clears to under the ground: the page's season color (main.ts keeps it in sync). */
+  clearColor = getComputedStyle(document.documentElement).getPropertyValue("--season-bg").trim() || "#5a8f3c";
   layout: Layout;
   /** Seconds since the game started (scaled by ?speed only for the clock, not for animation). */
   time = 0;
@@ -281,7 +283,7 @@ export class Game {
     const ctx = this.ctx;
     ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = "#5a8f3c";
+    ctx.fillStyle = this.clearColor;
     ctx.fillRect(0, 0, this.w, this.h);
 
     for (const p of this.passes) if (p.order < 0) p.draw(ctx, this);

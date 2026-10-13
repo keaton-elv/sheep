@@ -44,6 +44,7 @@ async function boot(): Promise<void> {
     bgSeason = season;
     const color = SEASON_BG[season] ?? SEASON_BG.spring;
     document.documentElement.style.setProperty("--season-bg", color);
+    g.clearColor = color;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
   };
   applySeasonBg();
