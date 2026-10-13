@@ -162,6 +162,231 @@
   }
 }
 
+/* ---------- the sound box (left of the wool counter) ---------- */
+
+.hud-sound {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* Holding it opens the sound check: no iOS callout or text selection. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* A 44px touch target that only grows up and to the left, out over the farm's quiet corner
+   beside the clock: its right edge stays at the box's (clear of the dial and the wool counter's
+   tap area), and it ends above the loom and chest row underneath. */
+.hud-sound::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--px) * -2);
+  width: max(100%, 44px);
+  height: max(calc(100% + var(--px) * 2), 44px);
+}
+.hud-sound:focus-visible {
+  outline: calc(var(--px) * 1) solid var(--focus);
+  outline-offset: calc(var(--px) * 1);
+}
+
+.hud-sound__icon {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  pointer-events: none;
+}
+.hud-sound[data-state="on"] .hud-sound__icon--on,
+.hud-sound[data-state="off"] .hud-sound__icon--off,
+.hud-sound[data-state="wait"] .hud-sound__icon--wait {
+  display: block;
+}
+.hud-sound:active .hud-sound__icon {
+  transform: translateY(calc(var(--px) * 1));
+}
+
+/* Waiting (sound is on, but the phone hasn't let it play yet): a little hop now and then, and a
+   ring that ripples out. "Tap me!" */
+.hud-sound[data-state="wait"] .hud-sound__icon--wait {
+  animation: hud-sound-hop 2.2s ease-in-out infinite;
+}
+.hud-sound[data-state="wait"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: calc(var(--px) * 1) solid #fff6dc;
+  opacity: 0;
+  pointer-events: none;
+  animation: hud-sound-ring 2.2s steps(4, end) infinite;
+}
+@keyframes hud-sound-hop {
+  0%,
+  62%,
+  100% {
+    transform: none;
+  }
+  70% {
+    transform: translateY(calc(var(--px) * -2));
+  }
+  78% {
+    transform: none;
+  }
+  84% {
+    transform: translateY(calc(var(--px) * -1));
+  }
+  90% {
+    transform: none;
+  }
+}
+@keyframes hud-sound-ring {
+  0%,
+  60% {
+    opacity: 0;
+    inset: 0;
+  }
+  62% {
+    opacity: 0.9;
+    inset: calc(var(--px) * -1);
+  }
+  100% {
+    opacity: 0;
+    inset: calc(var(--px) * -5);
+  }
+}
+
+/* ---------- the sound check card ---------- */
+
+.hud-sound-pop {
+  width: 270px;
+}
+.hud-sound-pop [hidden] {
+  display: none !important;
+}
+.hud-sound__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 2px 0;
+}
+.hud-sound__title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.05em;
+  font-weight: 700;
+}
+.hud-sound__rows {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0 0;
+  border-top: 2px dashed rgba(138, 60, 14, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.hud-sound__row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 22px;
+}
+.hud-sound__label {
+  flex: none;
+}
+.hud-sound__dots {
+  flex: 1;
+  min-width: 6px;
+  border-bottom: 2px dotted rgba(107, 74, 51, 0.45);
+  transform: translateY(4px);
+}
+.hud-sound__value {
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+  color: var(--ok-ink);
+}
+.hud-sound__value.is-off {
+  color: var(--ink-soft);
+}
+.hud-sound__value.is-warn {
+  color: #b0480a;
+}
+.hud-sound__nudge {
+  margin: 0;
+  font-size: 0.9em;
+  font-weight: 700;
+  color: #b0480a;
+}
+.hud-sound__err {
+  margin: 0;
+  font-size: 0.8em;
+  line-height: 1.25;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+.hud-sound__baa {
+  width: 100%;
+}
+.hud-sound__switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 0;
+  background: rgba(255, 248, 230, 0.6);
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.hud-sound__switch:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(194, 95, 23, 0.55);
+}
+.hud-sound__switch:active {
+  background: rgba(242, 191, 114, 0.6);
+}
+.hud-sound__swlabel {
+  flex: 1;
+}
+.hud-sound__pill {
+  flex: none;
+  font-size: 0.85em;
+  padding: 1px 8px;
+  color: #fff6dc;
+  background: #8a7a6a;
+  box-shadow: 0 0 0 2px rgba(74, 31, 10, 0.4);
+}
+.hud-sound__pill.is-on {
+  background: #3f8a2a;
+}
+.hud-sound__note {
+  margin: -3px 0 0;
+  font-size: 0.85em;
+  color: var(--ink-soft);
+}
+.hud-sound__help {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--ink-soft);
+}
+
 /* ---------- the farm report popover ---------- */
 
 .hud-report {
@@ -291,8 +516,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hud-wool.is-bump .hud-wool__icon,
-  .hud-report__live.is-live .hud-report__dot {
+  .hud-report__live.is-live .hud-report__dot,
+  .hud-sound[data-state="wait"] .hud-sound__icon--wait {
     animation: none;
+  }
+  .hud-sound[data-state="wait"]::before {
+    animation: none;
+    opacity: 0.9;
+    inset: calc(var(--px) * -1);
   }
   .hud-wool__float.is-on {
     animation-duration: 1.4s;

@@ -56,6 +56,11 @@ export const CLOCK = {
   money: { x: 11, y: 44, w: 65, h: 15 },
   digits: { x: 21, y: 48, w: 5, h: 8, step: 6, count: 8 },
   wool: { x: 6, y: 44 },
+  /**
+   * The little sound box, hanging just left of the wool counter (outside the 76x62 widget, so it
+   * never covers the clock or the wool). Bottom-aligned with the money box.
+   */
+  sound: { x: -12, y: 43, w: 16, h: 16 },
 } as const;
 
 /** Money-dial digits: 4x6 glyphs drawn 1px in from the top-left of each 5x8 slot. */
@@ -103,7 +108,80 @@ export function registerHudArt(): void {
     "BBgggggBBBBA",
   ], { A: "#8e9bb0", B: "#bcc6d4", W: "#f6f8fb", w: "#dfe5ee", g: "#a8b3c4" });
 
+  registerSoundBox();
   registerFallbacks();
+}
+
+// ---------- the sound box (left of the wool counter) ----------
+
+/**
+ * A tiny wooden box like the money box, with a parchment window and an ink speaker:
+ *   on   = sound waves      off = a red X
+ *   wait = faint waves (sound is on, but the phone hasn't let it play yet: tap!)
+ */
+function registerSoundBox(): void {
+  const frame = (inner: string[]) => [
+    ".oooooooooooooo.",
+    "oHHHHHHHHHHHHHMo",
+    ...inner.map((r) => `oH${r}Do`),
+    "oMDDDDDDDDDDDDDo",
+    ".oooooooooooooo.",
+  ];
+  const pal = {
+    o: "#5b2b2a",
+    H: "#fa9305",
+    M: "#dc7b05",
+    D: "#b14e05",
+    P: "#ffd787",
+    p: "#f2bf72",
+    k: "#56160c",
+    K: "#8a3005",
+    r: "#c4121a",
+    f: "#d29a5a",
+  };
+  // 12x12 windows: the speaker (magnet K + cone k) on the left, then waves / an X.
+  pixelArt("ui.hud.sound.on", frame([
+    "PPPPPPPPPPPP",
+    "PPPPPkPPPPPP",
+    "PPPPkkPPkPPP",
+    "PPPkkkPPPkPP",
+    "PKKkkkPkPPkP",
+    "PKKkkkPPkPkP",
+    "PKKkkkPPkPkP",
+    "PKKkkkPkPPkP",
+    "PPPkkkPPPkPP",
+    "PPPPkkPPkPPP",
+    "pppppkpppppp",
+    "pppppppppppp",
+  ]), pal);
+  pixelArt("ui.hud.sound.wait", frame([
+    "PPPPPPPPPPPP",
+    "PPPPPkPPPPPP",
+    "PPPPkkPPfPPP",
+    "PPPkkkPPPfPP",
+    "PKKkkkPfPPfP",
+    "PKKkkkPPfPfP",
+    "PKKkkkPPfPfP",
+    "PKKkkkPfPPfP",
+    "PPPkkkPPPfPP",
+    "PPPPkkPPfPPP",
+    "pppppkpppppp",
+    "pppppppppppp",
+  ]), pal);
+  pixelArt("ui.hud.sound.off", frame([
+    "PPPPPPPPPPPP",
+    "PPPPPkPPPPPP",
+    "PPPPkkPPPPPP",
+    "PPPkkkPPPPPP",
+    "PKKkkkPrPPrP",
+    "PKKkkkPPrrPP",
+    "PKKkkkPPrrPP",
+    "PKKkkkPrPPrP",
+    "PPPkkkPPPPPP",
+    "PPPPkkPPPPPP",
+    "pppppkpppppp",
+    "pppppppppppp",
+  ]), pal);
 }
 
 // ---------- fallbacks (only seen if clock.png fails to load) ----------

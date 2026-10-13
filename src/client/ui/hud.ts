@@ -2,7 +2,8 @@
 // weather + season icons, the time in 10-minute ticks, and the money box underneath repurposed as
 // the WOOL counter (with Stardew's rolling digits).
 // Tap the clock for the farm report (date, weather, a few numbers, one line from the TV); tap the
-// wool for the chest.
+// wool for the chest. A little sound box hangs left of the wool (hud-sound.ts): it shows whether
+// sound is on, off, or waiting for a tap, and holding it opens a sound check.
 //
 // The box is painted on a canvas at the farm's device-pixel scale, so the dial hand can rotate
 // smoothly (like the game draws it at 4x) while everything else stays crisp pixel art.
@@ -18,6 +19,7 @@ import { festivalOn } from "./calendar-festivals";
 import { el, openMenu, relativeDays, spriteIcon, uiRoot } from "./dom";
 import { CLOCK, registerHudArt } from "./hud-art";
 import { closePopover, togglePopover } from "./hud-popover";
+import { mountSoundBox } from "./hud-sound";
 import { iconKey } from "./toolbar-art";
 import "./hud.css";
 
@@ -207,6 +209,11 @@ export function initHud(g: Game): void {
 
   const root = el("div", { class: "hud-clock" }, canvas, face, wool);
   uiRoot.appendChild(root);
+  try {
+    mountSoundBox(root);
+  } catch (err) {
+    console.warn("[hud] sound box", err);
+  }
 
   face.addEventListener("click", () => {
     // Anchor to the whole widget so the card opens below the wool box, not on top of it.

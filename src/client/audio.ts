@@ -8,6 +8,16 @@
 // the server for recordings that might not exist.
 // Also runs a quiet ambience bed (the real Stardew loops in public/sounds/ambience: seasonal days,
 // night insects, rain, wind gusts, a campfire's crackle, the pond's babble) while unmuted.
+//
+// Phones (iOS especially) only let a page make sound after a tap, and can stop it again at any
+// time (a call, Siri, a trip to the home screen: Safari's non-standard "interrupted" state). So
+// every tap/key re-wakes the engine inside the gesture (resume + a 1-sample silent buffer), a
+// "closed" context is rebuilt, and a stuck "interrupted" one is rebuilt after a few taps.
+// The audio session type is left alone ("auto": web audio respects the iPhone's silent switch)
+// unless the farmers turn on "Play in silent mode" (farm.sound.silentmode), which asks for
+// "playback" (plays on silent, pauses other apps' music).
+// getSoundStatus()/onSoundStatus() say whether sound is supposed to be playing right now, so the
+// HUD can show it (and a little sound check can explain it).
 
 import type { Season } from "../shared/calendar";
 
@@ -86,6 +96,7 @@ const MASTER_VOLUME = 0.45;
 const AMBIENCE_VOLUME = 0.55;
 const MAX_VOICES = 8;
 const MUTE_KEY = "farm.muted";
+const SILENT_MODE_KEY = "farm.sound.silentmode";
 const BASE = import.meta.env.BASE_URL;
 
 /**
@@ -228,129 +239,430 @@ let master: GainNode | null = null;
 let sfxBus: GainNode | null = null;
 let ambBus: GainNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
+/** A tap/key has asked for sound at least once (the little UI sounds are queued to load). */
 let unlocked = false;
-let muted = readMuted();
+/** The engine has really run at least once: the browser let us make sound. */
+let everRan = false;
+let muted = readFlag(MUTE_KEY);
+let silentMode = readFlag(SILENT_MODE_KEY);
+let lastError: string | null = null;
+/** lastError came from starting the engine (cleared once it runs). */
+let errorFromEngine = false;
+/** When the engine went "interrupted" (performance.now()) and how many taps have tried to wake it. */
+let interruptedAt = 0;
+let wakeTries = 0;
+let lastWakeTry = 0;
+let lastRebuild = -Infinity;
+/** The engine state onEngineState() last handled (a poll catches any change it never heard of). */
+let seenState = "none";
 const muteListeners = new Set<(muted: boolean) => void>();
 
-function readMuted(): boolean {
+function readFlag(key: string): boolean {
   try {
-    return localStorage.getItem(MUTE_KEY) === "1";
+    return localStorage.getItem(key) === "1";
   } catch {
     return false;
   }
 }
 
-function ensureContext(): AudioContext | null {
-  if (ctx) return ctx;
-  const AC: typeof AudioContext | undefined =
-    window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AC) return null;
+function writeFlag(key: string, on: boolean): void {
   try {
-    // iOS 17+: mix with whatever else is playing (her music keeps going) and respect the
-    // silent switch, like a polite little game should.
-    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
-    if (session) session.type = "ambient";
+    localStorage.setItem(key, on ? "1" : "0");
   } catch {
-    /* older browsers */
+    /* private mode: it just won't be remembered */
   }
+}
+
+function errText(err: unknown): string {
+  return err instanceof Error ? err.message || err.name : String(err);
+}
+
+/** Remember what went wrong last (the sound check shows it). */
+function noteError(what: string, engine = false): void {
+  lastError = what;
+  errorFromEngine = engine;
+  console.warn("[audio]", what);
+  emitStatus();
+}
+
+// ---------- status (is sound supposed to be playing?) ----------
+
+export type SoundEngine = "none" | "suspended" | "running" | "interrupted" | "closed";
+
+export interface SoundStatus {
+  /** Sound is on (not muted). */
+  enabled: boolean;
+  /** The WebAudio engine. "none" until the first tap; only "running" can make a sound. */
+  engine: SoundEngine;
+  /** The browser has let the engine run at least once (a tap unlocked it). */
+  unlocked: boolean;
+  /** "Play in silent mode" is on. */
+  silentMode: boolean;
+  /** This browser can switch its audio session (Safari's navigator.audioSession), so "Play in silent mode" can work. */
+  sessionControl: boolean;
+  /** Recordings decoded and ready, that failed (synthesized instead), and still on their way. */
+  filesReady: number;
+  filesFailed: number;
+  filesLoading: number;
+  lastError: string | null;
+}
+
+const statusListeners = new Set<(s: SoundStatus) => void>();
+let statusQueued = false;
+let lastStatusKey = "";
+
+export function getSoundStatus(): SoundStatus {
+  let ready = 0;
+  let failed = 0;
+  for (const m of [fileBuf, ambBuf]) {
+    for (const b of m.values()) {
+      if (b) ready++;
+      else failed++;
+    }
+  }
+  return {
+    enabled: !muted,
+    engine: engineState(),
+    unlocked: everRan,
+    silentMode,
+    sessionControl: !!audioSession(),
+    filesReady: ready,
+    filesFailed: failed,
+    filesLoading: fileLoad.size + ambLoad.size,
+    lastError,
+  };
+}
+
+/** Fires (batched, only on real changes) whenever anything in getSoundStatus() changes. */
+export function onSoundStatus(fn: (s: SoundStatus) => void): () => void {
+  statusListeners.add(fn);
+  return () => {
+    statusListeners.delete(fn);
+  };
+}
+
+function emitStatus(): void {
+  if (statusQueued || !statusListeners.size) return;
+  statusQueued = true;
+  queueMicrotask(() => {
+    statusQueued = false;
+    try {
+      const s = getSoundStatus();
+      const key = JSON.stringify(s);
+      if (key === lastStatusKey) return;
+      lastStatusKey = key;
+      for (const fn of [...statusListeners]) {
+        try {
+          fn(s);
+        } catch (err) {
+          console.warn("[audio] status listener", err);
+        }
+      }
+    } catch (err) {
+      console.warn("[audio] status", err);
+    }
+  });
+}
+
+// ---------- the audio session (Safari's navigator.audioSession) ----------
+
+interface AudioSessionLike {
+  type: string;
+}
+
+function audioSession(): AudioSessionLike | null {
   try {
-    ctx = new AC({ latencyHint: "interactive" });
+    return (navigator as unknown as { audioSession?: AudioSessionLike }).audioSession ?? null;
   } catch {
     return null;
   }
-  const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -16;
-  comp.knee.value = 12;
-  comp.ratio.value = 4;
-  comp.attack.value = 0.003;
-  comp.release.value = 0.2;
-  comp.connect(ctx.destination);
+}
 
-  master = ctx.createGain();
-  master.gain.value = muted ? 0 : MASTER_VOLUME;
-  master.connect(comp);
+/**
+ * Left at the browser's "auto" (web audio follows the silent switch and mixes with her music)
+ * unless "Play in silent mode" is on: then "playback" (plays on silent; iOS pauses other apps).
+ */
+function applySession(): void {
+  const s = audioSession();
+  if (!s) return;
+  const want = silentMode ? "playback" : "auto";
+  try {
+    if (s.type !== want) s.type = want;
+  } catch (err) {
+    noteError(`audio session: ${errText(err)}`);
+  }
+}
 
-  sfxBus = ctx.createGain();
-  sfxBus.connect(master);
-  ambBus = ctx.createGain();
-  ambBus.gain.value = AMBIENCE_VOLUME;
-  ambBus.connect(master);
+// ---------- the engine ----------
 
-  // Two seconds of white noise, reused by every noisy sound.
-  const len = Math.floor(ctx.sampleRate * 2);
-  noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const data = noiseBuf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-  return ctx;
+/** The context's state, including Safari's non-standard "interrupted". */
+function engineState(): SoundEngine {
+  if (!ctx) return "none";
+  const s = ctx.state as string;
+  return s === "running" || s === "suspended" || s === "interrupted" || s === "closed" ? s : "suspended";
 }
 
 function running(): boolean {
   return !!ctx && ctx.state === "running";
 }
 
+function ensureContext(): AudioContext | null {
+  if (ctx && (ctx.state as string) !== "closed") return ctx;
+  if (ctx) dropContext(); // closed under us: build a fresh one
+  const AC: typeof AudioContext | undefined =
+    window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AC) {
+    if (!lastError) noteError("no Web Audio in this browser", true);
+    return null;
+  }
+  // Before the context exists, so it starts out in the right audio session.
+  applySession();
+  let c: AudioContext;
+  try {
+    c = new AC({ latencyHint: "interactive" });
+  } catch {
+    try {
+      c = new AC();
+    } catch (err) {
+      noteError(`can't start audio: ${errText(err)}`, true);
+      return null;
+    }
+  }
+  ctx = c;
+  try {
+    buildGraph(c);
+  } catch (err) {
+    noteError(`audio graph: ${errText(err)}`, true);
+  }
+  c.onstatechange = onEngineState;
+  emitStatus();
+  return c;
+}
+
+function buildGraph(c: AudioContext): void {
+  const comp = c.createDynamicsCompressor();
+  comp.threshold.value = -16;
+  comp.knee.value = 12;
+  comp.ratio.value = 4;
+  comp.attack.value = 0.003;
+  comp.release.value = 0.2;
+  comp.connect(c.destination);
+
+  master = c.createGain();
+  master.gain.value = muted ? 0 : MASTER_VOLUME;
+  master.connect(comp);
+
+  sfxBus = c.createGain();
+  sfxBus.connect(master);
+  ambBus = c.createGain();
+  ambBus.gain.value = AMBIENCE_VOLUME;
+  ambBus.connect(master);
+
+  // Two seconds of white noise, reused by every noisy sound.
+  const len = Math.floor(c.sampleRate * 2);
+  noiseBuf = c.createBuffer(1, len, c.sampleRate);
+  const data = noiseBuf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+}
+
+/** Forget a dead context (closed, or stuck interrupted). Decoded recordings are kept. */
+function dropContext(): void {
+  const old = ctx;
+  try {
+    stopAmbience();
+  } catch {
+    /* it's going away anyway */
+  }
+  for (const v of voices.splice(0)) clearTimeout(v.timer);
+  ctx = null;
+  seenState = "none";
+  master = sfxBus = ambBus = null;
+  noiseBuf = null;
+  rainGain = rainFilter = null;
+  // These hold the old context's clock times.
+  lastPlayed.clear();
+  soloUntil.clear();
+  if (old) {
+    try {
+      old.onstatechange = null;
+      if ((old.state as string) !== "closed") (old.close() as Promise<void> | undefined)?.catch(() => {});
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
+function onEngineState(): void {
+  try {
+    const st = engineState();
+    seenState = st;
+    if (st !== "interrupted") {
+      interruptedAt = 0;
+      wakeTries = 0;
+    } else if (!interruptedAt) {
+      interruptedAt = performance.now();
+      wakeTries = 0;
+    }
+    if (st === "running") {
+      everRan = true;
+      if (errorFromEngine) {
+        lastError = null;
+        errorFromEngine = false;
+      }
+      applyAmbience();
+    }
+    emitStatus();
+  } catch (err) {
+    console.warn("[audio] state", err);
+  }
+}
+
+/** Resume outside a gesture (back from the home screen). Once a tap has unlocked audio this
+ * works; if it doesn't, the next tap will. */
 function resume(): void {
   if (!ctx || muted || document.visibilityState === "hidden") return;
-  if (ctx.state !== "running") {
-    void ctx.resume().then(() => applyAmbience(), () => {});
-  }
-}
-
-/** Browsers need a user gesture before audio can play; main.ts calls this on first tap/key. */
-export function unlockAudio(): void {
-  const c = ensureContext();
-  if (!c) return;
-  if (!unlocked) {
-    unlocked = true;
-    // Decode the little UI sounds now, so the very first click already sounds like Stardew,
-    // then the critter voices once the farm has had a moment to load.
-    setTimeout(() => preloadFiles(PRELOAD), 60);
-    setTimeout(() => preloadFiles(PRELOAD_LATER), 2500);
-  }
-  if (muted) {
-    if (c.state === "running") void c.suspend().catch(() => {});
-    return;
-  }
-  wake();
-}
-
-/** Resume from inside a user gesture. iOS also wants a sound started in that same gesture. */
-function wake(): void {
-  if (!ctx || ctx.state === "running") return;
+  const st = engineState();
+  if (st === "running" || st === "closed") return;
   try {
-    const s = ctx.createBufferSource();
-    s.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
-    s.connect(ctx.destination);
+    const p = ctx.resume() as Promise<void> | undefined;
+    p?.then(
+      () => applyAmbience(),
+      () => {},
+    );
+  } catch {
+    /* the next tap will try again */
+  }
+}
+
+/** Browsers need a user gesture before audio can play. Runs on every tap/key (main.ts calls it too). */
+export function unlockAudio(): void {
+  try {
+    const c = ensureContext();
+    if (!c) return;
+    if (!unlocked) {
+      unlocked = true;
+      // Decode the little UI sounds now, so the very first click already sounds like Stardew,
+      // then the critter voices once the farm has had a moment to load.
+      setTimeout(() => preloadFiles(PRELOAD), 60);
+      setTimeout(() => preloadFiles(PRELOAD_LATER), 2500);
+      emitStatus();
+    }
+    if (muted) {
+      if (c.state === "running") void c.suspend().catch(() => {});
+      return;
+    }
+    wake();
+  } catch (err) {
+    console.warn("[audio] unlock", err);
+  }
+}
+
+/** Start (or restart) the engine from inside a user gesture. */
+function wake(): void {
+  let c = ensureContext();
+  if (!c || muted) return;
+  const st = engineState();
+  if (st === "running") return;
+  if (st === "interrupted") {
+    const now = performance.now();
+    // One tap fires pointerup, touchend and click: count it once.
+    if (now - lastWakeTry > 400) {
+      wakeTries++;
+      lastWakeTry = now;
+    }
+    // Still interrupted after a few taps: build a fresh engine, right here inside the tap.
+    if (wakeTries >= 3 && interruptedAt && now - interruptedAt > 1500 && now - lastRebuild > 10_000) {
+      lastRebuild = now;
+      noteError("engine stayed interrupted, so it was restarted", true);
+      dropContext();
+      c = ensureContext();
+      if (!c) return;
+    }
+  }
+  kick(c);
+}
+
+/** resume(), plus a 1-sample silent buffer started in the same gesture (what iOS wants). */
+function kick(c: AudioContext): void {
+  try {
+    const s = c.createBufferSource();
+    s.buffer = c.createBuffer(1, 1, c.sampleRate);
+    s.connect(c.destination);
     s.start(0);
   } catch {
     /* ignore */
   }
-  resume();
+  try {
+    const p = c.resume() as Promise<void> | undefined;
+    p?.then(
+      () => {
+        if (c === ctx) onEngineState();
+      },
+      (err: unknown) => {
+        // (An early, pre-tap resume can be refused after a later one already got it going.)
+        if (c === ctx && !running()) noteError(`resume: ${errText(err)}`, true);
+      },
+    );
+  } catch (err) {
+    noteError(`resume: ${errText(err)}`, true);
+  }
 }
 
 // Touch "activation" only counts on pointerup/touchend/click (not pointerdown), and iOS can
-// re-suspend the context after a call or a trip to the home screen, so keep listening.
+// suspend or interrupt the context after a call or a trip to the home screen, so keep
+// listening: every tap wakes it (synchronously, inside the gesture) if it isn't running.
 for (const ev of ["pointerup", "touchend", "click", "keydown"]) {
   addEventListener(
     ev,
     () => {
-      if (!unlocked) unlockAudio();
-      else if (!muted) wake();
+      try {
+        if (!unlocked) unlockAudio();
+        else if (!muted && !running()) wake();
+      } catch (err) {
+        console.warn("[audio] gesture", err);
+      }
     },
     { capture: true, passive: true },
   );
 }
 
 document.addEventListener("visibilitychange", () => {
-  if (!ctx) return;
-  if (document.visibilityState === "hidden") {
-    stopAmbience();
-    if (ctx.state === "running") void ctx.suspend().catch(() => {});
-  } else if (unlocked && !muted) {
-    resume();
+  try {
+    if (!ctx) return;
+    if (document.visibilityState === "hidden") {
+      stopAmbience();
+      if (ctx.state === "running") void ctx.suspend().catch(() => {});
+    } else if (unlocked && !muted) {
+      resume();
+    }
+    emitStatus();
+  } catch (err) {
+    console.warn("[audio] visibility", err);
   }
 });
 
-// ---------- mute ----------
+// Back from Safari's back/forward cache: the old context may be suspended or interrupted.
+addEventListener("pageshow", () => {
+  try {
+    if (unlocked && !muted) resume();
+    emitStatus();
+  } catch (err) {
+    console.warn("[audio] pageshow", err);
+  }
+});
+
+// Safety net: some Safaris skip "statechange" (older ones, and now and then "interrupted"), and
+// the sound box must never claim sound is on when it isn't. Cheap: one property read.
+setInterval(() => {
+  try {
+    if (document.visibilityState === "hidden") return;
+    if (engineState() !== seenState) onEngineState();
+  } catch (err) {
+    console.warn("[audio] poll", err);
+  }
+}, 1500);
+
+// ---------- mute & silent mode ----------
 
 export function isMuted(): boolean {
   return muted;
@@ -359,24 +671,24 @@ export function isMuted(): boolean {
 export function setMuted(m: boolean): void {
   if (muted === m) return;
   muted = m;
+  writeFlag(MUTE_KEY, m);
   try {
-    localStorage.setItem(MUTE_KEY, m ? "1" : "0");
-  } catch {
-    /* private mode */
-  }
-  if (ctx && master) {
-    const t = ctx.currentTime;
-    master.gain.cancelScheduledValues(t);
-    master.gain.setValueAtTime(master.gain.value, t);
-    master.gain.linearRampToValueAtTime(m ? 0 : MASTER_VOLUME, t + 0.05);
-    if (m) {
-      stopAmbience();
-      setTimeout(() => muted && ctx?.state === "running" && void ctx.suspend().catch(() => {}), 80);
-    } else {
-      wake();
+    if (ctx && master && (ctx.state as string) !== "closed") {
+      const t = ctx.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.setValueAtTime(master.gain.value, t);
+      master.gain.linearRampToValueAtTime(m ? 0 : MASTER_VOLUME, t + 0.05);
+      if (m) {
+        stopAmbience();
+        setTimeout(() => muted && ctx?.state === "running" && void ctx.suspend().catch(() => {}), 80);
+      } else {
+        wake();
+      }
+    } else if (!m) {
+      unlockAudio();
     }
-  } else if (!m) {
-    unlockAudio();
+  } catch (err) {
+    console.warn("[audio] mute", err);
   }
   muteListeners.forEach((fn) => {
     try {
@@ -385,11 +697,103 @@ export function setMuted(m: boolean): void {
       console.warn("[audio] mute listener", err);
     }
   });
+  emitStatus();
 }
 
 export function onMuteChange(fn: (muted: boolean) => void): () => void {
   muteListeners.add(fn);
   return () => muteListeners.delete(fn);
+}
+
+export function getSilentMode(): boolean {
+  return silentMode;
+}
+
+/** A silent-mode bounce (suspend + resume) still landing. */
+let settling: Promise<unknown> | null = null;
+
+/**
+ * "Play in silent mode" (iPhone): on = the "playback" audio session (plays even with the silent
+ * switch on; iOS pauses other apps' music), off = back to "auto". Call it from a tap: the new
+ * session only takes hold when the engine starts, so a live engine is bounced (suspend + resume)
+ * right here inside the gesture.
+ */
+export function setSilentMode(on: boolean): void {
+  try {
+    const changed = silentMode !== on;
+    silentMode = on;
+    if (changed) writeFlag(SILENT_MODE_KEY, on);
+    applySession();
+    const c = ctx;
+    if (changed && c && (c.state as string) !== "closed" && !muted) {
+      if (c.state === "running") {
+        const p = c.suspend() as Promise<void> | undefined;
+        // Belt and braces: if the bounce leaves it asleep, wake it once the suspend lands. The
+        // test baa waits for this, so it doesn't start just before the engine pauses.
+        // (Never waits more than a moment: an engine that won't come back can't hold up later baas.)
+        const bounce: Promise<unknown> = Promise.race([
+          Promise.resolve(p)
+            .then(() => (c === ctx && !muted && !running() ? c.resume() : undefined))
+            .catch(() => {}),
+          new Promise((r) => setTimeout(r, 1500)),
+        ]);
+        settling = bounce;
+        void bounce.finally(() => {
+          if (settling === bounce) settling = null;
+        });
+      }
+      kick(c);
+    }
+  } catch (err) {
+    noteError(`silent mode: ${errText(err)}`);
+  }
+  emitStatus();
+}
+
+/**
+ * The sound check's "Play a baa": wakes the engine (call it from a tap) and plays the real baa,
+ * waiting for the recording if it's still on its way (the synth stands in if it failed).
+ * Returns false when sound is off or this browser has no audio at all.
+ */
+export function playTestSound(): boolean {
+  try {
+    if (muted) return false;
+    unlockAudio();
+    const c = ctx;
+    if (!c) return false;
+    const asked = performance.now();
+    const take = TAKES.get("baa")?.[0];
+    // A baa that turns up seconds after the tap would just be confusing.
+    const stale = () => c !== ctx || muted || !running() || performance.now() - asked > 4000;
+    const go = () => {
+      try {
+        if (stale()) return;
+        lastPlayed.set("baa", c.currentTime);
+        if (!take) {
+          playSynth("baa", 1, 1);
+          return;
+        }
+        void requestFile(take.file).then((buf) => {
+          try {
+            if (stale()) return;
+            if (buf) playTake("baa", take, buf, 1, 1);
+            else playSynth("baa", 1, 1);
+          } catch (err) {
+            console.warn("[audio] test", err);
+          }
+        });
+      } catch (err) {
+        console.warn("[audio] test", err);
+      }
+    };
+    const ready = settling ?? (running() ? null : (c.resume() as Promise<void> | undefined));
+    if (!ready) go();
+    else ready.then(go, () => {});
+    return true;
+  } catch (err) {
+    console.warn("[audio] test", err);
+    return false;
+  }
 }
 
 // ---------- voices ----------
@@ -1063,18 +1467,39 @@ const clampRate = (r: number) => Math.max(0.25, Math.min(4, r));
 const fileBuf = new Map<string, AudioBuffer | null>();
 const fileLoad = new Map<string, Promise<AudioBuffer | null>>();
 
-async function fetchBuffer(url: string): Promise<AudioBuffer | null> {
+/**
+ * Fetch and decode one recording. On failure, says why (the sound check shows it) and returns
+ * null; undefined = no engine to decode with right now (not a real failure: try again later).
+ */
+async function fetchBuffer(url: string): Promise<AudioBuffer | null | undefined> {
+  const name = url.slice(url.lastIndexOf("/") + 1);
   try {
     const res = await fetch(url);
-    if (!res.ok) return null;
-    // Dev servers answer unknown paths with index.html; that's not a sound.
-    if ((res.headers.get("content-type") ?? "").includes("text/html")) return null;
+    if (!res.ok) {
+      noteError(`${name}: HTTP ${res.status}`);
+      return null;
+    }
+    // Dev servers (and login pages) answer with HTML; that's not a sound.
+    if ((res.headers.get("content-type") ?? "").includes("text/html")) {
+      noteError(`${name}: got a web page, not a sound`);
+      return null;
+    }
     const data = await res.arrayBuffer();
-    if (!ctx) return null;
-    return await new Promise<AudioBuffer | null>((resolve) => {
-      ctx!.decodeAudioData(data, resolve, () => resolve(null))?.catch?.(() => resolve(null));
+    const c = ctx;
+    if (!c) return undefined;
+    const buf = await new Promise<AudioBuffer | null>((resolve) => {
+      try {
+        c.decodeAudioData(data, resolve, () => resolve(null))?.catch?.(() => resolve(null));
+      } catch {
+        resolve(null);
+      }
     });
-  } catch {
+    // The engine was rebuilt mid-decode: that's not the file's fault.
+    if (!buf && c !== ctx) return undefined;
+    if (!buf) noteError(`${name}: couldn't decode`);
+    return buf;
+  } catch (err) {
+    noteError(`${name}: ${errText(err)}`);
     return null;
   }
 }
@@ -1086,11 +1511,13 @@ function requestFile(file: string): Promise<AudioBuffer | null> {
   let p = fileLoad.get(file);
   if (p) return p;
   p = fetchBuffer(`${BASE}sounds/${file}`).then((b) => {
-    fileBuf.set(file, b);
+    if (b !== undefined) fileBuf.set(file, b);
     fileLoad.delete(file);
-    return b;
+    emitStatus();
+    return b ?? null;
   });
   fileLoad.set(file, p);
+  emitStatus();
   return p;
 }
 
@@ -1310,11 +1737,13 @@ function loadAmb(path: AmbienceFile): Promise<AudioBuffer | null> {
   let p = ambLoad.get(path);
   if (!p) {
     p = fetchBuffer(`${BASE}sounds/ambience/${path}.m4a`).then((b) => {
-      ambBuf.set(path, b);
+      if (b !== undefined) ambBuf.set(path, b);
       ambLoad.delete(path);
-      return b;
+      emitStatus();
+      return b ?? null;
     });
     ambLoad.set(path, p);
+    emitStatus();
   }
   return p;
 }

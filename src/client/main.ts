@@ -1,7 +1,6 @@
 import "./style.css";
 import { registerCoreArt } from "./art/core";
 import "./art/regions";
-import { unlockAudio } from "./audio";
 import { Game } from "./engine/game";
 import { loadSprites } from "./engine/sprites";
 import { initCritters } from "./entities/critters";
@@ -63,8 +62,7 @@ async function boot(): Promise<void> {
 
   g.start();
   document.getElementById("boot")?.classList.add("is-done");
-  addEventListener("pointerdown", () => unlockAudio(), { once: true, capture: true });
-  addEventListener("keydown", () => unlockAudio(), { once: true, capture: true });
+  // Audio unlocks itself on the first tap/click/key (audio.ts listens for the events iOS accepts).
 
   if (!(await api.me())) await showPasswordGate();
 

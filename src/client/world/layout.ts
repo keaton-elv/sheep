@@ -137,7 +137,9 @@ export function computeLayout(w: number, h: number, insets: LayoutInsets = NO_IN
   // Lifted clear of the bottom fence rail so the fox & hedgehog aren't hidden behind it.
   const critterCorner: Rect = { x: pasture.x + pasture.w - 60, y: pasture.y + pasture.h - 48, w: 60, h: 34 };
 
-  const blocked: Rect[] = [critterCorner, inflate(hudClock, 4), inflate(hudToolbar, 4)];
+  // The HUD's sound button sits just left of the wool counter, under the clock's bottom-left corner.
+  const hudSound: Rect = { x: hudClock.x - 24, y: hudClock.y + hudClock.h - 24, w: 24, h: 24 };
+  const blocked: Rect[] = [critterCorner, inflate(hudClock, 4), inflate(hudSound, 2), inflate(hudToolbar, 4)];
 
   return {
     w,
