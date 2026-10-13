@@ -35,7 +35,7 @@ and desktop works great too.
   local time, with dusk earlier in winter.
 - **Real seasons:** Mar–May spring, Jun–Aug summer, Sep–Nov fall, Dec–Feb winter. Real seasonal
   tilesets for ground, trees and grass.
-- **Real weather** at your location (Cloudflare geolocation → Open-Meteo): rain, storms, snow, fog,
+- **Real San Francisco weather** (Open-Meteo, pinned to SF): rain, storms, snow, fog,
   wind and cloud shadows on the farm. Fireflies on summer nights, petals in spring, leaves in fall.
 - **Live sync:** when one of you shears a sheep, the other sees it happen.
 
@@ -69,15 +69,19 @@ and desktop works great too.
   from "the farm". The witch easter egg becomes a shooting star.
 - **No dice / random-idea button** when adding a sheep.
 - **No Junimos.** More birds, ladybugs and bumblebees instead.
-- **Real Stardew sounds:** 23 effects plus ambience loops (seasonal days, crickets at night, rain,
+- **Real Stardew sounds:** 28 effects plus ambience loops (seasonal days, crickets at night, rain,
   wind, campfire crackle), compressed to ~2.8 MB. Baa, meow, fox yip and the pet sound are synthesized because
   they aren't in the pack.
 - **Real sprite sheets** replace hand-drawn stand-ins wherever they exist: emotes, craftables (loom, chest,
   scarecrows, rarecrows, lampposts...), tools (shears), objects (wool, cloth, stardrop, forage),
-  seasonal tilesets, fences, clock box, billboard, mail paper, title-screen sky and clouds, fonts,
-  critters, cat.
+  seasonal tilesets, clock box, billboard, mail paper, title-screen sky and clouds, critters, hats,
+  lambs. (The fence is the log fence from the outdoor tilesets; the fonts are Pixelify Sans with Tiny5
+  digits and capital Z; Snickers is hand-drawn.)
 - **Lambs:** a newly bought sheep arrives as a lamb (baby sheep sprite) and grows up after a day.
-- **Snickers** replaces the generic farm cat (see Critters).
+- **Snickers** replaces the generic farm cat (see Critters). He's on the title page too, and his
+  favorite toy (a secret item in the chest) is a piece of string.
+- **Add-sheep form:** no date until one is set (with a ✕ to clear it); the name placeholder is
+  "Eat pizza in <a random SF park>".
 - **Animal hats** 🎩: cloth can buy a hat for a sheep.
 - **Mobile-first pass:**
   - a "Flock" list to find any sheep fast
@@ -99,9 +103,8 @@ and desktop works great too.
 
 - **ORIGINAL PLAN:** every sheep remembers its original name. Rename a plan and later change it back,
   and a big red rubber stamp slams onto the screen: **ORIGINAL PLAN**. The sheep gets a stamp badge, the
-  card offers "Go back to the ORIGINAL PLAN?" once a plan has changed, the clock popover counts how
-  many times it's happened, and the sheep writes a letter about it. (They always change plans, then
-  stick to the original.)
+  card offers "Go back to the ORIGINAL PLAN?" once a plan has changed, and the sheep writes a letter
+  about it. No counts anywhere. (They always change plans, then stick to the original.)
 - **The Bumblesteed:** a ladybug knight riding a bumblebee. A rare sighting drifts across the pasture,
   and Otto sometimes writes in about spotting one.
 

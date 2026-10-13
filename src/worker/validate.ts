@@ -114,7 +114,7 @@ export function hat(body: unknown): number | null {
 export function buyDecor(body: unknown): Required<BuyDecorInput> {
   const b = obj(body);
   if (typeof b.kind !== "string" || !(DECOR_KINDS as readonly string[]).includes(b.kind)) {
-    throw new BadInput("Robin doesn't sell that.");
+    throw new BadInput("The shop doesn't sell that...");
   }
   const variant = b.variant === undefined ? 0 : Number(b.variant);
   if (!Number.isInteger(variant) || variant < 0 || variant > 31) throw new BadInput("Bad variant.");

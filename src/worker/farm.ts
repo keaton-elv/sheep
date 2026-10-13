@@ -401,7 +401,7 @@ export class Farm extends DurableObject<Env> {
     return ok(null);
   }
 
-  /** Put a decoration away. Robin takes it back and refunds the cloth. */
+  /** Put a decoration away: the shop takes it back and refunds the cloth. */
   async removeDecor(id: string, origin: string | null): Promise<Result<null>> {
     const rows = this.sql.exec<DecorRow>(`SELECT * FROM decorations WHERE id = ?`, id).toArray();
     if (!rows[0]) return fail(404, "Couldn't find that decoration.");

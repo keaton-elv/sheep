@@ -184,7 +184,7 @@ export const api = {
     return s;
   },
 
-  /** "Sell to Marnie" = delete the todo. */
+  /** "Sell" = delete the todo (the sheep goes to a nice farm upstate). */
   async sellSheep(id: string): Promise<void> {
     await call("DELETE", `/sheep/${id}`);
     await refreshIfOffline();

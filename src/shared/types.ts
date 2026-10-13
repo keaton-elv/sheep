@@ -82,7 +82,7 @@ export const DECOR_KINDS = [
 ] as const;
 export type DecorKind = (typeof DECOR_KINDS)[number];
 
-/** Cloth cost of each decoration in Robin's shop. */
+/** Cloth cost of each decoration in the carpenter's shop. */
 export const DECOR_COST: Record<DecorKind, number> = {
   scarecrow: 1,
   flowers: 1,

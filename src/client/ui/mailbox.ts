@@ -409,7 +409,7 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
         ...base,
         greeting: "Humans,",
         body: pick([
-          `${q(name)} moved to a farm across the valley. I did not like them anyway.\n\n(I did.)`,
+          `${q(name)} moved to a nice farm upstate. I did not like them anyway.\n\n(I did.)`,
           `${q(name)} left. Plans change... I do not.`,
         ]),
         sign: SNICKERS,

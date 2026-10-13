@@ -205,8 +205,8 @@ export class Game {
   }
 
   /**
-   * Tap interceptors get first dibs on EVERY tap, before entities (e.g. "tap where Robin
-   * should put the scarecrow"). Return true to swallow the tap. Newest handler runs first.
+   * Tap interceptors get first dibs on EVERY tap, before entities (e.g. "tap where the scarecrow
+   * should go"). Return true to swallow the tap. Newest handler runs first.
    */
   onGroundTap(fn: GroundTapHandler): () => void {
     this.groundTapHandlers.unshift(fn);
