@@ -13,6 +13,7 @@ import { initBarn } from "./ui/barn";
 import { initCalendar } from "./ui/calendar";
 import { closeAllDialogs } from "./ui/dom";
 import { initFarmSign } from "./ui/farmsign";
+import { initFlock } from "./ui/flock";
 import { initHelp } from "./ui/help";
 import { initHud } from "./ui/hud";
 import { initLoom } from "./ui/loom";
@@ -54,6 +55,7 @@ async function boot(): Promise<void> {
   initShop();
   initMailbox();
   initFarmSign();
+  initFlock();
   initHelp();
 
   // Art modules may have registered UI frames, so build the CSS skin after init.

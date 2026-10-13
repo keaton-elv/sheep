@@ -39,7 +39,8 @@ export type Sfx =
   | "owl"
   | "reward" // little "you got something" jingle
   | "secret" // secret found!
-  | "thunder";
+  | "thunder"
+  | "lick"; // Snickers licking the air (tiny wet blip)
 
 export interface SfxOpts {
   /** Multiplier on the sound's own level (default 1). */
