@@ -7,7 +7,7 @@
 import { isMusicOn, isMuted, musicResting, playTestSound, setMuted, setMusicOn, sfx } from "../audio";
 import type { Game, Tool } from "../engine/game";
 import { flipped } from "../engine/pixelart";
-import { isReal, spriteCanvas, spriteUrl } from "../engine/sprites";
+import { isReal, size, spriteCanvas, spriteUrl } from "../engine/sprites";
 import { api } from "../net";
 import { confirmDialog, el, isDialogOpen, openMenu, spriteIcon, toast, uiRoot } from "./dom";
 import type { MenuName } from "./dom";
@@ -86,8 +86,7 @@ export function initToolbar(g: Game): void {
   let mailBadge: HTMLElement | null = null;
 
   SLOTS.forEach((def, i) => {
-    const icon = spriteIcon(iconKey(def.icon), { class: "tb__icon" });
-    icon.style.setProperty("--s", "var(--tb-icon-s)");
+    const icon = barIcon(iconKey(def.icon));
     const btn = el(
       "button",
       {
@@ -298,7 +297,7 @@ export function initToolbar(g: Game): void {
 
   // ---------- sizing ----------
 
-  const layout = () => {
+  const layout = (mounting = false) => {
     const cs = g.cssScale;
     const scale = g.scale;
     const dpr = scale / cs;
@@ -345,20 +344,23 @@ export function initToolbar(g: Game): void {
     const toolbarH = `${Math.round((barH + 4) * cs)}px`;
     if (rootStyle.getPropertyValue("--toolbar-h") !== toolbarH) {
       rootStyle.setProperty("--toolbar-h", toolbarH);
-      // The farm layout reserves room for the toolbar; re-run it with the real height.
-      queueMicrotask(() => g.relayout());
+      // The farm layout reserves room for the toolbar; re-run it with the real height. Right away as
+      // the bar goes up (before main.ts builds the world, so the farm is laid out around it from the
+      // start), and once this "resize" has reached everyone after that.
+      if (mounting) g.relayout();
+      else queueMicrotask(() => g.relayout());
     }
   };
   // Resize listeners share one emit(): never let this one break the others.
-  const safeLayout = () => {
+  const safeLayout = (mounting = false) => {
     try {
-      layout();
+      layout(mounting);
     } catch (err) {
       console.warn("[toolbar] layout", err);
     }
   };
-  safeLayout();
-  g.on("resize", safeLayout);
+  safeLayout(true);
+  g.on("resize", () => safeLayout());
 
   // ---------- first visit: show how the farm works ----------
 
@@ -373,8 +375,32 @@ export function initToolbar(g: Game): void {
       storageSet(HELP_KEY, "1");
       openMenu("help", { welcome: true });
     };
-    setTimeout(tryShow, 1400);
+    // A beat after the farm is first on screen (the bar goes up under the loading/title screen).
+    const start = () => setTimeout(tryShow, 1400);
+    if (g.shown) start();
+    else {
+      const off = g.on("shown", () => {
+        off();
+        start();
+      });
+    }
   }
+}
+
+/**
+ * A slot's icon as a background image, not spriteIcon()'s <canvas>. Browsers give every canvas its own
+ * compositor layer, and the frames, numbers and red "in your hand" frame painted around eight of them
+ * split the bar into a dozen overlap layers that got reshuffled (and flashed) whenever an icon moved
+ * under the pointer. As images, the whole bar paints as one layer.
+ */
+function barIcon(key: string): HTMLElement {
+  const { w, h } = size(key) ?? { w: 16, h: 16 };
+  const icon = el("span", { class: "sv-sprite tb__icon", "aria-hidden": "true" });
+  icon.style.setProperty("--w", String(w));
+  icon.style.setProperty("--h", String(h));
+  icon.style.setProperty("--s", "var(--tb-icon-s)");
+  icon.style.backgroundImage = `url("${spriteUrl(key)}")`;
+  return icon;
 }
 
 /** Custom cursors on desktop: shears while the shears are out; the hand over pettable things. */

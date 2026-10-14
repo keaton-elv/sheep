@@ -272,7 +272,7 @@ function farmSeason(): Season {
 
 /** Show the password gate; resolves once the right word has been entered. */
 /** `instant`: no fade-in (at boot, the loading screen is still covering the farm and fades off it). */
-export function showPasswordGate(opts: { instant?: boolean } = {}): Promise<void> {
+export function showPasswordGate(opts: { instant?: boolean; onWelcome?: () => void } = {}): Promise<void> {
   registerPasswordArt();
   return new Promise<void>((resolve) => {
     const timers: number[] = [];
@@ -760,6 +760,7 @@ export function showPasswordGate(opts: { instant?: boolean } = {}): Promise<void
         return;
       }
       // Welcome home!
+      opts.onWelcome?.(); // (main.ts loads the farm under the gate while it says so)
       sfx("reward");
       later(() => sfx("baa", { pitch: 1.15 }), 420);
       input.blur();

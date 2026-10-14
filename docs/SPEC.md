@@ -124,6 +124,11 @@ and desktop works great too.
   about it. No counts anywhere. (They always change plans, then stick to the original.)
 - **The Bumblesteed:** a ladybug knight riding a bumblebee. A rare sighting drifts across the pasture,
   and Otto sometimes writes in about spotting one.
+- **First open, no jump:** the HUD and toolbar go up before the world is built, so the farm is laid out
+  around the toolbar from the start; after "Welcome home!" the flock loads under the title screen, which
+  fades off a finished farm. The clock's arrival sweep and the first-visit how-to wait for it to fade.
+- **Steady toolbar:** slot icons are plain images (not canvases) and the hover lift snaps, so the bar
+  stays one compositor layer and hovering never flashes a slot frame or the red "in your hand" frame.
 
 ## Lore (personal references; use with restraint, as winks)
 
