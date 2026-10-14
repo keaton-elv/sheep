@@ -120,6 +120,11 @@ interface Hunt {
   /** Where it was dropped (the middle of the stretch the whole act stays within), and his feet row there. */
   home: number;
   row: number;
+  /**
+   * Portrait: how far up he's drawn whenever he's on his feet there (leaping, stepping off it). The
+   * row is a px or two below the yard strip, and his walking paws would dip behind the post caps.
+   */
+  lift: number;
   /** Pounces so far, and how many it takes to catch it. */
   n: number;
   of: number;
@@ -1277,6 +1282,7 @@ class Snickers implements Entity {
       phase: "crouch",
       home: at.x,
       row: at.y,
+      lift: yard.laneY !== null ? Math.max(0, at.y - yard.laneY) : 0,
       n: 0,
       of: 4 + Math.floor(Math.random() * 3),
       x0: 0,
@@ -1329,8 +1335,9 @@ class Snickers implements Entity {
         this.huntLook(rand(1.6, 2.4));
         return;
       default:
-        // Mid-hunt: over to it again if he's wandered off (or never got there), then back to stalking.
-        if (Math.abs(this.x - h.toy.x) > PLAY + 4 || Math.round(this.y) !== h.row) this.goToString(yard, h);
+        // Mid-hunt: back to stalking it right where he is (anywhere he plays, it's within a pounce),
+        // or over to it again if he never got there.
+        if (Math.abs(this.x - h.home) > PLAY || Math.round(this.y) !== h.row) this.goToString(yard, h);
         else this.huntCrouch();
     }
   }
@@ -1368,6 +1375,7 @@ class Snickers implements Entity {
     this.spot = null;
     this.facing = h.toy.at >= this.x ? 1 : -1;
     h.phase = "look";
+    this.hopY = 0;
     this.set("hunt", dur);
   }
 
@@ -1425,7 +1433,7 @@ class Snickers implements Entity {
       case "pounce": {
         const k = Math.min(1, this.t / this.dur);
         this.x = h.x0 + (h.x1 - h.x0) * k;
-        this.hopY = -Math.round(4 * h.peak * k * (1 - k));
+        this.hopY = -Math.max(h.lift, Math.round(4 * h.peak * k * (1 - k)));
         if (k < 1) break;
         this.hopY = 0;
         h.n++;
@@ -1480,6 +1488,7 @@ class Snickers implements Entity {
         this.walkT += dt;
         const k = Math.min(1, this.t / this.dur);
         this.x = h.x0 + (h.x1 - h.x0) * k;
+        this.hopY = -h.lift;
         if (k >= 1) this.huntLook(rand(2.8, 3.8));
         break;
       }
