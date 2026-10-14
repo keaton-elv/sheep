@@ -1094,13 +1094,14 @@ export class Corner {
       }
     }
 
-    // Late on a Wine Wednesday (Otto and Milo long asleep), a certain couple, once a night at most.
+    // A Wine Wednesday evening (5 pm to midnight: never the small hours after Tuesday), a certain
+    // couple, once a night at most.
     if (this.pair?.dead) this.pair = null;
     this.pairIn -= dt;
     if (this.pairIn <= 0) {
       this.pairIn = rand(45, 90);
       const day = dayKey(g.env.now);
-      const ok = wineDay(g) && g.env.darkness > 0.6 && lsGet("farm.wineRaccoons") !== day && chance(0.3);
+      const ok = wineDay(g) && g.env.hour >= 17 && lsGet("farm.wineRaccoons") !== day && chance(0.3);
       if (!this.pair && !this.raccoon.active && !bottomLaneBusy() && has(RACCOON_PAIR[0]!) && (ok || WINE_RACCOONS)) {
         const pair = new RaccoonPair(this);
         if (claimBottomLane(pair)) {
