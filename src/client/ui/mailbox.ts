@@ -1,9 +1,12 @@
 // Letters about what happened on the farm while you were away, Stardew style.
 // Built from store.state.events: anything newer than the last letter this browser saw,
 // minus the things this tab did itself (you know about those already). The exceptions:
-// an ORIGINAL PLAN always gets a letter from its sheep, a Bumblesteed sighting on this
-// device gets one (local, synthetic) letter from Otto per sighting day, and every couple of
-// weeks or so Snickers's brother KitKat sends a postcard from Arizona (local too).
+// an ORIGINAL PLAN always gets a letter from its sheep, and a few letters live only on this
+// device (local, synthetic): Otto writes in about a Bumblesteed sighting (one per sighting day)
+// and, the morning after, about Bigfoot; whoever was in the Trench Coat sends an alibi; and every
+// couple of weeks or so Snickers's brother KitKat sends a postcard from Arizona.
+//
+// Debug: ?bigfootletter (=1..3 picks Otto's letter) ?kitkat=N (postcard N, unread). Neither saves anything.
 
 import "./mailbox.css";
 import { sfx } from "../audio";
@@ -11,17 +14,19 @@ import { currentGame } from "../engine/game";
 import { has } from "../engine/sprites";
 import { serverNow, store } from "../net";
 import { BUNDLES } from "../../shared/bundles";
-import { dayKey, stardewDate } from "../../shared/calendar";
+import { dayKey, parseDayKey, stardewDate } from "../../shared/calendar";
 import type { DecorKind, FarmEvent, FarmEventKind, FarmState } from "../../shared/types";
 import { openMemory } from "./barn";
 import { safeStorage, sheepHead, timeAgo } from "./calendar-util";
 import { el, openDialog, openMenu, plural, registerMenu, spriteIcon, toast } from "./dom";
 import { bundleSackKey } from "./loom-art";
 import { mailPaperSkin, registerMailboxArt } from "./mailbox-art";
+import { postcardPicture, type PostcardScene } from "./postcard-art";
 import { originalPlanBadge } from "./stamp";
 import { decorIcon } from "./shop";
 import { DECOR_INFO, decorName } from "./shop-catalog";
 import { hatIcon } from "../entities/sheep-hats";
+import type { Insides } from "../entities/critter-trench";
 
 const LS_SEEN = "farm.mail.lastSeen";
 const LS_OWN = "farm.mail.own";
@@ -36,6 +41,17 @@ const LS_KITKAT = "farm.mail.kitkat";
 const LS_KITKAT_READ = "farm.mail.kitkatRead";
 /** The local day KitKat last thought about writing (one roll per device per day). */
 const LS_KITKAT_ROLL = "farm.mail.kitkatRoll";
+/** Written by the critters when Bigfoot walks past (ms timestamp). */
+const LS_BIGFOOT = "farm.bigfoot.lastSeen";
+/** The evening ("YYYY-MM-DD") whose letter from Otto has been read on this device. */
+const LS_BIGFOOT_READ = "farm.mail.bigfootRead";
+/** How many evenings Otto has written about (picks his next letter), and the last evening counted. */
+const LS_BIGFOOT_N = "farm.mail.bigfootN";
+const LS_BIGFOOT_N_FOR = "farm.mail.bigfootNFor";
+/** The latest Trench Coat alibi on this device: JSON { at, insides }. */
+const LS_TRENCH = "farm.mail.trench";
+/** The `at` of the alibi that has been read on this device. */
+const LS_TRENCH_READ = "farm.mail.trenchRead";
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** At most one postcard every two weeks, and then only on a lucky day. */
 const KITKAT_GAP_MS = 14 * DAY_MS;
@@ -46,6 +62,12 @@ const OWN_CAP = 80;
 const OLD_LETTERS = 4;
 /** Event kinds that get a letter even when this tab did them. */
 const ALWAYS_MAIL: ReadonlySet<FarmEventKind> = new Set<FarmEventKind>(["original"]);
+
+const debug = new URLSearchParams(location.search);
+/** ?bigfootletter: Bigfoot walked past at 21:00 last night (in memory only). =1..3 picks the letter. */
+const DEBUG_BIGFOOT = debug.has("bigfootletter");
+/** ?kitkat=N: KitKat's postcard N just came (in memory only). */
+const DEBUG_KITKAT = debug.has("kitkat") ? Number.parseInt(debug.get("kitkat") || "0", 10) || 0 : null;
 
 /** Highest event id this browser has read. null = never opened the farm here before. */
 let lastSeen: number | null = parseIntOrNull(safeStorage.get(LS_SEEN));
@@ -62,6 +84,16 @@ let postcard: { at: number; n: number } | null = null;
 /** In-memory copies of LS_KITKAT_READ / LS_KITKAT_ROLL (in case storage is blocked). */
 let postcardReadAt: number | null = null;
 let postcardRollDay: string | null = null;
+/** Last Bigfoot sighting on this device (ms), or null. */
+let bigfootAt: number | null = null;
+/** In-memory copy of LS_BIGFOOT_READ. */
+let bigfootReadEvening: string | null = null;
+/** Which of Otto's Bigfoot letters goes with which evening (see bigfootNumber). */
+let bigfootCount: { evening: string; n: number } | null = null;
+let bigfootTimer = 0;
+/** The latest Trench Coat alibi, and an in-memory copy of LS_TRENCH_READ. */
+let trench: { at: number; insides: Insides } | null = null;
+let trenchReadAt: number | null = null;
 let welcomeUnread = false;
 let primed = false;
 let started = false;
@@ -153,6 +185,7 @@ function readPostcard(): { at: number; n: number } | null {
 
 /** Once a day per device, KitKat thinks about writing (and rarely does). */
 function maybePostcard(): void {
+  if (DEBUG_KITKAT !== null) return;
   const today = dayKey(new Date());
   if (postcardRollDay === today || safeStorage.get(LS_KITKAT_ROLL) === today) return;
   postcardRollDay = today;
@@ -173,6 +206,112 @@ function postcardUnread(): boolean {
   return postcardReadAt !== postcard.at && safeStorage.get(LS_KITKAT_READ) !== String(postcard.at);
 }
 
+// ---------- Otto's Bigfoot letters (local to this device) ----------
+
+function readBigfoot(): void {
+  if (DEBUG_BIGFOOT) {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    d.setHours(21, 0, 0, 0);
+    bigfootAt = d.getTime();
+    return;
+  }
+  const v = parseIntOrNull(safeStorage.get(LS_BIGFOOT));
+  if (v !== null && v > 0 && (bigfootAt === null || v > bigfootAt)) bigfootAt = v;
+}
+
+/** The evening a sighting belongs to: a dawn sighting counts for the night before. */
+function eveningOf(at: number): string {
+  const d = new Date(at);
+  if (d.getHours() < 12) d.setDate(d.getDate() - 1);
+  return dayKey(d);
+}
+
+/** Otto's letter comes the next morning: 06:00 local, the day after the evening. */
+function bigfootArrival(evening: string): number {
+  const d = parseDayKey(evening) ?? new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(6, 0, 0, 0);
+  return d.getTime();
+}
+
+/** The evening whose letter is in the box by now, or null (none, or still on its way). */
+function bigfootEvening(): string | null {
+  if (bigfootAt === null) return null;
+  const evening = eveningOf(bigfootAt);
+  return Date.now() >= bigfootArrival(evening) ? evening : null;
+}
+
+function bigfootUnread(): boolean {
+  const evening = bigfootEvening();
+  return evening !== null && bigfootReadEvening !== evening && (DEBUG_BIGFOOT || safeStorage.get(LS_BIGFOOT_READ) !== evening);
+}
+
+/** While a letter is on its way, one timer raises the mailbox flag when it lands. */
+function scheduleBigfoot(): void {
+  clearTimeout(bigfootTimer);
+  if (bigfootAt === null) return;
+  const wait = bigfootArrival(eveningOf(bigfootAt)) - Date.now();
+  if (wait > 0) bigfootTimer = window.setTimeout(notify, Math.min(wait + 1000, 2 ** 31 - 1));
+}
+
+/** Bigfoot just walked past (or another tab saw him). */
+function onBigfoot(): void {
+  readBigfoot();
+  const now = Date.now();
+  if (!DEBUG_BIGFOOT && (bigfootAt === null || now - bigfootAt > 60_000)) bigfootAt = now;
+  scheduleBigfoot();
+  notify();
+}
+
+/** Otto's letters take turns: the nth evening he writes about gets letter n (counted once per evening). */
+function bigfootNumber(evening: string): number {
+  if (DEBUG_BIGFOOT) return Number.parseInt(debug.get("bigfootletter") ?? "", 10) || 1;
+  if (bigfootCount?.evening === evening) return bigfootCount.n;
+  const n = parseIntOrNull(safeStorage.get(LS_BIGFOOT_N)) ?? 0;
+  const counted = safeStorage.get(LS_BIGFOOT_N_FOR) === evening;
+  bigfootCount = { evening, n: counted ? Math.max(1, n) : n + 1 };
+  if (!counted) {
+    safeStorage.set(LS_BIGFOOT_N, String(bigfootCount.n));
+    safeStorage.set(LS_BIGFOOT_N_FOR, evening);
+  }
+  return bigfootCount.n;
+}
+
+// ---------- the Trench Coat alibis (local to this device) ----------
+
+const isInsides = (v: unknown): v is Insides => v === "raccoons" || v === "hedgehogs" || v === "mosquitoes";
+
+function readTrench(): { at: number; insides: Insides } | null {
+  const raw = safeStorage.get(LS_TRENCH);
+  if (!raw) return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (v && typeof v === "object") {
+      const { at, insides } = v as { at?: unknown; insides?: unknown };
+      if (typeof at === "number" && Number.isFinite(at) && isInsides(insides)) return { at, insides };
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+/** The coat just came apart: the first reveal of the day gets an alibi in the mail. */
+function onTrench(insides: unknown): void {
+  if (!isInsides(insides)) return;
+  trench = readTrench() ?? trench;
+  const now = Date.now();
+  if (trench && dayKey(new Date(trench.at)) === dayKey(new Date(now))) return;
+  trench = { at: now, insides };
+  safeStorage.set(LS_TRENCH, JSON.stringify(trench));
+  notify();
+}
+
+function trenchUnread(): boolean {
+  return trench !== null && trenchReadAt !== trench.at && safeStorage.get(LS_TRENCH_READ) !== String(trench.at);
+}
+
 // ---------- unread bookkeeping ----------
 
 /** Unread letters (events), newest first. Fresh unclaimed events wait a moment (see PENDING_MS). */
@@ -185,7 +324,9 @@ function unreadEvents(st: FarmState, now = serverNow()): FarmEvent[] {
 }
 
 function unreadCount(st: FarmState): number {
-  return unreadEvents(st).length + (welcomeUnread ? 1 : 0) + (steedUnread() ? 1 : 0) + (postcardUnread() ? 1 : 0);
+  let n = unreadEvents(st).length + (welcomeUnread ? 1 : 0);
+  for (const m of LOCAL_MAIL) if (m.unread()) n++;
+  return n;
 }
 
 /** How many letters are waiting in the mailbox (for the world's mailbox flag + toolbar badge). */
@@ -255,14 +396,7 @@ function markAllSeen(st: FarmState): void {
     welcomeUnread = false;
     safeStorage.set(LS_WELCOME, "1");
   }
-  if (steedAt !== null) {
-    steedReadDay = steedDay(steedAt);
-    safeStorage.set(LS_STEED_READ, steedReadDay);
-  }
-  if (postcard && postcard.n >= 0) {
-    postcardReadAt = postcard.at;
-    safeStorage.set(LS_KITKAT_READ, String(postcard.at));
-  }
+  for (const m of LOCAL_MAIL) m.markRead();
   notify();
 }
 
@@ -272,7 +406,10 @@ export function initMailbox(): void {
   if (started) return;
   started = true;
   readSteed();
-  postcard = readPostcard();
+  readBigfoot();
+  scheduleBigfoot();
+  trench = readTrench();
+  postcard = DEBUG_KITKAT !== null ? { at: Date.now() - 60 * 60 * 1000, n: DEBUG_KITKAT } : readPostcard();
 
   store.events.on(({ event, own }) => {
     if (own && !ALWAYS_MAIL.has(event.kind)) {
@@ -293,14 +430,19 @@ export function initMailbox(): void {
   store.connection.on(() => notify());
   try {
     currentGame?.on("bumblesteed", onSteed);
+    currentGame?.on("bigfoot", onBigfoot);
+    currentGame?.on("trenchcoat", onTrench);
     addEventListener("storage", (ev) => {
       if (ev.key === LS_KITKAT || ev.key === LS_KITKAT_READ) {
-        postcard = readPostcard() ?? postcard;
-        notify();
-        return;
-      }
-      if (ev.key !== LS_STEED && ev.key !== LS_STEED_READ) return;
-      readSteed();
+        if (DEBUG_KITKAT === null) postcard = readPostcard() ?? postcard;
+      } else if (ev.key === LS_BIGFOOT || ev.key === LS_BIGFOOT_READ) {
+        readBigfoot();
+        scheduleBigfoot();
+      } else if (ev.key === LS_TRENCH || ev.key === LS_TRENCH_READ) {
+        trench = readTrench() ?? trench;
+      } else if (ev.key === LS_STEED || ev.key === LS_STEED_READ) {
+        readSteed();
+      } else return;
       notify();
     });
   } catch {
@@ -322,6 +464,8 @@ interface Letter {
   isNew: boolean;
   /** A postcard (KitKat's) instead of a letter: different paper, a stamp and a postmark. */
   postcard?: boolean;
+  /** The postcard's picture side. */
+  picture?: PostcardScene;
 }
 
 const q = (s: string) => `“${s}”`;
@@ -334,6 +478,7 @@ const q = (s: string) => `“${s}”`;
 const SNICKERS = "Snickers 🐾";
 const OTTO = "Otto 🦊";
 const OTTO_MILO = "Otto (and Milo) 🦊🦔";
+const MILO = "Milo 🦔";
 /** Snickers's brother, writing from Arizona. */
 const KITKAT = "KitKat 🌵";
 /** A sheep signs with its own name. */
@@ -607,20 +752,63 @@ function steedLetter(at: number, isNew: boolean): Letter {
   };
 }
 
-/** What KitKat writes from Arizona (one after another, so no postcard repeats for a while). */
-const POSTCARDS: readonly (readonly [greeting: string, body: string])[] = [
-  ["Brother,", "It is 114° here. I lie on the tile. The tile is also hot.\n\nSay hi to your humans."],
-  ["Hi you two!", "Is it foggy there? Here the sun is out. ALWAYS. Please mail me some fog. Karl, if he's free."],
-  ["Brother,", "Monsoon season! It rained for four whole minutes. Everyone is still talking about it."],
-  ["Brother,", "I found a cactus. I sat near it. Not on it. I learned."],
-  ["Hi you two!", "The sunsets here are pink and orange and purple. Like lavender, but on fire."],
-  ["Brother,", "A roadrunner ran past. I did not chase it. Too hot."],
-  ["Hi you two!", "A javelina looked at me today. I looked back. We agreed never to speak of it."],
-  ["Brother,", "It's a dry heat, they keep saying. I am melting anyway."],
+/** Otto, the morning after Bigfoot walked past (they take turns, see bigfootNumber). */
+const BIGFOOT_BODIES = [
+  "Something VERY tall walked past the fence last night. Milo says it was just Karl the Fog. Milo is never wrong... right?",
+  "It came back. Big. Fuzzy. Smelled like wet ferns and Washington. Milo stayed in a ball until breakfast.",
+  "Saw him again, heading for Church Street. I think he was trying to catch the J. He’ll be waiting a while...",
+] as const;
+
+function bigfootLetter(evening: string, isNew: boolean): Letter {
+  const n = bigfootNumber(evening);
+  return {
+    key: `bigfoot-${evening}`,
+    at: Math.max(bigfootArrival(evening), bigfootAt ?? 0),
+    greeting: "Psst!",
+    body: BIGFOOT_BODIES[(n - 1) % BIGFOOT_BODIES.length]!,
+    sign: OTTO,
+    // His footprint, never his face.
+    gift: gift(has("critter.bigfoot.print") ? spriteIcon("critter.bigfoot.print") : null),
+    action: null,
+    isNew,
+  };
+}
+
+/** Whoever was in the Trench Coat writes in with an alibi (Milo denies everything). */
+const TRENCH_ALIBIS: Record<Insides, readonly [greeting: string, body: string, sign: string]> = {
+  raccoons: ["Psst!", "The raccoons say they were only borrowing the coat. Milo and I are keeping an eye on the stump.", OTTO],
+  hedgehogs: ["Psst!", "It wasn’t me in the coat. I was asleep. Ask Otto.", MILO],
+  mosquitoes: ["Humans,", "The coat was full of bugs. I did not eat any.\n\n(I ate one.)", SNICKERS],
+};
+
+function trenchLetter(t: { at: number; insides: Insides }, isNew: boolean): Letter {
+  const [greeting, body, sign] = TRENCH_ALIBIS[t.insides];
+  return {
+    key: `trench-${t.at}`,
+    at: t.at,
+    greeting,
+    body,
+    sign,
+    gift: gift(has("critter.trenchcoat.icon") ? spriteIcon("critter.trenchcoat.icon") : null),
+    action: null,
+    isNew,
+  };
+}
+
+/** What KitKat writes from Arizona (one after another, so no postcard repeats for a while), and the picture on the front. */
+const POSTCARDS: readonly (readonly [greeting: string, body: string, picture: PostcardScene])[] = [
+  ["Brother,", "It is 114° here. I lie on the tile. The tile is also hot.\n\nSay hi to your humans.", "skull"],
+  ["Hi you two!", "Is it foggy there? Here the sun is out. ALWAYS. Please mail me some fog. Karl, if he's free.", "palm"],
+  ["Brother,", "Monsoon season! It rained for four whole minutes. Everyone is still talking about it.", "monsoon"],
+  ["Brother,", "I found a cactus. I sat near it. Not on it. I learned.", "rocks"],
+  ["Hi you two!", "The sunsets here are pink and orange and purple. Like lavender, but on fire.", "sunset"],
+  ["Brother,", "A roadrunner ran past. I did not chase it. Too hot.", "palm"],
+  ["Hi you two!", "A javelina looked at me today. I looked back. We agreed never to speak of it.", "sunset"],
+  ["Brother,", "It's a dry heat, they keep saying. I am melting anyway.", "skull"],
 ];
 
 function postcardLetter(p: { at: number; n: number }, isNew: boolean): Letter {
-  const [greeting, body] = POSTCARDS[((p.n % POSTCARDS.length) + POSTCARDS.length) % POSTCARDS.length]!;
+  const [greeting, body, picture] = POSTCARDS[((p.n % POSTCARDS.length) + POSTCARDS.length) % POSTCARDS.length]!;
   return {
     key: `kitkat-${p.at}`,
     at: p.at,
@@ -631,16 +819,74 @@ function postcardLetter(p: { at: number; n: number }, isNew: boolean): Letter {
     action: null,
     isNew,
     postcard: true,
+    picture,
   };
 }
+
+/** A letter that only lives on this device (never on the server). */
+interface LocalMail {
+  /** In the box (arrived) and not read here yet. */
+  unread(): boolean;
+  /** Its letter, if there's one in the box at all (new or old). */
+  letter(isNew: boolean): Letter | null;
+  markRead(): void;
+}
+
+const LOCAL_MAIL: readonly LocalMail[] = [
+  {
+    unread: steedUnread,
+    letter: (isNew) => (steedAt === null ? null : steedLetter(steedAt, isNew)),
+    markRead: () => {
+      if (steedAt === null) return;
+      steedReadDay = steedDay(steedAt);
+      safeStorage.set(LS_STEED_READ, steedReadDay);
+    },
+  },
+  {
+    unread: bigfootUnread,
+    letter: (isNew) => {
+      const evening = bigfootEvening();
+      return evening === null ? null : bigfootLetter(evening, isNew);
+    },
+    markRead: () => {
+      const evening = bigfootEvening();
+      if (evening === null) return;
+      bigfootReadEvening = evening;
+      if (!DEBUG_BIGFOOT) safeStorage.set(LS_BIGFOOT_READ, evening);
+    },
+  },
+  {
+    unread: trenchUnread,
+    letter: (isNew) => (trench === null ? null : trenchLetter(trench, isNew)),
+    markRead: () => {
+      if (trench === null) return;
+      trenchReadAt = trench.at;
+      safeStorage.set(LS_TRENCH_READ, String(trench.at));
+    },
+  },
+  {
+    unread: postcardUnread,
+    letter: (isNew) => (postcard && postcard.n >= 0 ? postcardLetter(postcard, isNew) : null),
+    markRead: () => {
+      if (!postcard || postcard.n < 0) return;
+      postcardReadAt = postcard.at;
+      if (DEBUG_KITKAT === null) safeStorage.set(LS_KITKAT_READ, String(postcard.at));
+    },
+  },
+];
 
 /** `arriving` = first time this letter is drawn while the box is open (it slides in once). */
 function letterEl(l: Letter, st: FarmState, arriving: boolean): HTMLElement {
   const date = l.key === "welcome" ? "Today" : `${stardewDate(new Date(l.at), st.foundedAt)} · ${timeAgo(l.at, serverNow())}`;
+  const picture = l.postcard && l.picture ? postcardPicture(l.picture) : null;
+  if (picture) picture.className = "fm-postcard__picture";
   return el(
     "article",
-    { class: `fm-letter ${l.isNew ? "is-new" : "is-read"} ${arriving ? "is-arriving" : ""} ${l.postcard ? "is-postcard" : ""}` },
+    {
+      class: `fm-letter ${l.isNew ? "is-new" : "is-read"} ${arriving ? "is-arriving" : ""} ${l.postcard ? "is-postcard" : ""} ${picture ? "has-picture" : ""}`,
+    },
     l.isNew ? el("span", { class: "fm-letter__seal", "aria-label": "New" }) : null,
+    picture ? el("div", { class: "fm-postcard__front", "aria-hidden": "true" }, picture) : null,
     l.postcard
       ? el(
           "div",
@@ -676,12 +922,12 @@ function openMailbox(): void {
 
   // Everything unread right now (plus anything that arrives while the box is open) is "new".
   readSteed();
+  readBigfoot();
   maybePostcard();
   const shownNew = new Set<number>(unreadEvents(st0).map((e) => e.id));
   const showWelcome = welcomeUnread;
-  let steedNew = steedUnread();
-  let cardNew = postcardUnread();
-  const anyNew = shownNew.size > 0 || showWelcome || steedNew || cardNew;
+  const localNew = LOCAL_MAIL.map((m) => m.unread());
+  const anyNew = shownNew.size > 0 || showWelcome || localNew.includes(true);
   // The box redraws on every farm update; only letters it hasn't drawn yet slide in.
   const drawn = new Set<string>();
   const draw = (l: Letter, st: FarmState) => {
@@ -706,14 +952,14 @@ function openMailbox(): void {
     const fresh = st.events.filter((e) => shownNew.has(e.id));
     const old = st.events.filter((e) => !shownNew.has(e.id) && !(lastSeen !== null && e.id > lastSeen && !ownIds.has(e.id)));
     const newLetters = toLetters(fresh, true);
-    if (steedNew && steedAt !== null) newLetters.push(steedLetter(steedAt, true));
-    if (cardNew && postcard && postcard.n >= 0) newLetters.push(postcardLetter(postcard, true));
+    const oldAll = toLetters(old, false);
+    LOCAL_MAIL.forEach((m, i) => {
+      const l = m.letter(localNew[i]!);
+      if (l) (localNew[i] ? newLetters : oldAll).push(l);
+    });
     newLetters.sort(newestFirst);
     const letters: Letter[] = showWelcome ? [welcomeLetter(st), ...newLetters] : newLetters;
     const hasNew = letters.length > 0;
-    const oldAll = toLetters(old, false);
-    if (!steedNew && steedAt !== null) oldAll.push(steedLetter(steedAt, false));
-    if (!cardNew && postcard && postcard.n >= 0) oldAll.push(postcardLetter(postcard, false));
     const oldLetters = oldAll.sort(newestFirst).slice(0, hasNew ? 2 : OLD_LETTERS);
     if (title) title.textContent = hasNew ? (letters.length === 1 ? "You've got mail!" : `${plural(letters.length, "new letter")}!`) : "Mailbox";
 
@@ -743,12 +989,10 @@ function openMailbox(): void {
     if (!st) return;
     // New mail while the box is open: show it as new, and mark it read.
     const more = unreadEvents(st);
-    const steed = steedUnread();
-    const card = postcardUnread();
-    if (more.length || steed || card) {
+    const local = LOCAL_MAIL.map((m) => m.unread());
+    if (more.length || local.includes(true)) {
       for (const e of more) shownNew.add(e.id);
-      if (steed) steedNew = true;
-      if (card) cardNew = true;
+      local.forEach((u, i) => u && (localNew[i] = true));
       markAllSeen(st); // calls notify() -> liveRefresh again, but nothing is unread then
     }
     render();

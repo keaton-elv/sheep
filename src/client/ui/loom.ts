@@ -219,6 +219,7 @@ const ITEM_NOTES: Record<string, string> = {
   "item.artifact.dried-starfish": "Washed up from Ocean Beach, probably.",
   "item.artifact.anchor": "A Fleet Week souvenir?",
   "item.artifact.dinosaur-egg": "It's... warm?",
+  "item.artifact.blurry-photo": "It’s definitely him.",
 };
 
 function itemDesc(key: string): string {

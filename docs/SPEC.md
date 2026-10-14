@@ -153,6 +153,14 @@ and desktop works great too.
   (tap: a cluck and a hop). If Snickers is up and near, he crouches low and stares her down until she bawks and runs.
   On a lucky morning a rooster crows first. First time: *"Snickers has never lost a staring contest."*
   (`?hen`, `?hen=rooster|left|right`)
+- **Otto's Bigfoot letters:** the morning after Bigfoot walks past (06:00), Otto writes in. Three letters
+  take turns (Milo says it was Karl the Fog; wet ferns and Washington; he was trying to catch the J). The
+  blurry photo in the chest: "It’s definitely him." (?bigfootletter)
+- **Trench Coat alibis:** the first reveal of the day gets a letter. Otto vouches for the raccoons, Milo
+  denies everything (his first solo letter), and Snickers ate one mosquito.
+- **KitKat's postcards have a picture side:** little Arizona scenes built from the real Calico Desert
+  scenery (saguaros at sunset, a palm by the dunes, the skull and a cactus flower, red rocks, a
+  four-minute monsoon), each matched to what he wrote. (?kitkat=0..7)
 
 ## Lore (personal references; use with restraint, as winks)
 
