@@ -16,6 +16,14 @@
 // nom, or crunch crunch when it's Whisker Lickins), says "Mow." and gives himself a wash. Tap the
 // dish to fill it (or just to rattle it): he comes running, even out of a nap.
 //
+// Little scripted moments, all built from his existing parts:
+//  - the morning coffee on a fence post (snickers-coffee.ts): he sits beside it, looks you dead in
+//    the eye and swipes it off, three times
+//  - the string from the chest (snickers-string.ts): closing the chest after poking it brings him
+//    running to pounce on it three times and loaf on top of it (then it's gone: he took it)
+//  - a fish a seagull dropped (critter-flyers.ts): free lunch, eaten where it landed
+//  - the neighbor's hen (critter-hen.ts): he crouches low and stares her down until she leaves
+//
 // Art: snickers-art.ts (hand-drawn data). Yard spots: snickers-spots.ts. DOM bits: snickers-ui.ts.
 // The dish: snickers-bowl.ts.
 
@@ -25,6 +33,8 @@ import { registerArt } from "../engine/sprites";
 import { say, toast } from "../ui/dom";
 import type { Layout, Point } from "../world/layout";
 import { drawEmote, EMOTE_DURATION, type EmoteKind } from "./emotes";
+import { initCoffee, type KnockHooks } from "./snickers-coffee";
+import { StringToy } from "./snickers-string";
 import {
   buildAllParts,
   composite,
@@ -90,7 +100,26 @@ const NOMS: Record<Food, readonly string[]> = {
   treats: ["crunch", "crunch crunch", "crunch!", "crunch"],
 };
 
-type State = "sit" | "side" | "loaf" | "groom" | "nap" | "sleep" | "walk" | "pet" | "frenzy" | "watch" | "eat" | "beg";
+type State = "sit" | "side" | "loaf" | "groom" | "nap" | "sleep" | "walk" | "pet" | "frenzy" | "watch" | "eat" | "beg" | "knock" | "hunt" | "stare";
+
+/** Knocking the coffee off the post: eye on the mug, then on you, then swipe, pause, swipe... */
+type KnockPhase = "eye" | "look" | "swipe" | "pause" | "after";
+/** The string: crouch, pounce (x3, landing crouched between), then loaf on top of it. */
+type HuntPhase = "crouch" | "pounce" | "land" | "on";
+/** The hen: he spots her, crouches low and stares, holds it as she runs, then watches her go. */
+type StarePhase = "notice" | "crouch" | "hold" | "watch";
+
+/** What the hen needs from a stare-down (critter-hen.ts). */
+export interface StareHooks {
+  /** He's crouched and staring: she notices. */
+  crouch(): void;
+  /** He won: she bawks and runs. */
+  win(): void;
+  /** Is she still there to stare at? */
+  alive(): boolean;
+  /** He got distracted before it was over (a pet, a rotation). */
+  off(): void;
+}
 
 const WALK_SPEED = 13; // game px per second: an unhurried cat stroll
 const WALK_FRAME = 0.15;
@@ -258,6 +287,22 @@ class Snickers implements Entity {
   private lastBowlToast = -1e9;
   private fullDeck: string[] = [];
 
+  /** A one-off spot for a scripted moment (beside the mug, by the string, at a fish, near the hen). */
+  private temp: Spot | null = null;
+  /** Run on arriving there, instead of settling in. */
+  private onArrive: (() => void) | null = null;
+  /** Something that came up mid-fuss (the string, a fish, an interrupted pounce): once he's free. */
+  private queued: (() => void) | null = null;
+  /** Drawn this many px off the ground (a pounce). */
+  private hopY = 0;
+  /** A butt wiggle before he'd pounce (px). */
+  private wiggle = 0;
+  private knock: { mug: Point; hooks: KnockHooks; phase: KnockPhase; swipes: number; hit: boolean } | null = null;
+  private hunt: { toy: StringToy; phase: HuntPhase; n: number; x0: number; x1: number; mowed: boolean; mlemmed: boolean } | null = null;
+  private stare: { target: Point; hooks: StareHooks; phase: StarePhase; sits: boolean } | null = null;
+  /** A fish to eat (the gull dropped it), instead of what's in the dish. */
+  private snack: { onEat: () => void; eaten: boolean } | null = null;
+
   constructor(private readonly g: Game) {
     this.bowl = new Bowl(g, {
       tap: () => this.onBowlTap(),
@@ -276,23 +321,31 @@ class Snickers implements Entity {
   private yardFor(l: Layout): Yard {
     if (!this.yard || this.yardOf !== l) {
       const yard = computeYard(l);
+      const old = this.yard;
       this.yard = yard;
       this.yardOf = l;
       this.bowl.place(yard.dish);
+      // The yard really moved (a rotation, a new window size, not just the keyboard): whatever
+      // scripted moment was going on is off (its spots are somewhere else now).
+      if (old && (old.door.x !== yard.door.x || old.door.y !== yard.door.y || old.laneY !== yard.laneY || old.spineX !== yard.spineX)) {
+        this.dropActs();
+        this.temp = null;
+        if (this.state === "knock" || this.state === "hunt" || this.state === "stare") this.set("loaf", rand(3, 6));
+      }
       if (this.spot) {
-        this.spot = findSpot(yard, this.spot.id) ?? yard.door;
+        this.spot = this.find(yard, this.spot.id) ?? yard.door;
         // Resized so that only loafing fits here now: settle down rather than cover the farm things.
         if (this.spot.low && (this.state === "sit" || this.state === "side" || this.state === "watch" || this.state === "groom" || this.state === "beg")) this.set("loaf", rand(6, 12));
         // (And if the dish has nowhere to go any more, dinner's over.)
         if ((this.state === "eat" || this.state === "beg") && this.spot.id !== "eat") this.set("loaf", rand(4, 8));
       } else if (this.placed && this.offYard(l)) {
         // Rotated mid-walk (or mid-fuss): don't stroll across the flock, just be where he was going.
-        const s = findSpot(yard, this.state === "walk" ? this.targetId : this.resumeWalk) ?? yard.door;
+        const s = this.find(yard, this.state === "walk" ? this.targetId : this.resumeWalk) ?? yard.door;
         this.x = s.x;
         this.y = s.y;
       }
       if (this.state === "walk") {
-        const s = findSpot(yard, this.targetId) ?? yard.door;
+        const s = this.find(yard, this.targetId) ?? yard.door;
         this.targetId = s.id;
         this.path = pathTo(yard, this.x, this.y, s);
       }
@@ -333,9 +386,16 @@ class Snickers implements Entity {
     this.set("watch", rand(8, 16));
   }
 
+  /** A yard spot by id (or the one-off spot of a scripted moment). */
+  private find(yard: Yard, id: string | null): Spot | null {
+    if (id && this.temp && id === this.temp.id) return this.temp;
+    return findSpot(yard, id);
+  }
+
   private walkTo(spot: Spot, hurry = false): void {
     const yard = this.yard;
     if (!yard) return;
+    if (spot !== this.temp) this.temp = null;
     this.targetId = spot.id;
     this.path = pathTo(yard, this.x, this.y, spot);
     this.spot = null;
@@ -475,6 +535,15 @@ class Snickers implements Entity {
       case "walk":
         this.updateWalk(dt, yard, l);
         break;
+      case "knock":
+        this.updateKnock(yard, l);
+        break;
+      case "hunt":
+        this.updateHunt(yard);
+        break;
+      case "stare":
+        this.updateStare(yard, l);
+        break;
     }
 
     // Parked: stay glued to the spot (it moves when the screen resizes or rotates).
@@ -514,6 +583,11 @@ class Snickers implements Entity {
     const here = this.spot;
     if (!here) {
       this.walkTo(yard.door);
+      return;
+    }
+    // Done with a one-off spot (by the mug, where the string was...): back to his usual haunts.
+    if (here === this.temp) {
+      this.walkTo(this.nearestSpot(yard));
       return;
     }
     // Dinner (likelier if he hasn't eaten yet). Or, if the dish is empty, a pointed sit beside it.
@@ -572,6 +646,18 @@ class Snickers implements Entity {
     this.path = [];
     const hurried = this.hurry;
     this.hurry = false;
+    // Walked over for a scripted moment: on with it.
+    const then = this.onArrive;
+    if (then) {
+      this.onArrive = null;
+      then();
+      return;
+    }
+    // At the fish (or his dish, with a fish waiting): lunch.
+    if (this.snack && !this.wet && (spot.id === "eat" || spot === this.temp)) {
+      this.startSnack();
+      return;
+    }
     // At the dish: dinner (he'll even get up for it at night), or a pointed stare at the empty dish.
     if (spot.id === "eat" && !this.wet && (this.bowl.full || !this.sleepy || hurried)) {
       this.startMeal();
@@ -605,7 +691,7 @@ class Snickers implements Entity {
     for (let i = 0; i < 4 && budget > 0; i++) {
       const p = this.path[0];
       if (!p) {
-        this.arrive(findSpot(yard, this.targetId) ?? yard.door, yard, l);
+        this.arrive(this.find(yard, this.targetId) ?? yard.door, yard, l);
         return;
       }
       const dx = p.x - this.x;
@@ -618,7 +704,7 @@ class Snickers implements Entity {
         budget -= d;
         this.path.shift();
         if (!this.path.length) {
-          this.arrive(findSpot(yard, this.targetId) ?? yard.door, yard, l);
+          this.arrive(this.find(yard, this.targetId) ?? yard.door, yard, l);
           return;
         }
       } else {
@@ -634,6 +720,7 @@ class Snickers implements Entity {
   /** Remember what he was up to, so he can go back to it after the fuss. */
   private interrupt(): void {
     if (this.state === "pet" || this.state === "frenzy") return;
+    this.breakAct();
     this.resumeState = this.state === "sleep" || this.state === "nap" || this.state === "eat" ? this.state : null;
     if (this.state === "walk") {
       this.resumeWalk = this.targetId;
@@ -645,11 +732,20 @@ class Snickers implements Entity {
   }
 
   private resume(yard: Yard, l: Layout): void {
-    if (this.resumeWalk) {
-      const s = findSpot(yard, this.resumeWalk) ?? yard.door;
+    // Something came up while he was busy being adored (the string, a fish, his pounce): that first.
+    const q = this.queued;
+    if (q) {
+      this.queued = null;
       this.resumeWalk = null;
       this.resumeState = null;
-      this.walkTo(s);
+      q();
+      if (this.state !== "pet") return;
+    }
+    if (this.resumeWalk) {
+      const s = this.find(yard, this.resumeWalk) ?? yard.door;
+      this.resumeWalk = null;
+      this.resumeState = null;
+      this.walkTo(s, !!this.snack);
       return;
     }
     if (!this.spot) {
@@ -659,8 +755,8 @@ class Snickers implements Entity {
     const back = this.resumeState;
     this.resumeState = null;
     if (back === "eat") {
-      // Back to dinner, if it's still there.
-      if (this.spot.id === "eat" && this.bowl.full && !this.wet) {
+      // Back to dinner (or the fish), if it's still there.
+      if ((this.spot.id === "eat" || this.spot === this.temp) && (this.bowl.full || this.snack) && !this.wet) {
         this.set("eat", rand(3, 6));
         return;
       }
@@ -707,7 +803,7 @@ class Snickers implements Entity {
       showNameTag(r < 0.2 ? TAG_MOW : r < 0.3 ? TAG_PAPA : "Snickers");
     }
     if (this.state === "frenzy") return; // he's busy (licking)
-    const loafing = this.state === "loaf" || this.state === "eat" || (this.state === "pet" && this.petLoaf) || this.lowHere();
+    const loafing = this.state === "loaf" || this.state === "eat" || (this.state === "pet" && this.petLoaf) || this.lowHere() || this.crouching() || (this.state === "hunt" && this.poseKind() === "loaf");
     this.interrupt();
     this.petLoaf = loafing;
     this.set("pet", PET_TIME);
@@ -730,7 +826,7 @@ class Snickers implements Entity {
       return;
     }
     // (Crouched over his dish, he licks away crouched.)
-    this.frenzyLoaf = this.lowHere() || this.state === "eat";
+    this.frenzyLoaf = this.lowHere() || this.state === "eat" || this.crouching() || (this.state === "hunt" && this.poseKind() === "loaf");
     this.interrupt();
     this.petLoaf = false;
     this.set("frenzy");
@@ -816,7 +912,7 @@ class Snickers implements Entity {
   /** Settled in at the dish: eat, or (if it's empty) sit and stare until something is done about it. */
   private startMeal(): void {
     this.hurry = false;
-    if (!this.bowl.full) {
+    if (!this.bowl.full && !this.snack) {
       this.showEmote("dots");
       this.begMowed = false;
       this.frontFlip = chance(0.3);
@@ -842,14 +938,26 @@ class Snickers implements Entity {
       const f = this.frenzy;
       f.side = -f.side;
       const x = this.x + 0.5 + f.side * rand(8, 12);
-      spawnMlem(g, x, this.y - 13 - rand(0, 4), pick(NOMS[this.bowl.food]));
+      spawnMlem(g, x, this.y - 13 - rand(0, 4), pick(NOMS[this.snack ? "salmon" : this.bowl.food]));
+      // The first nom of the fish: gone.
+      const s = this.snack;
+      if (s && !s.eaten) {
+        s.eaten = true;
+        s.onEat();
+      }
     }
   }
 
   private finishMeal(yard: Yard, l: Layout): void {
-    this.bowl.empty();
+    if (this.snack) {
+      // The fish (the dish stays as it was).
+      this.snack = null;
+      this.showEmote("heart");
+    } else {
+      this.bowl.empty();
+      this.refillAt = this.g.time + rand(REFILL_MIN, REFILL_MAX);
+    }
     this.lastMeal = this.g.time;
-    this.refillAt = this.g.time + rand(REFILL_MIN, REFILL_MAX);
     sfx("meow", { volume: 0.55, pitch: rand(0.9, 1) });
     this.mow("Mow.");
     // Then a wash, as is only proper (sitting up, where he fits).
@@ -891,7 +999,7 @@ class Snickers implements Entity {
   private callToDish(): void {
     const eat = this.yard?.eat;
     if (!eat || !this.bowl.full || this.wet) return;
-    if (this.state === "frenzy" || this.state === "pet") return;
+    if (this.state === "frenzy" || this.state === "pet" || this.busy()) return;
     if (this.spot?.id === eat.id) {
       if (this.state !== "eat") this.startMeal();
       return;
@@ -912,7 +1020,7 @@ class Snickers implements Entity {
   onBarnDoor(): void {
     const yard = this.yard;
     if (!yard || !this.atDoor()) return;
-    if (this.state === "frenzy" || this.state === "pet" || this.state === "walk") return;
+    if (this.state === "frenzy" || this.state === "pet" || this.state === "walk" || this.busy()) return;
     this.showEmote("exclaim");
     if (this.state === "sleep" || this.state === "nap") {
       // Woken up. He sits and stares at the sheep (or loafs, where sitting up won't fit), then dozes off again.
@@ -947,6 +1055,444 @@ class Snickers implements Entity {
     this.showEmote("music");
   }
 
+  // ---------- little scripted moments ----------
+
+  /** In the middle of one of his moments (or on his way to one, or to a fish). */
+  private busy(): boolean {
+    return !!(this.knock || this.hunt || this.stare || this.onArrive || this.snack);
+  }
+
+  /** Up for something: awake, dry, not mid-fuss, mid-walk or mid-meal. (A nap, if `napOk`: he gets up.) */
+  private free(napOk: boolean): boolean {
+    if (!this.placed || this.sleepy || this.wet || this.busy()) return false;
+    switch (this.state) {
+      case "sit":
+      case "side":
+      case "loaf":
+      case "groom":
+      case "watch":
+      case "beg":
+        return true;
+      case "nap":
+        return napOk;
+      default:
+        return false;
+    }
+  }
+
+  /** Call off every moment for good (the yard moved under him). */
+  private dropActs(): void {
+    this.knock?.hooks.cancel();
+    this.knock = null;
+    this.stare?.hooks.off();
+    this.stare = null;
+    if (this.hunt) this.hunt.toy.dead = true;
+    this.hunt = null;
+    this.snack = null;
+    this.queued = null;
+    this.onArrive = null;
+    this.hopY = 0;
+    this.wiggle = 0;
+  }
+
+  /** Petted (or lick-buttoned) mid-moment: the mug and the hen are let off; the string he'll get back to. */
+  private breakAct(): void {
+    if (this.knock) {
+      this.knock.hooks.cancel();
+      this.knock = null;
+    }
+    this.stare?.hooks.off();
+    this.stare = null;
+    if (this.hunt) this.queued = () => this.resumeHunt();
+    this.onArrive = null;
+    this.hopY = 0;
+    this.wiggle = 0;
+  }
+
+  /** Make where he is now a (one-off) spot, so he stays put there for a bit. */
+  private parkHere(yard: Yard, id: string): void {
+    const x = Math.round(this.x);
+    const y = Math.round(this.y);
+    this.temp = { id, kind: "yard", x, y, face: "front", low: !yard.sitsUp(x, y) };
+    this.spot = this.temp;
+  }
+
+  /** The closest of his usual spots. */
+  private nearestSpot(yard: Yard): Spot {
+    let best = yard.door;
+    let bd = Infinity;
+    for (const s of yard.spots) {
+      const d = Math.hypot(s.x - this.x, s.y - this.y);
+      if (d < bd) {
+        bd = d;
+        best = s;
+      }
+    }
+    return best;
+  }
+
+  /** The yard as it is right now (for the mug). */
+  currentYard(): Yard {
+    return this.yardFor(this.g.layout);
+  }
+
+  // The coffee mug on the fence post.
+
+  /** Asked to see to the mug: walk over to `seat` beside it. False if he's not up for it right now. */
+  knockMug(mug: Point, seat: Point, hooks: KnockHooks): boolean {
+    if (!this.yard || !this.free(true)) return false;
+    this.knock = { mug, hooks, phase: "eye", swipes: 0, hit: false };
+    this.temp = { id: "mug", kind: "fence", x: Math.round(seat.x), y: Math.round(seat.y), face: "front" };
+    this.onArrive = () => this.startKnock();
+    this.walkTo(this.temp);
+    return true;
+  }
+
+  private startKnock(): void {
+    const k = this.knock;
+    if (!k) return this.settle(rand(3, 6));
+    const dir = k.mug.x > this.x ? 1 : -1;
+    this.facing = dir;
+    // (His swiping paw is on the left of the front pose: mirror the lot when the mug's on his right.)
+    this.frontFlip = dir > 0;
+    k.phase = "eye";
+    this.set("knock", 1.5);
+  }
+
+  private updateKnock(yard: Yard, l: Layout): void {
+    const k = this.knock;
+    if (!k || this.wet) {
+      k?.hooks.cancel();
+      this.knock = null;
+      this.next(yard, l);
+      return;
+    }
+    switch (k.phase) {
+      case "eye":
+        // Considering the mug. Then: you.
+        if (this.t > this.dur) {
+          k.phase = "look";
+          this.t = 0;
+          this.dur = 1.2;
+        }
+        break;
+      case "look":
+      case "pause":
+        if (this.t > this.dur) {
+          k.phase = "swipe";
+          k.hit = false;
+          this.t = 0;
+          this.dur = 0.5;
+        }
+        break;
+      case "swipe":
+        // Paw up, then out: that's when it connects. The third one does it.
+        if (!k.hit && this.t >= 0.25) {
+          k.hit = true;
+          k.swipes++;
+          if (k.swipes >= 3) k.hooks.tip();
+          else k.hooks.nudge();
+        }
+        if (this.t > this.dur) {
+          k.phase = k.swipes >= 3 ? "after" : "pause";
+          this.t = 0;
+          this.dur = k.swipes >= 3 ? 1.3 : 0.8;
+        }
+        break;
+      case "after":
+        // Still looking at you. Then a wash, as if nothing happened.
+        if (this.t > this.dur) {
+          this.knock = null;
+          this.set("groom", 3);
+        }
+        break;
+    }
+  }
+
+  // The string from the chest.
+
+  /** Somebody poked the string in the chest and closed it: he heard. */
+  onString(): void {
+    if (this.hunt) return;
+    if (this.state === "frenzy" || this.state === "pet") {
+      this.queued = () => this.startString();
+      return;
+    }
+    this.startString();
+  }
+
+  private startString(): void {
+    const yard = this.yard;
+    if (!yard || this.hunt) return;
+    this.showEmote("exclaim");
+    sfx("meow", { pitch: 1.1 });
+    this.mow("Mow!");
+    // Sheltering from the rain: ears up, but he's staying dry.
+    if (this.wet) return;
+    // The string beats everything (even a mug, a hen or a fish).
+    this.knock?.hooks.cancel();
+    this.knock = null;
+    this.stare?.hooks.off();
+    this.stare = null;
+    this.snack = null;
+    this.onArrive = null;
+    const at = stringSpot(yard);
+    const toy = new StringToy(at.x, at.y + 1);
+    this.g.add(guard(toy, "string"));
+    this.hunt = { toy, phase: "crouch", n: 0, x0: 0, x1: 0, mowed: false, mlemmed: false };
+    this.onArrive = () => this.huntCrouch();
+    this.walkTo(at.from, true);
+  }
+
+  /** Back to it after a pet: over to the string if he's not right by it, then crouch. */
+  private resumeHunt(): void {
+    const h = this.hunt;
+    const yard = this.yard;
+    if (!h || h.toy.dead || !yard) return;
+    if (h.phase === "on") {
+      this.set("hunt", rand(3, 6));
+      return;
+    }
+    if (Math.abs(this.x - h.toy.baseX) > 18) {
+      const at = stringSpot(yard);
+      this.onArrive = () => this.huntCrouch();
+      this.walkTo(at.from, true);
+      return;
+    }
+    this.huntCrouch();
+  }
+
+  private huntCrouch(): void {
+    const h = this.hunt;
+    if (!h || h.toy.dead) {
+      this.hunt = null;
+      this.settle(rand(3, 6));
+      return;
+    }
+    // Off his spot from here on: he goes wherever the string does.
+    this.spot = null;
+    this.facing = h.toy.at >= this.x ? 1 : -1;
+    h.phase = "crouch";
+    this.set("hunt", 0.9);
+  }
+
+  private updateHunt(yard: Yard): void {
+    const h = this.hunt;
+    if (!h || h.toy.dead) {
+      this.endHunt(yard);
+      return;
+    }
+    const toy = h.toy;
+    switch (h.phase) {
+      case "crouch":
+      case "land": {
+        // Eyes on it. (A wiggle of the hindquarters first.)
+        if (Math.abs(toy.at - this.x) > 1) this.facing = toy.at > this.x ? 1 : -1;
+        this.wiggle = h.phase === "crouch" && !reducedMotion && this.t > this.dur - 0.4 ? Math.floor(this.t / 0.08) % 2 : 0;
+        if (this.t > this.dur) {
+          this.wiggle = 0;
+          h.phase = "pounce";
+          h.x0 = this.x;
+          h.x1 = toy.at;
+          this.t = 0;
+          this.dur = 0.35;
+        }
+        break;
+      }
+      case "pounce": {
+        const k = Math.min(1, this.t / this.dur);
+        this.x = h.x0 + (h.x1 - h.x0) * k;
+        this.hopY = -Math.round(20 * k * (1 - k)); // a 5 px arc
+        if (k < 1) break;
+        this.hopY = 0;
+        h.n++;
+        sfx("rustle", { volume: 0.3, pitch: 1.4 });
+        if (h.n < 3) {
+          // It whips out from under his paws, round behind him: he spins after it.
+          toy.skitter(-this.facing * 7);
+          h.phase = "land";
+          this.t = 0;
+          this.dur = 0.3;
+          break;
+        }
+        // Got it. Now he lies on it.
+        h.phase = "on";
+        this.t = 0;
+        this.dur = rand(8, 12);
+        this.frontFlip = chance(0.3);
+        toy.tucked = chance(0.5) ? 1 : -1;
+        toy.catX = this.x;
+        this.showEmote("heart");
+        break;
+      }
+      case "on":
+        if (!h.mowed && this.t > 0.9) {
+          h.mowed = true;
+          sfx("meow", { volume: 0.6, pitch: rand(0.95, 1.05) });
+          this.mow("Mow.");
+        }
+        if (!h.mlemmed && this.t > 3.4) {
+          h.mlemmed = true;
+          const a = this.headAnchor();
+          spawnMlem(this.g, a.x + (this.isFlipped() ? 12 : -12), a.y + 5, "mlem");
+        }
+        toy.catX = this.x;
+        if (this.t > this.dur) this.endHunt(yard);
+        break;
+    }
+  }
+
+  /** He gets up, and the string's gone (he took it). */
+  private endHunt(yard: Yard): void {
+    if (this.hunt) this.hunt.toy.dead = true;
+    this.hunt = null;
+    this.hopY = 0;
+    this.wiggle = 0;
+    this.parkHere(yard, "string");
+    this.settle(rand(2, 4));
+  }
+
+  // The neighbor's hen.
+
+  /** The neighbor's hen wandered into the yard. If he's up and close enough: oh, it's on. */
+  stareDown(hen: Point, hooks: StareHooks): boolean {
+    const yard = this.yard;
+    if (!yard || this.busy() || this.sleepy || this.wet) return false;
+    if (!this.free(false) && this.state !== "walk") return false;
+    const dx = hen.x - this.x;
+    if (Math.hypot(dx, hen.y - this.y) > 150) return false;
+    if (this.state === "walk") {
+      // Stopped mid-stroll.
+      this.path = [];
+      this.targetId = null;
+      this.hurry = false;
+      this.spot = null;
+    }
+    this.facing = dx >= 0 ? 1 : -1;
+    this.showEmote("exclaim");
+    this.stare = { target: hen, hooks, phase: "notice", sits: !this.lowHere() };
+    this.set("stare", 0.8);
+    return true;
+  }
+
+  /** Creep closer (if she's a way off), then crouch. */
+  private stalk(yard: Yard): void {
+    const s = this.stare;
+    if (!s) return;
+    const dx = s.target.x - this.x;
+    if (Math.abs(dx) > 52) {
+      const side = dx > 0 ? -1 : 1; // (stays on his side of her)
+      const lane = yard.laneY ?? yard.door.y;
+      for (const d of [36, 42, 30, 48]) {
+        const x = Math.round(s.target.x + side * d);
+        // (On the strip, or a row back where the fence posts' caps don't get in the way.)
+        const y = yard.loafs(x, lane) ? lane : yard.loafs(x, lane - 1) ? lane - 1 : NaN;
+        if (!Number.isFinite(y)) continue;
+        this.temp = { id: "stalk", kind: "yard", x, y, face: "front", low: !yard.sitsUp(x, y) };
+        this.onArrive = () => this.stareCrouch();
+        this.walkTo(this.temp);
+        return;
+      }
+    }
+    this.stareCrouch();
+  }
+
+  private stareCrouch(): void {
+    const s = this.stare;
+    const yard = this.yard;
+    if (!s || !yard) return this.settle(rand(3, 6));
+    // She left while he was creeping up on her.
+    if (!s.hooks.alive()) return this.endStare(yard);
+    this.facing = s.target.x >= this.x ? 1 : -1;
+    s.phase = "crouch";
+    this.set("stare", rand(2.4, 3.2));
+    s.hooks.crouch();
+  }
+
+  private updateStare(yard: Yard, l: Layout): void {
+    const s = this.stare;
+    if (!s || this.wet || this.sleepy) {
+      s?.hooks.off();
+      this.stare = null;
+      this.wiggle = 0;
+      this.next(yard, l);
+      return;
+    }
+    switch (s.phase) {
+      case "notice":
+        if (!s.hooks.alive()) return this.endStare(yard);
+        if (this.t > this.dur) this.stalk(yard);
+        break;
+      case "crouch":
+        if (!s.hooks.alive()) return this.endStare(yard);
+        this.facing = s.target.x >= this.x ? 1 : -1;
+        // Unblinking. The tail tip going. A wiggle of the hindquarters at the end (he never
+        // actually pounces: the stare does it).
+        this.wiggle = !reducedMotion && this.t > this.dur - 0.6 ? Math.floor(this.t / 0.09) % 2 : 0;
+        if (this.t > this.dur) {
+          this.wiggle = 0;
+          s.hooks.win();
+          s.phase = "hold";
+          this.t = 0;
+          this.dur = 0.7;
+        }
+        break;
+      case "hold":
+        if (this.t > this.dur) {
+          s.phase = "watch";
+          s.sits = yard.sitsUp(this.x, this.y);
+          this.t = 0;
+          this.dur = 1.4;
+        }
+        break;
+      case "watch":
+        if (this.t > this.dur) this.endStare(yard);
+        break;
+    }
+  }
+
+  /** As if nothing happened. */
+  private endStare(yard: Yard): void {
+    this.stare = null;
+    this.wiggle = 0;
+    if (!this.spot) this.parkHere(yard, "stalk");
+    if (!this.lowHere()) {
+      this.frontFlip = chance(0.3);
+      this.set("groom", rand(2.5, 3.5));
+    } else this.set("loaf", rand(4, 8));
+  }
+
+  // A fish from the sky.
+
+  /** A fish just landed by his dish (thanks, gull): he's on his way. False if he can't come. */
+  snackOn(onEat: () => void, at: Point | null): boolean {
+    if (!this.yard?.eat || this.wet || this.knock || this.hunt || this.stare || this.snack) return false;
+    this.snack = { onEat, eaten: false };
+    if (this.state === "frenzy" || this.state === "pet") this.queued = () => this.goSnack(at);
+    else this.goSnack(at);
+    return true;
+  }
+
+  private goSnack(at: Point | null): void {
+    const yard = this.yard;
+    const eat = yard?.eat;
+    if (!yard || !eat || !this.snack) return;
+    // Already crouched at his dish: the fish is next.
+    if (this.state === "eat") return;
+    this.showEmote("exclaim");
+    sfx("meow", { pitch: rand(1.04, 1.18), volume: 0.8 });
+    // Right where it landed (face over the fish), if he fits there; else at his dish.
+    const x = at ? Math.round(at.x) - 1 : NaN;
+    let there = eat;
+    if (at && yard.loafs(x, eat.y)) there = this.temp = { id: "snack", kind: "yard", x, y: eat.y, face: "front", low: !yard.sitsUp(x, eat.y) };
+    this.walkTo(there, true);
+  }
+
+  private startSnack(): void {
+    this.set("eat", rand(4, 6));
+    this.nomIn = rand(0.7, 1.1);
+  }
+
   // ---------- poses ----------
 
   private poseKind(): PoseKind {
@@ -972,10 +1518,25 @@ class Snickers implements Entity {
         return "sleep";
       case "walk":
         return "walk";
+      case "knock":
+        return this.knock?.phase === "eye" ? "side" : "front";
+      case "hunt":
+        return this.hunt?.phase === "pounce" ? "walk" : "loaf";
+      case "stare": {
+        const s = this.stare;
+        return s && s.sits && (s.phase === "notice" || s.phase === "watch") ? "side" : "loaf";
+      }
     }
   }
 
+  /** Crouched low and side-on (his loaf with a side head), eyes locked on something. */
+  private crouching(): boolean {
+    if (this.state === "hunt") return this.hunt?.phase === "crouch" || this.hunt?.phase === "land";
+    return this.state === "stare" && this.poseKind() === "loaf";
+  }
+
   private isFlipped(): boolean {
+    if (this.crouching()) return this.facing === -1;
     const pose = this.poseKind();
     return pose === "front" || pose === "loaf" ? this.frontFlip : this.facing === -1;
   }
@@ -984,18 +1545,31 @@ class Snickers implements Entity {
   private headAnchor(): Point {
     const dir = this.isFlipped() ? -1 : 1;
     const cx = this.x + 0.5;
+    const y = this.y + this.hopY;
+    if (this.crouching()) return { x: cx + 6 * dir, y: y - 20 };
     switch (this.poseKind()) {
       case "front":
-        return { x: cx, y: this.y - (this.state === "frenzy" ? 26 : 23) };
+        return { x: cx, y: y - (this.state === "frenzy" ? 26 : 23) };
       case "loaf":
-        return { x: cx, y: this.y - 19 };
+        return { x: cx, y: y - 19 };
       case "side":
-        return { x: cx + 5 * dir, y: this.y - 23 };
+        return { x: cx + 5 * dir, y: y - 23 };
       case "walk":
-        return { x: cx + 7 * dir, y: this.y - 20 };
+        return { x: cx + 7 * dir, y: y - 20 };
       case "sleep":
-        return { x: cx - 3 * dir, y: this.y - 16 };
+        return { x: cx - 3 * dir, y: y - 16 };
     }
+  }
+
+  /** Crouched low, side-on, the tip of his tail twitching away (and his hindquarters, with a wiggle). */
+  private crouch(twitch: boolean): Layer[] {
+    const k = twitch ? Math.floor(this.t / 0.16) % 2 : this.tailT > 0 ? 1 : 0;
+    const w = this.wiggle;
+    return [
+      ["sideTail", -k - w, 1 - k],
+      ["loafBody", -w, 0],
+      ["headSide", 13, 11],
+    ];
   }
 
   /** The front-facing sit, with an optional head (and head offset / whole-body hop). */
@@ -1026,6 +1600,47 @@ class Snickers implements Entity {
       }
       case "watch":
         return this.watchSide ? this.side(blink) : this.front(blink ? "headBlink" : "headFront");
+      case "knock": {
+        const k = this.knock;
+        if (!k || k.phase === "eye") return this.side(blink);
+        if (k.phase === "swipe") {
+          // Paw up... and out.
+          const flick = this.tailT > 0 ? 1 : 0;
+          return [
+            ["sitTail", flick, -flick],
+            ["groomBody", 0, 0],
+            ["headFront", HEAD_FRONT.dx, HEAD_FRONT.dy],
+            this.t >= 0.25 ? ["pawUp0", -4, 1] : ["pawUp1", -2, 0],
+          ];
+        }
+        // Looking right at you. Not blinking.
+        return this.front("headFront");
+      }
+      case "hunt": {
+        const h = this.hunt;
+        if (h?.phase === "pounce") {
+          // Mid-leap, legs out.
+          return [
+            ["walkTail", 1, 0],
+            ["walkLegs1", 0, 0],
+            ["walkBody", 0, 0],
+            ["headSide", HEAD_WALK.dx, HEAD_WALK.dy],
+          ];
+        }
+        if (h?.phase === "on") {
+          // Lying on it, extremely pleased with himself.
+          return [
+            ["loafBody", 0, 0],
+            [this.t < 1.6 ? "headHappy" : blink ? "headBlink" : "headFront", HEAD_LOAF.dx, HEAD_LOAF.dy],
+            ["loafTail", this.tailT > 0 ? 1 : 0, 0],
+          ];
+        }
+        return this.crouch(true);
+      }
+      case "stare":
+        // Unblinking.
+        if (this.poseKind() === "side") return this.side(false);
+        return this.crouch(this.stare?.phase === "crouch" || this.stare?.phase === "hold");
       case "pet":
         if (this.petLoaf) {
           return [
@@ -1112,7 +1727,7 @@ class Snickers implements Entity {
     const flip = this.isFlipped();
     drawShadow(ctx, x + 0.5, y, SHADOW_W[pose]);
     // Unflipped, column 15 of the frame is over his feet; mirrored, that's column 16.
-    drawLayers(ctx, x - (flip ? 16 : 15), y - FEET_ROW, this.layers(), flip);
+    drawLayers(ctx, x - (flip ? 16 : 15), y - FEET_ROW + this.hopY, this.layers(), flip);
     if (this.emote) {
       const a = this.headAnchor();
       drawEmote(ctx, this.emote.kind, Math.round(a.x), Math.round(a.y), this.emote.t);
@@ -1128,7 +1743,7 @@ class Snickers implements Entity {
     return {
       l: this.x + (flip ? -b.r : b.l),
       r: this.x + (flip ? -b.l : b.r),
-      t: this.y + b.t,
+      t: this.y + this.hopY + b.t,
       b: this.y + b.b,
     };
   }
@@ -1154,7 +1769,7 @@ class Snickers implements Entity {
   private onSprite(wx: number, wy: number, slop: number): boolean {
     const flip = this.isFlipped();
     const left = Math.round(this.x) - (flip ? 16 : 15);
-    const top = Math.round(this.y) - FEET_ROW;
+    const top = Math.round(this.y) - FEET_ROW + this.hopY;
     return opaqueAt(this.layers(), flip, wx - left, wy - top, slop);
   }
 
@@ -1162,6 +1777,8 @@ class Snickers implements Entity {
   private isSpot(wx: number, wy: number): boolean {
     const rel = (wx - this.x - 0.5) * (this.isFlipped() ? -1 : 1);
     const up = this.y - wy;
+    // Crouched side-on (head on the right): the back half.
+    if (this.crouching()) return rel < 0;
     switch (this.poseKind()) {
       case "front":
         // Head on top; the lower back and the tail plume (on his right) are the spot.
@@ -1185,6 +1802,21 @@ class Snickers implements Entity {
     if (this.isSpot(wx, wy)) this.lickButton(g);
     else this.pet();
   }
+}
+
+/**
+ * Where the string goes: just right of the doorstep (where he can lie on it), else beside the
+ * nearest spot that has room. `from` is where he pounces from.
+ */
+function stringSpot(yard: Yard): { x: number; y: number; from: Spot } {
+  const door = yard.door;
+  const near = [door, ...yard.spots.filter((s) => s !== door).sort((a, b) => Math.hypot(a.x - door.x, a.y - door.y) - Math.hypot(b.x - door.x, b.y - door.y))];
+  for (const s of near) {
+    for (const dx of [12, 10, 14, -12, -10, -14]) {
+      if (yard.loafs(s.x + dx, s.y)) return { x: s.x + dx, y: s.y, from: s };
+    }
+  }
+  return { x: door.x, y: door.y, from: door };
 }
 
 // ---------- boot ----------
@@ -1320,12 +1952,56 @@ export function initSnickers(g: Game): void {
       report("barnDoor", err);
     }
   });
+  // The chest closed after somebody poked the string (loom.ts).
+  g.on("string", () => {
+    try {
+      s.onString();
+    } catch (err) {
+      report("string", err);
+    }
+  });
+  try {
+    initCoffee(g, { yard: () => s.currentYard(), knock: (mug, seat, hooks) => s.knockMug(mug, seat, hooks) });
+  } catch (err) {
+    report("coffee", err);
+  }
   listenForParties();
+  // Debug: ?string pokes the string 3 s in.
+  if (new URLSearchParams(location.search).has("string")) window.setTimeout(() => g.emit("string"), 3000);
 }
 
 /** Where Snickers is (feet), e.g. for critters that want to keep their distance. */
 export function snickersPosition(): Point | null {
   return snickers ? { x: snickers.x, y: snickers.y } : null;
+}
+
+/** His dish (its feet), e.g. for a seagull with something to drop. Null when there's no room for one. */
+export function snickersDish(): Point | null {
+  const b = snickers?.bowl;
+  return b?.placed ? { x: b.x, y: b.y } : null;
+}
+
+/**
+ * Something fishy just landed at `at` (by his dish): he comes running, even out of a nap, and eats
+ * it. `onEat` runs at the first nom (that's when it's gone). False if he can't come.
+ */
+export function snickersSnack(onEat: () => void, at: Point | null = null): boolean {
+  try {
+    return snickers?.snackOn(onEat, at) ?? false;
+  } catch (err) {
+    report("snack", err);
+    return false;
+  }
+}
+
+/** The neighbor's hen is in the yard (pass her: he keeps an eye on where she is). Will he stare her down? */
+export function snickersStare(hen: Point, hooks: StareHooks): boolean {
+  try {
+    return snickers?.stareDown(hen, hooks) ?? false;
+  } catch (err) {
+    report("stare", err);
+    return false;
+  }
 }
 
 /** Make Snickers join a farm party (lick-fest + music note). */

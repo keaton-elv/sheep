@@ -6,7 +6,8 @@
 //   critter-bugs.ts     ladybugs (and a rare golden one), bumblebees and their bee houses, the Bumblesteed
 //                       (each sighting sets localStorage farm.bumblesteed.lastSeen + emits "bumblesteed")
 //   critter-ambient.ts  butterflies, the fence squirrel, the forest bunny, rain frogs
-//   critter-flyers.ts   the wild parrots of Telegraph Hill, seagulls gliding over
+//   critter-flyers.ts   the wild parrots of Telegraph Hill, seagulls gliding over (one drops lunch)
+//   critter-hen.ts      the neighbor's hen, now and then (Snickers stares her down)
 //   critter-small.ts    a hummingbird among the flowers, a banana slug in the rain
 //   critter-night.ts    the opossum (plays dead!), mosquitoes around the lights on summer nights
 //   critter-trench.ts   the Trench Coat (it was raccoons / hedgehogs / mosquitoes all along)
@@ -23,6 +24,7 @@ import { initBirds } from "./critter-birds";
 import { initBugs } from "./critter-bugs";
 import { initFlyers } from "./critter-flyers";
 import { initCorner } from "./critter-fox";
+import { initHen } from "./critter-hen";
 import { registerLoreArt } from "./critter-lore-art";
 import { initNight } from "./critter-night";
 import { initSmall } from "./critter-small";
@@ -47,6 +49,7 @@ export function initCritters(g: Game): void {
     ["small", () => initSmall(g)],
     ["night", () => initNight(g)],
     ["trenchcoat", () => initTrench(g)],
+    ["hen", () => initHen(g)],
   ];
   for (const [name, init] of parts) {
     try {
