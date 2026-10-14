@@ -59,8 +59,8 @@ const PAIR_SPOT = { x: 46, y: 31 };
 const CRASH_SPOT = { x: 52, y: 12 };
 /** Where Otto jumps back to and sits up, facing them (nose clear of the brown one's tail). */
 const GUARD = { x: 27, y: 22 };
-/** Where Milo curls up meanwhile, tucked in against Otto's back. */
-const HIDE = { x: 10, y: 29 };
+/** Where Milo curls up meanwhile, tucked in against Otto's side (clear of the spring flowers by the fence). */
+const HIDE = { x: 16, y: 29 };
 /** Otto's beat to notice them, and his jump back. */
 const GUARD_LAG = 0.3;
 const GUARD_HOP = 0.35;
@@ -809,6 +809,8 @@ class Hedgehog implements Entity {
   }
 
   hit(wx: number, wy: number): boolean {
+    // Curled up at Otto's side: not so much margin on top, so he doesn't steal taps meant for Otto's chest.
+    if (this.state === "hide") return inBox(wx, wy, this.hx - 6, this.hy - 2, this.hw + 12, this.hh + 5);
     return inBox(wx, wy, this.hx - 6, this.hy - 7, this.hw + 12, this.hh + 10);
   }
 
