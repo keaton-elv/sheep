@@ -135,8 +135,9 @@ and desktop works great too.
   (`?footprints`)
 - **Otto's Bigfoot letters:** the next morning at 06:00; three take turns (in the third, he's trying to catch the J).
   The photo's chest note: "It’s definitely him." (`?bigfootletter`)
-- **Wine Wednesday raccoons:** late on a Wednesday a raccoon couple turns up arm in arm by the wine; tap them and
-  the bottle tips over. (`?wineraccoons`)
+- **Wine Wednesday raccoons:** on a Wednesday evening (5 pm to midnight) a raccoon couple turns up arm in arm by
+  the wine; if Otto and Milo are still up, Otto stands guard and Milo hides behind him. Tap them and the bottle tips
+  over. (`?wineraccoons`)
 - **Cheering section:** Otto and Milo cheer every shearing, yours or the other phone's. (`?cheer`)
 - **Trench Coat alibis:** the day's first reveal gets a letter: Otto vouches for the raccoons, Milo denies
   everything, Snickers ate one mosquito.
