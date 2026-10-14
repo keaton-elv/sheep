@@ -31,15 +31,16 @@
   display: flex;
   align-items: center;
   gap: 0.28em;
-  max-width: 14ch;
-  padding: 0.08em 0.45em 0.14em;
+  max-width: 11ch;
+  padding: 0.06em 0.4em 0.12em;
   border: max(1px, calc(var(--px) * 0.5)) solid var(--tag-edge);
   border-radius: 0.45em;
   background: var(--tag-bg);
   color: var(--tag-ink);
   box-shadow: 0 max(1px, calc(var(--px) * 0.5)) 0 rgba(59, 35, 22, 0.35);
-  /* Compact on phones (11-12px), roomier and at least 13px on bigger screens (below). */
-  font: 600 clamp(11px, calc(var(--px) * 5.5), 12px) / 1.15 "Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  /* Compact on phones (10px, so a full flock doesn't bury the pasture), roomier and at least 13px
+     on bigger screens (below). */
+  font: 600 10px / 1.15 "Pixelify Sans", ui-rounded, system-ui, sans-serif;
   letter-spacing: 0.01em;
   white-space: nowrap;
   pointer-events: none;
