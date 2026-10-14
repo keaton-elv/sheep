@@ -348,6 +348,7 @@ export function initHud(g: Game): void {
   let acc = 1; // run immediately
   let ambAcc = 2;
   let firstHand = true;
+  let handDue = false;
 
   const handTarget = (now: Date) => {
     const hour = now.getHours() + Math.floor(now.getMinutes() / 10) / 6;
@@ -375,16 +376,22 @@ export function initHud(g: Game): void {
         special = specialDay(now, store.state);
         lastWeather = ""; // re-pick the icon (festival days)
       }
+      handDue = true;
+      dirty = true;
+    }
+    // On arrival the hand sweeps round from 6am to now, once the farm is on screen (the HUD goes up
+    // under the loading screen, and the title screen when logged out); after that it ticks along.
+    if (handDue && g.shown) {
+      handDue = false;
       const target = handTarget(now);
       if (Math.abs(target - handTo) > 1e-4 || firstHand) {
         handFrom = handT;
         handTo = target;
-        // On arrival the hand sweeps round from 6am to now; after that it just ticks along.
         handMs = reducedMotion() ? 0 : firstHand ? 1300 : 500;
         handStart = performance.now() + (firstHand ? 350 : 0);
         firstHand = false;
+        dirty = true;
       }
-      dirty = true;
     }
     const wKey = `${env.weather}|${env.season}|${special.kind}`;
     if (wKey !== lastWeather) {
@@ -443,6 +450,14 @@ export function initHud(g: Game): void {
       resize();
     } catch (err) {
       console.warn("[hud] resize", err);
+    }
+  });
+  // Start the arrival sweep right as the farm shows, not at the next quarter-second check.
+  g.on("shown", () => {
+    try {
+      update();
+    } catch (err) {
+      console.warn("[hud] shown", err);
     }
   });
   update();

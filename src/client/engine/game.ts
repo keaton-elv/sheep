@@ -81,6 +81,11 @@ export class Game {
   env: FarmEnv;
   /** Lights collected this frame; cleared at the start of every frame. */
   lights: Light[] = [];
+  /**
+   * False until the farm is first on screen: the HUD and toolbar mount under the loading screen (and
+   * the title screen, logged out), so arrival touches wait for show(), which emits "shown".
+   */
+  shown = false;
 
   private entities: Entity[] = [];
   private passes: RenderPass[] = [];
@@ -194,6 +199,13 @@ export class Game {
 
   emit(name: string, ...args: unknown[]): void {
     this.listeners.get(name)?.forEach((fn) => fn(...args));
+  }
+
+  /** The loading screen is fading off the farm (and the title screen is gone, if it was up). Once. */
+  show(): void {
+    if (this.shown) return;
+    this.shown = true;
+    this.emit("shown");
   }
 
   setTool(tool: Tool): void {

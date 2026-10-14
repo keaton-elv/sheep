@@ -56,17 +56,20 @@
   margin-left: calc(var(--px) * var(--tb-sep));
 }
 
+/* The sprite is a background image (see barIcon() in toolbar.ts), so the whole bar paints as one layer. */
 .tb__icon {
   position: absolute;
   left: 50%;
   top: 50%;
   margin-left: calc(var(--w) * var(--tb-icon-s) * var(--px) / -2);
   margin-top: calc(var(--h) * var(--tb-icon-s) * var(--px) / -2);
-  transition: transform 90ms ease-out;
+  background: no-repeat 0 0 / 100% 100%;
   pointer-events: none;
 }
 
-/* Hover lifts the icon (only on devices that really hover; the slot itself never grows). */
+/* Hover lifts the icon (only on devices that really hover; the slot itself never grows). No
+   transition: a moving transform gets a compositor layer of its own and splits the bar around it,
+   which made the slot frames and the red frame flash. A snap is a plain repaint. */
 @media (hover: hover) and (pointer: fine) {
   .tb__slot:hover .tb__icon {
     transform: translateY(calc(var(--px) * -1)) scale(1.08);

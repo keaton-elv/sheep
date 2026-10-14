@@ -4,11 +4,12 @@
 
 - **Desktop first open:** coming from the title screen, the farm flickers/jumps as the fence moves into place. Likely cause:
   `initHud()`/`initToolbar()` only run after `showPasswordGate()` resolves in `src/client/main.ts`, so the farm is laid out without
-  the toolbar inset under the gate and relayouts once they mount. Lay out (and draw) the final farm before the gate fades.
+  the toolbar inset under the gate and relayouts once they mount. Lay out (and draw) the final farm before the gate fades. **Done** (Oct 13).
 - **Toolbar hover flashes (desktop):** hovering slot 8 (…) makes its frame vanish for a moment; hovering the selected tool (1 or 2)
   makes its red frame flash. Hover only lifts the icon in `toolbar.css`, so something on mouseenter is probably re-adding
   `.is-selected` / re-inserting the slot (restarting the `tb-select` animation) or reassigning `--tb-img-*` to new images that
-  must decode again. Check `showLabel()` and anything a pointerover triggers in `src/client/ui/toolbar.ts`.
+  must decode again. Check `showLabel()` and anything a pointerover triggers in `src/client/ui/toolbar.ts`. **Done** (Oct 13): no DOM
+  churn on hover; the bar was a dozen compositor layers (a canvas per icon) that the hover transition reshuffled.
 
 ## Easter eggs & random events (curated, not built yet)
 
