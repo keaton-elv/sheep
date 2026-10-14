@@ -231,6 +231,29 @@
   opacity: 0.85;
   filter: sepia(0.2);
 }
+/* With the desert sheet loaded, the stripe gives way to the picture side: an Arizona scene
+   (postcard-art.ts) printed with a white border across the top of the card. */
+.fm-letter.is-postcard.has-picture,
+.fm-mail.is-real .fm-letter.is-postcard.has-picture {
+  padding-top: 8px;
+  background: linear-gradient(180deg, #fffaf0, #fff1dc);
+}
+.fm-postcard__front {
+  margin: 0 -4px 10px;
+  padding: calc(var(--fm-px) * 2);
+  background: #fff;
+  box-shadow:
+    0 0 0 1px #e8c49a,
+    0 2px 0 rgba(60, 28, 8, 0.16);
+}
+/* One menu pixel per picture pixel, sides cropped to fit (every scene keeps its subject mid-frame). */
+.fm-postcard__picture {
+  display: block;
+  width: 100%;
+  height: calc(72 * var(--fm-px));
+  object-fit: cover;
+  image-rendering: pixelated;
+}
 .fm-letter.is-postcard .fm-letter__seal {
   right: auto;
   left: -6px;
@@ -240,7 +263,7 @@
   text-align: left;
   color: #a0663a;
 }
-.fm-letter.is-postcard.is-new .fm-letter__date {
+.fm-letter.is-postcard.is-new:not(.has-picture) .fm-letter__date {
   padding-left: 18px;
 }
 .fm-letter.is-postcard .fm-letter__body {

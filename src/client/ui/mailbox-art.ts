@@ -1,10 +1,11 @@
 // Mailbox art: the real Stardew letter paper (sprites/mail.png) as a 9-slice CSS border-image,
 // a little envelope with a heart seal for the empty mailbox, and the cactus stamp on KitKat's
-// postcards from Arizona.
+// postcards from Arizona (their picture side is postcard-art.ts).
 
 import { pixelArt } from "../engine/pixelart";
 import { SHEETS } from "../engine/sprites";
 import { cssUrl, setRootVars, sheetCrop } from "./calendar-util";
+import { registerPostcardStamp } from "./postcard-art";
 
 // Registered at import time, before loadSprites() runs. `??=` keeps whoever else maps it.
 SHEETS.mail ??= "sprites/mail.png";
@@ -71,6 +72,8 @@ export function registerMailboxArt(): void {
     ],
     { W: "#ffffff", C: "#ffffff", P: "#7a4fa0", p: "#e86a8a", O: "#f59a3c", Y: "#ffd25a", S: "#fff2a0", g: "#2f7a34", D: "#c8743a" },
   );
+  // With the desert sheet in, the stamp gets the real cactus flower instead.
+  registerPostcardStamp();
 }
 
 /** Publish the letter paper as --fm-mail-paper (once). False if mail.png isn't loaded. */

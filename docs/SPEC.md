@@ -124,6 +124,14 @@ and desktop works great too.
   about it. No counts anywhere. (They always change plans, then stick to the original.)
 - **The Bumblesteed:** a ladybug knight riding a bumblebee. A rare sighting drifts across the pasture,
   and Otto sometimes writes in about spotting one.
+- **Otto's Bigfoot letters:** the morning after Bigfoot walks past (06:00), Otto writes in. Three letters
+  take turns (Milo says it was Karl the Fog; wet ferns and Washington; he was trying to catch the J). The
+  blurry photo in the chest: "It’s definitely him." (?bigfootletter)
+- **Trench Coat alibis:** the first reveal of the day gets a letter. Otto vouches for the raccoons, Milo
+  denies everything (his first solo letter), and Snickers ate one mosquito.
+- **KitKat's postcards have a picture side:** little Arizona scenes built from the real Calico Desert
+  scenery (saguaros at sunset, a palm by the dunes, the skull and a cactus flower, red rocks, a
+  four-minute monsoon), each matched to what he wrote. (?kitkat=0..7)
 
 ## Lore (personal references; use with restraint, as winks)
 
