@@ -10,6 +10,8 @@
 //   critter-small.ts    a hummingbird among the flowers, a banana slug in the rain
 //   critter-night.ts    the opossum (plays dead!), mosquitoes around the lights on summer nights
 //   critter-trench.ts   the Trench Coat (it was raccoons / hedgehogs / mosquitoes all along)
+//   critter-bigfoot.ts  Bigfoot walking past on a rare night (tap: blurry photo), his footprints the
+//                       morning after (each sighting sets farm.bigfoot.lastSeen + emits "bigfoot")
 //   critter-lore-*.ts   art for those (hand-drawn data + real frames from companions/critters/raccoons)
 //   critter-star.ts     the rare shooting star (make a wish!)
 //   critter-place.ts    where critters can stand: grass, fence rails & posts, decorations
@@ -19,6 +21,7 @@
 import type { Game } from "../engine/game";
 import { registerCritterArt } from "./critter-art";
 import { initAmbient } from "./critter-ambient";
+import { initBigfoot } from "./critter-bigfoot";
 import { initBirds } from "./critter-birds";
 import { initBugs } from "./critter-bugs";
 import { initFlyers } from "./critter-flyers";
@@ -30,7 +33,7 @@ import { initTrench } from "./critter-trench";
 import { initParticles, report } from "./critter-util";
 import { initSnickers } from "./snickers";
 
-export { critterParty, critterReact, foxPosition } from "./critter-fox";
+export { critterCheer, critterParty, critterReact, foxPosition } from "./critter-fox";
 
 export function initCritters(g: Game): void {
   // Each piece boots on its own: if one ever breaks, the farm (and the other critters) still load.
@@ -47,6 +50,7 @@ export function initCritters(g: Game): void {
     ["small", () => initSmall(g)],
     ["night", () => initNight(g)],
     ["trenchcoat", () => initTrench(g)],
+    ["bigfoot", () => initBigfoot(g)],
   ];
   for (const [name, init] of parts) {
     try {

@@ -129,6 +129,18 @@ and desktop works great too.
   fades off a finished farm. The clock's arrival sweep and the first-visit how-to wait for it to fade.
 - **Steady toolbar:** slot icons are plain images (not canvases) and the hover lift snaps, so the bar
   stays one compositor layer and hovering never flashes a slot frame or the red "in your hand" frame.
+- **Bigfoot:** on a rare, date-seeded evening or dawn (always Oct 20, the Patterson-Gimlin anniversary; more
+  often in Karl the Fog) he walks past behind the top fence (landscape: along the bottom one), stops to look
+  right at you (blink, head tilt, two amber eyes), and walks on. Birds scatter, Otto and Milo jump, nearby
+  sheep go "!", Snickers couldn't care less. Tap him: a camera flash and a Blurry Photo in the chest.
+  (`?bigfoot`)
+- **Footprints:** the morning after a Bigfoot night, giant prints cross the pasture on both phones until
+  noon. Milo measured one. (`?footprints`)
+- **Wine Wednesday raccoons:** late on a Wednesday, while Otto and Milo sleep, a raccoon couple turns up arm
+  in arm by the wine. Tap them: they scatter (one goes home into the stump) and the bottle tips over.
+  (`?wineraccoons`)
+- **Cheering section:** Otto and Milo cheer every shearing, yours or the other phone's (at night they sleep
+  through it). (`?cheer`)
 
 ## Lore (personal references; use with restraint, as winks)
 

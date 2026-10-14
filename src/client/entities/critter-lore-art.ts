@@ -2,12 +2,13 @@
 // frames wherever the sheets have them:
 //   companions.png  the green, red-headed parrot (the Telegraph Hill parrots!), 16x16 frames
 //   critters.png    seagulls and the opossum (32x32 cells, facing left / right as noted)
-//   raccoons.png    raccoons trotting left & right (for a certain trench coat)
-//   objects.png     Wine (item 348), for Wine Wednesday
+//   raccoons.png    raccoons trotting left & right (for a certain trench coat), and the brown & grey
+//                   couple arm in arm (Wine Wednesday nights)
+//   objects.png     Wine (item 348), for Wine Wednesday (and the bottle tipped over, once it's empty)
 
 import { objectRegion } from "../art/regions";
 import { makeCanvas, pixelArt } from "../engine/pixelart";
-import { REGIONS, SHEETS } from "../engine/sprites";
+import { draw, has, REGIONS, SHEETS } from "../engine/sprites";
 import { COAT_EYES, LORE_SPRITES } from "./critter-lore-sprites";
 import { report } from "./critter-util";
 
@@ -50,8 +51,18 @@ export const RACCOON_RUN = {
   right: [0, 32, 64, 96, 128, 160, 192, 224].map((x, i) => cell(`critter.raccoon.run.r${i}`, "raccoons", x, 96, 32, 32)),
 };
 
+/** The grey raccoon trotting (raccoons.png, faces left: mirror it to go right). */
+export const RACCOON2_RUN = {
+  left: [256, 288, 320, 352, 384, 416, 448, 480].map((x, i) => cell(`critter.raccoon2.run.l${i}`, "raccoons", x, 32, 32, 32)),
+};
+
+/** The brown and the grey raccoon arm in arm, swaying (8 frames, shadow baked, feet on row 27). */
+export const RACCOON_PAIR = [256, 288, 320, 352, 384, 416, 448, 480].map((x, i) => cell(`critter.raccoon.pair.${i}`, "raccoons", x, 64, 32, 32));
+
 /** Stardew Wine, for Wine Wednesday on the picnic blanket. */
 export const WINE = cell("critter.wine", "objects", objectRegion(348).x, objectRegion(348).y, 16, 16);
+/** ...and the same bottle knocked over (a quarter turn clockwise: the neck lands on the blanket). */
+export const WINE_TIPPED = "critter.wine.tipped";
 
 let done = false;
 
@@ -77,5 +88,16 @@ export function registerLoreArt(): void {
     });
   } catch (err) {
     report("art trenchcoat.icon", err);
+  }
+  try {
+    if (has(WINE)) {
+      makeCanvas(WINE_TIPPED, 16, 16, (ctx) => {
+        ctx.translate(16, 0);
+        ctx.rotate(Math.PI / 2);
+        draw(ctx, WINE, 0, 0);
+      });
+    }
+  } catch (err) {
+    report("art wine.tipped", err);
   }
 }
