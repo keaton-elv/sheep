@@ -161,6 +161,12 @@ and desktop works great too.
 - **KitKat's postcards have a picture side:** little Arizona scenes built from the real Calico Desert
   scenery (saguaros at sunset, a palm by the dunes, the skull and a cactus flower, red rocks, a
   four-minute monsoon), each matched to what he wrote. (?kitkat=0..7)
+- **Monarchs & Mission blues:** in fall and winter a monarch glides down through the pasture "on its way
+  to Pacific Grove"; in spring, now and then a butterfly is a Mission blue. Tap one resting on the fence.
+- **The pond:** Stardew's real fish pond in the carpenter's shop ("Stow Lake, farm-sized"). Mallards fly
+  in and paddle (sometimes a mama waddles over with her ducklings), quack, and tuck their heads in at night;
+  a green turtle suns on the stones on warm days and slides in when tapped; rain frogs crowd its edge; the
+  moon shows on it at night; it freezes in winter and the ducks stay away. The sheep walk around it.
 
 ## Lore (personal references; use with restraint, as winks)
 

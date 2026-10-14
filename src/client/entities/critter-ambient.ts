@@ -1,18 +1,23 @@
-// Ambient wildlife: butterflies on nice spring/summer days, a squirrel scampering along the fence
-// rail, a forest bunny, and frogs when it rains. (Birds live in critter-birds.ts, bugs in
-// critter-bugs.ts.) Everything is capped and spawns lazily, so it's cheap when nothing is around.
-// Debug: ?bunny=1 ?squirrel=1
+// Ambient wildlife: butterflies on nice spring/summer days (a rare Mission blue among them in spring,
+// a monarch passing through on its way to Pacific Grove in fall and winter), a squirrel scampering
+// along the fence rail, a forest bunny, and frogs when it rains (they love a pond, if you have one).
+// (Birds live in critter-birds.ts, bugs in critter-bugs.ts, the pond's ducks in critter-pond.ts.)
+// Everything is capped and spawns lazily, so it's cheap when nothing is around.
+// Debug: ?bunny=1 ?squirrel=1 ?monarch ?missionblue
 
 import { sfx } from "../audio";
+import type { Season } from "../../shared/calendar";
 import type { Entity, Game } from "../engine/game";
 import { draw, isReal, REGIONS, SHEETS } from "../engine/sprites";
-import { contains, fromFraction } from "../world/layout";
+import { contains, fromFraction, type Point } from "../world/layout";
+import { mainPond, pondArt, ripple, type PondSpot } from "../world/world-pond";
 import { pastureSheep, store } from "../net";
+import { toast } from "../ui/dom";
 import { sheepPosition } from "./sheep";
 import { BUTTERFLY_COLORS } from "./critter-art";
 import { critterReact, hangout } from "./critter-fox";
-import { claimBottomLane, FENCE_HIDE, onLayoutChange, pastureSpot, RAIL_TOP, railStretch, type Rail } from "./critter-place";
-import { addSafe, chance, drawShadow, Emote, inBox, onTick, params, rand } from "./critter-util";
+import { claimBottomLane, FENCE_HIDE, fenceRuns, onLayoutChange, pastureSpot, perchClear, RAIL_TOP, railStretch, type Rail } from "./critter-place";
+import { addSafe, chance, drawShadow, Emote, inBox, lsGet, lsSet, onTick, params, rand } from "./critter-util";
 
 const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
 
@@ -26,6 +31,10 @@ function cell(key: string, x: number, y: number, w = 16, h = 16): string {
 }
 const BUTTERFLY_REAL: Record<string, [number, number]> = { blue: [128, 96], yellow: [256, 96], green: [128, 112], pink: [192, 112], orange: [256, 112] };
 for (const [name, [x, y]] of Object.entries(BUTTERFLY_REAL)) for (let f = 0; f < 4; f++) cell(`critter.butterfly.${name}.${f}`, x + f * 16, y);
+// Two seasonal visitors (regions only, never in the random picks): a monarch (orange, dark veins) and
+// the tiny Mission blue, whose closed-wings frame doubles as the 4th so the FLAP order works.
+for (let f = 0; f < 4; f++) cell(`critter.butterfly.monarch.${f}`, 64 + f * 16, 288);
+[272, 288, 304, 288].forEach((x, f) => cell(`critter.butterfly.missionblue.${f}`, x, 304));
 cell("critter.bunny.sit", 128, 160, 32, 32);
 cell("critter.bunny.nibble", 256, 192, 32, 32);
 const BUNNY_HOP_REAL = ["critter.bunny.hop.0", "critter.bunny.hop.1", "critter.bunny.hop.2", "critter.bunny.hop.3"] as const;
@@ -53,6 +62,18 @@ const BUTTERFLY_NAMES = Object.keys(BUTTERFLY_COLORS);
 const FLAP = [0, 1, 2, 3, 2, 1] as const;
 const CENTER = { anchor: "center" } as const;
 
+type Visitor = "monarch" | "missionblue";
+const VISITOR_LINE: Record<Visitor, string> = {
+  monarch: "A monarch, on its way to Pacific Grove.",
+  missionblue: "A Mission blue! It only lives on a few hills around SF.",
+};
+
+/** "2026-fall" (January and February count as the winter that started the December before). */
+function seasonTag(now: Date, season: Season): string {
+  const y = now.getFullYear() - (season === "winter" && now.getMonth() < 2 ? 1 : 0);
+  return `${y}-${season}`;
+}
+
 class Butterfly implements Entity {
   x: number;
   y: number;
@@ -68,15 +89,19 @@ class Butterfly implements Entity {
   private landDur = 0;
   private perchSheep: string | null = null;
   private keys: [string, string, string, string];
+  /** A monarch passing through: how many stops it has made on its way down the screen. */
+  private legs = 0;
 
   constructor(
     private g: Game,
     x: number,
     y: number,
+    /** A named visitor (monarch, Mission blue), or a random color. */
+    readonly kind: Visitor | null = null,
   ) {
     this.x = x;
     this.y = y;
-    const c = pick(BUTTERFLY_NAMES);
+    const c = kind ?? pick(BUTTERFLY_NAMES);
     this.keys = [`critter.butterfly.${c}.0`, `critter.butterfly.${c}.1`, `critter.butterfly.${c}.2`, `critter.butterfly.${c}.3`];
     this.t = Math.random() * 10;
     this.newTarget();
@@ -88,12 +113,14 @@ class Butterfly implements Entity {
     this.perchSheep = null;
     const l = this.g.layout;
     this.tx = this.x < l.w / 2 ? -20 : l.w + 20;
-    this.ty = this.y + rand(-40, 20);
+    // (A monarch keeps heading south: out by the nearer bottom corner.)
+    this.ty = this.kind === "monarch" ? l.pasture.y + l.pasture.h + 20 : this.y + rand(-40, 20);
   }
 
   private newTarget(): void {
     const l = this.g.layout;
     this.perchSheep = null;
+    if (this.kind === "monarch") return this.monarchLeg();
     if (chance(0.4)) {
       const spot = this.landingSpot();
       if (spot) {
@@ -110,12 +137,46 @@ class Butterfly implements Entity {
     this.ty = Math.max(10, p.y - 30 + Math.random() * (p.h + 30));
   }
 
-  private landingSpot(): { x: number; y: number } | null {
+  /**
+   * A monarch drifts down the screen in two stops, each lower than the last (a side fence log, a rail
+   * or the flowers; never a sheep), then on south.
+   */
+  private monarchLeg(): void {
+    if (this.legs >= 2) return this.leave();
+    this.legs++;
+    const p = this.g.layout.pasture;
+    for (let i = 0; i < 5; i++) {
+      const spot = i < 3 ? this.sidePerch() : this.landingSpot(true);
+      if (spot && spot.y > this.y + 10) {
+        this.tx = spot.x;
+        this.ty = spot.y;
+        this.landDur = rand(2.5, 6);
+        this.stateT = -1;
+        return;
+      }
+    }
+    this.stateT = 0;
+    this.tx = p.x + Math.random() * p.w;
+    this.ty = Math.min(p.y + p.h, this.y + rand(30, 80));
+  }
+
+  /** A spot on the nearer side fence's logs, a little way further down. */
+  private sidePerch(): { x: number; y: number } | null {
+    const l = this.g.layout;
+    let best: { x: number; y0: number; y1: number } | null = null;
+    for (const s of fenceRuns(l).sides) if (!best || Math.abs(s.x - this.x) < Math.abs(best.x - this.x)) best = s;
+    if (!best) return null;
+    const y = Math.min(best.y1 - 8, this.y + rand(25, 90));
+    if (y < best.y0 + 8 || !perchClear(l, best.x, y + 4, 8, 10)) return null;
+    return { x: best.x, y };
+  }
+
+  private landingSpot(noSheep = false): { x: number; y: number } | null {
     const g = this.g;
     const l = g.layout;
     const r = Math.random();
     // On a sheep's back (the cutest option).
-    if (r < 0.3) {
+    if (r < 0.3 && !noSheep) {
       const flock = pastureSheep();
       if (flock.length) {
         const s = pick(flock);
@@ -177,7 +238,7 @@ class Butterfly implements Entity {
     const dx = this.tx - this.x;
     const dy = this.ty - this.y;
     const d = Math.hypot(dx, dy);
-    const speed = this.state === "leave" ? 26 : 15;
+    const speed = (this.state === "leave" ? 26 : 15) * (this.kind === "monarch" ? 0.7 : 1);
     if (d < 2) {
       if (this.state === "leave") {
         this.dead = true;
@@ -197,21 +258,49 @@ class Butterfly implements Entity {
     this.vy += ((dy / d) * speed - this.vy) * k;
     this.x += this.vx * dt;
     this.y += this.vy * dt + Math.sin(this.t * 7) * 6 * dt;
-    if (this.state === "leave" && (this.x < -30 || this.x > l.w + 30)) this.dead = true;
+    if (this.state === "leave" && (this.x < -30 || this.x > l.w + 30 || this.y > l.h + 30)) this.dead = true;
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
     let key: string;
     if (isReal(this.keys[0])) {
       // Real sheet: open -> closed in 4 frames, ping-ponged; perched = wings up, the odd slow open.
+      // A monarch glides: every 3rd wingbeat it holds its wings open for half a second.
+      const glide = this.kind === "monarch" && this.t % 1.1 >= 0.6;
       if (this.state === "land") key = this.keys[Math.floor(this.stateT / 0.7) % 4 === 3 ? 1 : 3];
-      else key = this.keys[FLAP[Math.floor(this.t / 0.05) % FLAP.length]!];
+      else key = glide ? this.keys[0] : this.keys[FLAP[Math.floor(this.t / 0.05) % FLAP.length]!];
     } else {
       const f = this.state === "land" ? (Math.floor(this.stateT / 0.7) % 3 === 2 ? 0 : 1) : Math.floor(this.t / 0.09) % 2;
       key = this.keys[f as 0 | 1];
     }
     draw(ctx, key, this.x, this.y, CENTER);
   }
+
+  // Only the named visitors can be tapped, and only while they sit still on a rail or the flowers
+  // (never on a sheep, so they can't steal its tap).
+  hit(wx: number, wy: number): boolean {
+    return this.kind !== null && this.state === "land" && this.perchSheep === null && inBox(wx, wy, this.x - 6, this.y - 6, 12, 12);
+  }
+
+  onTap(): void {
+    const kind = this.kind;
+    if (!kind) return;
+    const e = this.g.env;
+    const tag = seasonTag(e.now, e.season);
+    if (lsGet(`farm.bfly.${kind}`) !== tag) {
+      lsSet(`farm.bfly.${kind}`, tag);
+      toast(VISITOR_LINE[kind], { icon: this.keys[0] });
+    }
+    // Off it goes again.
+    this.state = "fly";
+    this.newTarget();
+  }
+}
+
+/** Monarchs pass through from October through February. */
+function monarchSeason(now: Date): boolean {
+  const m = now.getMonth();
+  return m >= 9 || m <= 1;
 }
 
 // ---------- squirrel ----------
@@ -446,6 +535,28 @@ class Bunny implements Entity {
 
 // ---------- frogs ----------
 
+/** Scratch point for the pond frogs (no allocations per hop). */
+const RIM: Point = { x: 0, y: 0 };
+
+/**
+ * A spot on the pond's stones: r runs down the left side (0..0.4), then along the front (0.4..1),
+ * stopping short of the bucket. With `water`, the spot just inside the stones instead (to dive in).
+ */
+function rimPoint(p: PondSpot, season: Season, r: number, water: boolean): Point {
+  const wb = pondArt(season).water;
+  const sideX = Math.round(wb.x / 2) + 1;
+  const frontY = p.h - 4;
+  const top = wb.y + 10;
+  if (r < 0.4) {
+    RIM.x = p.left + (water ? wb.x + 7 : sideX);
+    RIM.y = p.top + top + ((frontY - top) * r) / 0.4;
+  } else {
+    RIM.x = p.left + sideX + 6 + (wb.x + wb.w - 22 - sideX) * ((r - 0.4) / 0.6);
+    RIM.y = p.top + (water ? wb.y + wb.h - 5 : frontY);
+  }
+  return RIM;
+}
+
 class Frog implements Entity {
   x: number;
   y: number;
@@ -464,11 +575,41 @@ class Frog implements Entity {
   private life = rand(30, 60);
   private ribbit = 0;
   leaving = false;
+  /** Where on the pond's stones it sits (pond frogs only), and whether this hop ends in the water. */
+  private rim = Math.random();
+  private diving = false;
 
-  constructor(private g: Game) {
+  constructor(
+    private g: Game,
+    /** A pond frog: it climbs out of the water onto the stones, hops along them and dives back in. */
+    readonly pond: PondSpot | null = null,
+  ) {
+    if (pond) {
+      const w = rimPoint(pond, g.env.season, this.rim, true);
+      ripple(w.x, w.y);
+      const s = rimPoint(pond, g.env.season, this.rim, false);
+      this.x = s.x;
+      this.y = s.y;
+      this.life = rand(20, 45);
+      return;
+    }
     const s = pastureSpot(g.layout, 10);
     this.x = s.x;
     this.y = s.y;
+  }
+
+  /** Along the stones a little way, or (into = true) plop into the water. */
+  private pondHop(p: PondSpot, into: boolean): void {
+    const season = this.g.env.season;
+    this.fx = this.x;
+    this.fy = this.y;
+    if (!into) this.rim = Math.max(0, Math.min(1, this.rim + (chance(0.5) ? 1 : -1) * rand(0.06, 0.14)));
+    const to = rimPoint(p, season, this.rim, into);
+    this.toX = to.x;
+    this.toY = to.y;
+    this.diving = into;
+    if (Math.abs(this.toX - this.x) > 0.5) this.flip = this.toX < this.x;
+    this.hopT = 0;
   }
 
   private hop(far = false): void {
@@ -499,12 +640,15 @@ class Frog implements Entity {
       this.dead = true;
       return;
     }
-    // Its throat puffs every 3.5s (see draw); now and then you hear it, softly, over the rain.
+    // Its throat puffs every 3.5s (see draw); now and then you hear it, softly, over the rain
+    // (more often from the pond: they like it there).
     const cycle = Math.floor(this.t / 3.5);
     if (cycle !== this.ribbit) {
       this.ribbit = cycle;
-      if (this.hopT < 0 && !this.leaving && chance(0.12)) sfx("croak", { volume: 0.35, pitch: rand(0.9, 1.15) });
+      if (this.hopT < 0 && !this.leaving && chance(this.pond ? 0.2 : 0.12)) sfx("croak", { volume: 0.35, pitch: rand(0.9, 1.15) });
     }
+    // The pond was moved or put away: back into the grass it goes.
+    if (this.pond && mainPond(this.g.layout)?.id !== this.pond.id) this.leaving = true;
     if (this.hopT >= 0) {
       this.hopT += dt;
       const k = Math.min(1, this.hopT / 0.4);
@@ -515,10 +659,19 @@ class Frog implements Entity {
         this.hopT = -1;
         this.z = 0;
         this.hopIn = rand(1.5, 4);
+        if (this.diving) {
+          // Plop.
+          ripple(this.x, this.y, true);
+          sfx("plop", { volume: 0.45, pitch: 1.25 });
+          this.dead = true;
+        }
       }
     } else {
       this.hopIn -= dt;
-      if (this.hopIn <= 0) this.hop();
+      if (this.hopIn <= 0) {
+        if (this.pond) this.pondHop(this.pond, this.leaving || chance(0.15));
+        else this.hop();
+      }
     }
   }
 
@@ -541,7 +694,8 @@ class Frog implements Entity {
 
   onTap(): void {
     sfx("croak", { volume: 0.7 });
-    this.hop(true);
+    if (this.pond && this.hopT < 0) this.pondHop(this.pond, true);
+    else if (!this.pond) this.hop(true);
   }
 }
 
@@ -552,6 +706,11 @@ export function initAmbient(g: Game): void {
   const frogs: Frog[] = [];
   const forceBunny = params.has("bunny");
   const forceSquirrel = params.has("squirrel");
+  const forceMonarch = params.has("monarch");
+  const forceBlue = params.has("missionblue");
+  // Monarchs (and debug-forced visitors) come and go on their own, outside the seasonal count.
+  let visitor: Butterfly | null = null;
+  let monarchIn = forceMonarch || forceBlue ? 2 : rand(20, 60);
   // Short visits deserve wildlife: things show up quickly after the farm loads.
   let butterflyIn = rand(0.5, 3);
   let bunnyIn = forceBunny ? 3 : rand(15, 60);
@@ -581,7 +740,23 @@ export function initAmbient(g: Game): void {
         butterflyIn = rand(2, 6);
         const l = g.layout;
         const fromLeft = chance(0.5);
-        butterflies.push(addSafe(g, new Butterfly(g, fromLeft ? -10 : l.w + 10, l.pasture.y + Math.random() * l.pasture.h * 0.7), "butterfly"));
+        // In spring, 1 in 6 is a Mission blue (one at a time).
+        const blue = season === "spring" && chance(1 / 6) && isReal("critter.butterfly.missionblue.0") && !butterflies.some((b) => b.kind === "missionblue");
+        butterflies.push(addSafe(g, new Butterfly(g, fromLeft ? -10 : l.w + 10, l.pasture.y + Math.random() * l.pasture.h * 0.7, blue ? "missionblue" : null), "butterfly"));
+      }
+    }
+
+    // A monarch passing through in fall and winter (on its way to Pacific Grove), one at a time.
+    if (visitor?.dead) visitor = null;
+    monarchIn -= dt;
+    if (monarchIn <= 0) {
+      const forced = forceMonarch || forceBlue;
+      monarchIn = forced ? 30 : rand(45, 120);
+      const kind: Visitor = forceBlue && !forceMonarch ? "missionblue" : "monarch";
+      const ok = forced || (!visitor && monarchSeason(env.now) && niceDay(g) && chance(0.3));
+      if (ok && isReal(`critter.butterfly.${kind}.0`)) {
+        const l = g.layout;
+        visitor = addSafe(g, new Butterfly(g, l.pasture.x + Math.random() * l.pasture.w, l.pasture.y - 10, kind), "butterfly");
       }
     }
 
@@ -608,18 +783,25 @@ export function initAmbient(g: Game): void {
       }
     }
 
-    // Frogs come out in the rain (they sleep through the winter).
+    // Frogs come out in the rain (they sleep through the winter). With a pond, most of them are there.
     for (let i = frogs.length - 1; i >= 0; i--) if (frogs[i]!.dead) frogs.splice(i, 1);
     const rainy = env.weather === "rain" || env.weather === "storm";
-    const frogWant = rainy && season !== "winter" ? 3 : 0;
+    const spot = mainPond(g.layout);
+    const pond = spot && pondArt(season).real ? spot : null;
+    const frogWant = rainy && season !== "winter" ? (pond ? 4 : 3) : 0;
     let alive = 0;
-    for (const f of frogs) if (!f.leaving) alive++;
+    let atPond = 0;
+    for (const f of frogs) {
+      if (f.leaving) continue;
+      alive++;
+      if (f.pond) atPond++;
+    }
     if (alive > frogWant) for (const f of frogs) f.leaving = true;
     else if (alive < frogWant) {
       frogIn -= dt;
       if (frogIn <= 0) {
         frogIn = rand(3, 9);
-        frogs.push(addSafe(g, new Frog(g), "frog"));
+        frogs.push(addSafe(g, new Frog(g, pond && atPond < 3 ? pond : null), "frog"));
       }
     }
   });

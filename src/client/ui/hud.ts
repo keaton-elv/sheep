@@ -420,7 +420,7 @@ export function initHud(g: Game): void {
       season: env.season,
       windy: env.weather === "windy",
       campfire: decor.some((d) => d.kind === "campfire"),
-      pond: decor.some((d) => d.kind === "pond"),
+      pond: env.season !== "winter" && decor.some((d) => d.kind === "pond"),
       darkness: env.darkness,
     });
     // The title theme while the password gate is up (logged out mid-visit), the season's after.
