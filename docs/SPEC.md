@@ -124,6 +124,18 @@ and desktop works great too.
   about it. No counts anywhere. (They always change plans, then stick to the original.)
 - **The Bumblesteed:** a ladybug knight riding a bumblebee. A rare sighting drifts across the pasture,
   and Otto sometimes writes in about spotting one.
+- **Bigfoot:** on a rare, date-seeded evening or dawn (always Oct 20, the Patterson-Gimlin anniversary; more
+  often in Karl the Fog) he walks past behind the top fence (landscape: along the bottom one), stops to look
+  right at you (blink, head tilt, two amber eyes), and walks on. Birds scatter, Otto and Milo jump, nearby
+  sheep go "!", Snickers couldn't care less. Tap him: a camera flash and a Blurry Photo in the chest.
+  (`?bigfoot`)
+- **Footprints:** the morning after a Bigfoot night, giant prints cross the pasture on both phones until
+  noon. Milo measured one. (`?footprints`)
+- **Wine Wednesday raccoons:** late on a Wednesday, while Otto and Milo sleep, a raccoon couple turns up arm
+  in arm by the wine. Tap them: they scatter (one goes home into the stump) and the bottle tips over.
+  (`?wineraccoons`)
+- **Cheering section:** Otto and Milo cheer every shearing, yours or the other phone's (at night they sleep
+  through it). (`?cheer`)
 
 ## Lore (personal references; use with restraint, as winks)
 

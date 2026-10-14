@@ -15,6 +15,7 @@ import { clamp, type Entity, type Game } from "../engine/game";
 import { api, isLamb, isRetired, serverNow, store } from "../net";
 import { openMenu, toast } from "../ui/dom";
 import { contains, fromFraction, inflate, type Layout, type Point, type Rect } from "../world/layout";
+import { critterCheer } from "./critter-fox";
 import { drawEmote, registerEmoteArt, type EmoteKind } from "./emotes";
 import { FEET, FRAME, buildSheepArt, drawSheepFrame, type SheepArt } from "./sheep-art";
 import { SNIP_TIMES, WOOL_FLIGHT_TIME, initSheepFx, launchWool, spawnPlusHeart, spawnPuff, spawnSparkle, spawnTufts, startShears } from "./sheep-fx";
@@ -1623,6 +1624,8 @@ async function animateShear(sheepId: string, own: boolean): Promise<void> {
   const e = flock.get(sheepId);
   if (!e || e.dead || e.mode === "wait" || e.mode === "exit") return;
   await e.shear(own);
+  // Otto and Milo cheer (for the other farmer's shears too).
+  critterCheer(e.x, e.data.golden);
 }
 
 /**
@@ -1658,6 +1661,13 @@ export function sheepParty(): void {
     .sort((a, b) => a.k - b.k)
     .slice(0, 4);
   choir.forEach(({ e }, i) => window.setTimeout(() => !e.dead && e.baa(0.45), 140 + i * 260));
+}
+
+/** Something big went by at (x, y): up to `n` of the nearest awake sheep within `r` px go "!", one after another. */
+export function sheepStartle(x: number, y: number, r: number, n: number): void {
+  const near = list.filter((e) => e.canReact() && Math.hypot(e.x - x, e.y - y) <= r);
+  near.sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y));
+  near.slice(0, n).forEach((e, i) => window.setTimeout(() => e.canReact() && e.emote("exclaim"), i * 160));
 }
 
 /** Pop an emote above a sheep. */

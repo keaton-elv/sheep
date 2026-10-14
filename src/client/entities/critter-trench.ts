@@ -11,6 +11,7 @@ import { sfx } from "../audio";
 import type { Entity, Game } from "../engine/game";
 import { draw, has, isReal } from "../engine/sprites";
 import { toast } from "../ui/dom";
+import { bigfootTonight } from "./critter-bigfoot";
 import { critterReact, hangout } from "./critter-fox";
 import { RACCOON_RUN } from "./critter-lore-art";
 import { COAT_EYES } from "./critter-lore-sprites";
@@ -339,6 +340,7 @@ export function initTrench(g: Game): void {
     checkIn -= dt;
     if (checkIn > 0) return;
     checkIn = forced ? 20 : rand(70, 140);
+    if (!forced && bigfootTonight()) return; // one tall stranger a night
     const env = g.env;
     const dry = env.weather !== "rain" && env.weather !== "storm" && env.weather !== "snow";
     const ok = env.darkness > 0.7 && dry && chance(0.04);

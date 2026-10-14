@@ -1,19 +1,25 @@
 // The critter corner: Otto the fox and Milo the hedgehog, best friends, with their mossy stump
 // and gingham blanket, and (very rarely) a raccoon peeking out of the stump. On Wednesdays there's
-// a bottle of wine and two glasses on the blanket (Wine Wednesday).
+// a bottle of wine and two glasses on the blanket (Wine Wednesday). Late on a Wine Wednesday, while
+// Otto and Milo sleep, two raccoons might turn up arm in arm by the bottle: tap them and they scatter
+// (somebody finished the wine...). They cheer every shearing, and jump when something big walks by.
+//
+// Debug: ?raccoon ?wineraccoons ?cheer
 //
 // Corner-local coordinates (0..60 x 0..31) are used for everything here, so the hangout
 // follows layout.critterCorner around on resize.
 
-import { sfx } from "../audio";
-import type { Entity, Game } from "../engine/game";
-import { draw, has, REGIONS, SHEETS, size } from "../engine/sprites";
+import { dayKey } from "../../shared/calendar";
+import { preloadSfx, sfx } from "../audio";
+import type { Entity, Game, Light } from "../engine/game";
+import { draw, has, REGIONS, SHEETS, size, type DrawOpts } from "../engine/sprites";
 import { say, toast } from "../ui/dom";
 import type { Layout } from "../world/layout";
 import type { EmoteKind } from "./emotes";
-import { WINE } from "./critter-lore-art";
+import { RACCOON2_RUN, RACCOON_PAIR, RACCOON_RUN, WINE, WINE_TIPPED } from "./critter-lore-art";
+import { bottomLaneBusy, claimBottomLane } from "./critter-place";
 import { NameTag } from "./critter-tag";
-import { addSafe, chance, dotPuff, drawAnchored, drawPart, drawShadow, Emote, heartFloat, inBox, onTick, params, rand } from "./critter-util";
+import { addSafe, chance, dotPuff, drawAnchored, drawPart, drawShadow, Emote, heartFloat, inBox, lsGet, lsSet, onTick, params, rand } from "./critter-util";
 
 // The raccoons live in the real Stardew raccoon sheet (512x256, 16x8 frames of 32x32).
 // Frame 0 faces the camera; frame 8 is the rounder one. We only ever show their heads.
@@ -41,10 +47,21 @@ const GLASS_SPOTS = [
   { x: 41, y: 27 },
   { x: 45, y: 28 },
 ];
+/** The raccoon couple's feet: right among the glasses and the bottle. */
+const PAIR_SPOT = { x: 46, y: 31 };
+/** Where the grey one turns up toward the stump (out in front of everyone, then straight up). */
+const STUMP_PATH = [
+  { x: 12, y: 31 },
+  { x: STUMP.x + 2, y: STUMP.y + 2 },
+];
+const MOONLIT = "rgba(170,186,255,0.3)";
+
+const WINE_RACCOONS = params.has("wineraccoons");
+const CHEER_DEBUG = params.has("cheer");
 
 /** Wednesdays are Wine Wednesdays. */
 export function wineDay(g: Game): boolean {
-  return g.env.now.getDay() === 3;
+  return WINE_RACCOONS || g.env.now.getDay() === 3;
 }
 
 /**
@@ -877,6 +894,121 @@ class Raccoon implements Entity {
   }
 }
 
+// ---------- Wine Wednesday, late ----------
+
+/** The raccoon couple, arm in arm by the empty bottle, swaying a little. */
+class RaccoonPair implements Entity {
+  x = 0;
+  y = 0;
+  layer = 1;
+  dead = false;
+  private t = 0;
+  private alpha = 0;
+  /** Nobody tapped them by then: they wander off on their own. */
+  private stay = rand(45, 70);
+  private light: Light = { x: 0, y: 0, radius: 22, color: MOONLIT };
+  private opts: DrawOpts = { alpha: 0 };
+
+  constructor(private corner: Corner) {}
+
+  update(dt: number, g: Game): void {
+    const c = hangout(g.layout);
+    this.x = c.x + PAIR_SPOT.x;
+    this.y = c.y + PAIR_SPOT.y;
+    this.t += dt;
+    this.alpha = Math.min(1, this.t / 0.8);
+    if (this.t > this.stay) this.corner.splitRaccoons(false);
+    if (g.env.darkness > 0.3) {
+      this.light.x = this.x;
+      this.light.y = this.y - 12;
+      g.addLight(this.light);
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    const key = RACCOON_PAIR[Math.floor(this.t / 0.15) % RACCOON_PAIR.length]!;
+    this.opts.alpha = this.alpha;
+    draw(ctx, key, Math.round(this.x) - 16, Math.round(this.y) - 28, this.opts);
+  }
+
+  hit(wx: number, wy: number): boolean {
+    return this.alpha > 0.6 && inBox(wx, wy, this.x - 13, this.y - 24, 26, 25);
+  }
+
+  onTap(): void {
+    this.corner.splitRaccoons(true);
+  }
+}
+
+/** One of the two, trotting off: the brown one out along the fence, the grey one home into the stump. */
+class Trotter implements Entity {
+  x = 0;
+  y = 0;
+  layer = 1;
+  dead = false;
+  private lx: number;
+  private ly: number;
+  private leg = 0;
+  private t = Math.random();
+  private alpha = 1;
+  private light: Light = { x: 0, y: 0, radius: 18, color: MOONLIT };
+  private opts: DrawOpts = { alpha: 1 };
+
+  constructor(
+    private grey: boolean,
+    lx: number,
+  ) {
+    this.lx = lx;
+    this.ly = PAIR_SPOT.y;
+  }
+
+  update(dt: number, g: Game): void {
+    this.t += dt;
+    const c = hangout(g.layout);
+    if (this.grey) {
+      const to = STUMP_PATH[this.leg]!;
+      const dx = to.x - this.lx;
+      const dy = to.y - this.ly;
+      const d = Math.hypot(dx, dy);
+      const step = 30 * dt;
+      if (d <= step) {
+        this.lx = to.x;
+        this.ly = to.y;
+        if (++this.leg >= STUMP_PATH.length) {
+          // Home: a knock from inside, a puff of bark, gone.
+          this.dead = true;
+          sfx("thud");
+          dotPuff(c.x + STUMP.x, c.y + STUMP.y - 14, ["#c98a4c", "#e6b276"], 4);
+        }
+      } else {
+        this.lx += (dx / d) * step;
+        this.ly += (dy / d) * step;
+      }
+    } else {
+      this.lx -= 38 * dt;
+      // Fades out over the last few px, at the pasture's left edge (like the coat).
+      const p = g.layout.pasture;
+      const wx = c.x + this.lx;
+      this.alpha = Math.max(0, Math.min(1, (wx - p.x) / 12));
+      if (this.alpha <= 0) this.dead = true;
+    }
+    this.x = c.x + this.lx;
+    this.y = c.y + this.ly;
+    if (g.env.darkness > 0.3 && !this.dead) {
+      this.light.x = this.x;
+      this.light.y = this.y - 10;
+      g.addLight(this.light);
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    const frames = this.grey ? RACCOON2_RUN.left : RACCOON_RUN.left;
+    const key = frames[Math.floor(this.t / 0.07) % frames.length]!;
+    this.opts.alpha = this.alpha;
+    draw(ctx, key, Math.round(this.x) - 16, Math.round(this.y) - 30, this.opts);
+  }
+}
+
 // ---------- the corner ----------
 
 export class Corner {
@@ -892,6 +1024,11 @@ export class Corner {
   private knockTimes: number[] = [];
   private knockLine: ReturnType<typeof setTimeout> | undefined;
   private wineToast = -99;
+  /** The bottle lies tipped over until this time (ms), i.e. the rest of that Wine Wednesday. */
+  private tippedUntil = 0;
+  private pair: RaccoonPair | null = null;
+  private pairIn = WINE_RACCOONS ? 3 : rand(45, 90);
+  private cheerIn = 10;
   private g: Game;
 
   constructor(g: Game) {
@@ -927,14 +1064,19 @@ export class Corner {
     );
     // Wine Wednesday.
     const cheers = () => this.cheers();
-    addSafe(g, new Prop((g) => (wineDay(g) && has(WINE) ? WINE : null), WINE_SPOT.x, WINE_SPOT.y, cheers, { w: 14, h: 14 }), "wine");
+    const bottle = (g: Game) => (!wineDay(g) || !has(WINE) ? null : this.tipped() && has(WINE_TIPPED) ? WINE_TIPPED : WINE);
+    addSafe(g, new Prop(bottle, WINE_SPOT.x, WINE_SPOT.y, cheers, { w: 14, h: 14 }), "wine");
     GLASS_SPOTS.forEach((p, i) => addSafe(g, new Prop((g) => (wineDay(g) ? "critter.wineglass" : null), p.x, p.y, cheers, { w: 9, h: 11 }), `wineglass${i}`));
     addSafe(g, this.fox, "fox");
     addSafe(g, this.hog, "hedgehog");
 
     onTick(g, "corner", (dt) => this.tick(dt));
+    // Milo's squeak is the cheer at every shearing: have it ready for the first one.
+    preloadSfx("squeak");
 
     if (params.has("raccoon")) setTimeout(() => this.raccoon.peek(), 2500);
+    // Knocked over earlier tonight (before a reload)? It's still lying there.
+    if (lsGet("farm.wineTipped") === dayKey(g.env.now)) this.tipBottle();
   }
 
   private tick(dt: number): void {
@@ -952,6 +1094,32 @@ export class Corner {
       }
     }
 
+    // Late on a Wine Wednesday (Otto and Milo long asleep), a certain couple, once a night at most.
+    if (this.pair?.dead) this.pair = null;
+    this.pairIn -= dt;
+    if (this.pairIn <= 0) {
+      this.pairIn = rand(45, 90);
+      const day = dayKey(g.env.now);
+      const ok = wineDay(g) && g.env.darkness > 0.6 && lsGet("farm.wineRaccoons") !== day && chance(0.3);
+      if (!this.pair && !this.raccoon.active && !bottomLaneBusy() && has(RACCOON_PAIR[0]!) && (ok || WINE_RACCOONS)) {
+        const pair = new RaccoonPair(this);
+        if (claimBottomLane(pair)) {
+          this.pair = addSafe(g, pair, "raccoon pair");
+          lsSet("farm.wineRaccoons", day);
+        }
+      }
+      // (?wineraccoons: just the once, as soon as the stump and the fence are clear.)
+      if (WINE_RACCOONS) this.pairIn = this.pair ? Infinity : 2;
+    }
+
+    if (CHEER_DEBUG) {
+      this.cheerIn -= dt;
+      if (this.cheerIn <= 0) {
+        this.cheerIn = 10;
+        this.cheer(g.layout.w / 2, false);
+      }
+    }
+
     // The raccoon: rare, a little more likely after dark.
     this.raccoonIn -= dt;
     if (this.raccoonIn <= 0) {
@@ -966,12 +1134,44 @@ export class Corner {
 
   private cheers(): void {
     sfx("chime", { volume: 0.5, pitch: 1.6 });
+    if (this.tipped()) return; // (somebody finished it)
     const now = this.g.time;
     if (now - this.wineToast < 8) return;
     this.wineToast = now;
     toast("Wine Wednesday 🍷 Otto and Milo poured you two a glass.", { icon: has(WINE) ? WINE : "critter.wineglass" });
     this.fox.react("happy", null);
     this.hog.react("heart", null);
+  }
+
+  private tipped(): boolean {
+    return this.g.env.now.getTime() < this.tippedUntil;
+  }
+
+  /** Over it goes, until midnight (when it's Thursday anyway). */
+  private tipBottle(): void {
+    const now = this.g.env.now;
+    this.tippedUntil = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+  }
+
+  /**
+   * The couple splits up: the brown one trots off along the fence, the grey one goes home to the
+   * stump. Tapped: they were caught, and the bottle goes over.
+   */
+  splitRaccoons(tapped: boolean): void {
+    const pair = this.pair;
+    if (!pair || pair.dead) return;
+    pair.dead = true;
+    this.pair = null;
+    if (tapped) {
+      toast("Somebody finished the wine...", { icon: WINE });
+      sfx("rustle", { volume: 0.4 });
+      sfx("thud", { volume: 0.3, pitch: 1.6 });
+      this.tipBottle();
+      lsSet("farm.wineTipped", dayKey(this.g.env.now));
+    }
+    const brown = new Trotter(false, PAIR_SPOT.x - 5);
+    if (claimBottomLane(brown)) addSafe(this.g, brown, "raccoon trot");
+    addSafe(this.g, new Trotter(true, PAIR_SPOT.x + 5), "raccoon home");
   }
 
   /** Is the patch of grass in front of the fox free for a pounce? (Not on Wednesdays: that's where the wine is.) */
@@ -1042,6 +1242,33 @@ export class Corner {
     this.hog.react(kind, towardX);
   }
 
+  startle(x: number): void {
+    const { fox, hog } = this;
+    // Milo first (same as a poke, minus the squeak): a nuzzle ends there and then.
+    if (hog.state !== "ball" && hog.state !== "peek") hog.ballFrom = hog.state === "sleep" ? "sleep" : "idle";
+    if (hog.state === "nuzzle") fox.set("lie", rand(8, 14));
+    hog.set("ball", 4);
+    if (fox.asleep) {
+      // Head up for a moment; the night puts him straight back to sleep after.
+      fox.flip = x < fox.x;
+      fox.set("alert", 3);
+      fox.emote.show("exclaim");
+    } else fox.react("exclaim", x);
+  }
+
+  cheer(x: number, golden: boolean): void {
+    if (this.fox.asleep) return; // they sleep through it
+    setTimeout(() => {
+      const { fox, hog } = this;
+      fox.react(golden ? "heart" : "happy", x);
+      if (hog.state !== "sleep" && hog.state !== "ball" && hog.state !== "peek") {
+        hog.set("party", 1.2);
+        hog.emote.show("music", 0.15);
+      }
+      sfx("squeak", { volume: 0.35, pitch: 1.3 });
+    }, 600);
+  }
+
   party(): void {
     if (!this.fox.asleep) {
       this.fox.set("party", 2.6);
@@ -1076,4 +1303,14 @@ export function critterParty(): void {
 /** Where the fox is (for other critters to keep their distance). */
 export function foxPosition(): { x: number; y: number } | null {
   return corner ? { x: corner.fox.x, y: corner.fox.y } : null;
+}
+
+/** Something very big just walked past (a certain somebody, at x): Otto jumps up, Milo rolls into a ball. */
+export function critterStartle(x: number): void {
+  corner?.startle(x);
+}
+
+/** A sheep was just sheared (here or on the other phone): Otto and Milo cheer from their corner. */
+export function critterCheer(x: number, golden: boolean): void {
+  corner?.cheer(x, golden);
 }
