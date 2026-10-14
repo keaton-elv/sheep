@@ -7,6 +7,13 @@
   Chrome and Safari to confirm, with and without unread mail: the mailbox icon's endless bounce (`tb-mail-bounce` in
   toolbar.css) still gives slot 7 a layer of its own, so if it only flashes while mail is waiting, that's the next suspect.
 
+## Saved for later
+
+- **"Snickers is a DOG."** (their joke). Ideas for where it could go: after the hen's first stare-down ("Snickers has never
+  lost a staring contest."), about one later chase in three toasts "Snickers is a DOG." (guarding the yard is a dog's job;
+  `critter-hen.ts`, next to STARE_LINE); and/or National Dog Day (Aug 26) as a quiet dot on the calendar with the same note
+  (`calendar-festivals.ts`, after the Perseids).
+
 ## Easter eggs & random events
 
 ### The J-Church streetcar on the title skyline
