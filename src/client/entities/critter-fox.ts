@@ -1,8 +1,11 @@
 // The critter corner: Otto the fox and Milo the hedgehog, best friends, with their mossy stump
 // and gingham blanket, and (very rarely) a raccoon peeking out of the stump. On Wednesdays there's
-// a bottle of wine and two glasses on the blanket (Wine Wednesday). Late on a Wine Wednesday, while
-// Otto and Milo sleep, two raccoons might turn up arm in arm by the bottle: tap them and they scatter
-// (somebody finished the wine...). They cheer every shearing, and jump when something big walks by.
+// a bottle of wine and two glasses on the blanket (Wine Wednesday). A Wine Wednesday evening, two
+// raccoons might turn up arm in arm by the bottle: tap them and they scatter (somebody finished the
+// wine...). If Otto and Milo are still up, that's their picnic being crashed: Otto jumps back and
+// sits up to keep an eye on them, and Milo curls up behind him. Later on, the pair finds them fast
+// asleep.
+// They cheer every shearing, and jump when something big walks by.
 //
 // Debug: ?raccoon ?wineraccoons ?cheer
 //
@@ -47,13 +50,31 @@ const GLASS_SPOTS = [
   { x: 41, y: 27 },
   { x: 45, y: 28 },
 ];
-/** The raccoon couple's feet: right among the glasses and the bottle. */
+/** The raccoon couple's feet while Otto and Milo sleep: right among the glasses and the bottle. */
 const PAIR_SPOT = { x: 46, y: 31 };
+/**
+ * ...and while they're still up (Otto lies right there): just behind the bottle, at the back of the
+ * blanket, clear of the glasses and the right-hand fence logs.
+ */
+const CRASH_SPOT = { x: 52, y: 12 };
+/** Where Otto jumps back to and sits up, facing them (nose clear of the brown one's tail). */
+const GUARD = { x: 27, y: 22 };
+/** Where Milo curls up meanwhile, tucked in against Otto's side (clear of the spring flowers by the fence). */
+const HIDE = { x: 16, y: 29 };
+/** Otto's beat to notice them, and his jump back. */
+const GUARD_LAG = 0.3;
+const GUARD_HOP = 0.35;
 /** Where the grey one turns up toward the stump (out in front of everyone, then straight up). */
 const STUMP_PATH = [
   { x: 12, y: 31 },
   { x: STUMP.x + 2, y: STUMP.y + 2 },
 ];
+/** From behind the bottle it's a straight dash home, along the back (behind Otto). */
+const STUMP_DASH = STUMP_PATH.slice(1);
+/** The brown one just trots off to the left along the fence... */
+const OFF_LEFT: readonly { x: number; y: number }[] = [];
+/** ...or from behind the bottle, up over Otto's head first (and on behind the stump). */
+const BACK_LANE = [{ x: CRASH_SPOT.x - 19, y: -3 }];
 const MOONLIT = "rgba(170,186,255,0.3)";
 
 const WINE_RACCOONS = params.has("wineraccoons");
@@ -143,7 +164,7 @@ const SECRET_KNOCK_LINES = ["Knock-knock-knock-knock-knock!", "A raccoon pops ou
 // ---------- fox ----------
 
 type FoxPose = "sit" | "lie" | "sleep" | "walk" | "leap" | "dive";
-type FoxState = "lie" | "sit" | "alert" | "sleep" | "wake" | "pounce" | "walk" | "sunbathe" | "nuzzle" | "party";
+type FoxState = "lie" | "sit" | "alert" | "sleep" | "wake" | "pounce" | "walk" | "sunbathe" | "nuzzle" | "party" | "guard";
 
 interface PoseMeta {
   anchor: number; // sprite column that sits at the fox's x
@@ -224,6 +245,7 @@ class Fox implements Entity {
     this.t = 0;
     this.dur = dur;
     this.phase = 0;
+    this.hop = 0;
   }
 
   walkTo(x: number, y: number): void {
@@ -234,6 +256,8 @@ class Fox implements Entity {
 
   /** Back to the blanket (lying down facing the stump), or to sleep if it's night. */
   goHome(): void {
+    // (Not while there are raccoons at the picnic.)
+    if (this.corner.standoff) return this.guard();
     if (this.atHome) {
       this.flip = true;
       this.set(this.corner.night ? "sleep" : "lie", rand(10, 22));
@@ -305,6 +329,9 @@ class Fox implements Entity {
       case "pounce":
         this.updatePounce(dt, g);
         break;
+      case "guard":
+        this.updateGuard();
+        break;
     }
 
     const c = hangout(g.layout);
@@ -336,6 +363,39 @@ class Fox implements Entity {
     this.flip = false;
     this.bx = POUNCE.x;
     this.by = POUNCE.y;
+  }
+
+  /**
+   * Raccoons at the picnic! A beat to notice them, then he jumps back off that end of the blanket,
+   * turning to face them, and sits up to keep an eye on them until they're gone.
+   */
+  guard(): void {
+    if (this.state === "guard") return;
+    this.set("guard");
+    this.ax = this.lx;
+    this.ay = this.ly;
+  }
+
+  private updateGuard(): void {
+    if (this.phase === 0) {
+      if (this.t < GUARD_LAG) return; // (as he was)
+      this.phase = 1;
+      this.t = 0;
+      this.flip = false;
+      this.emote.show("exclaim");
+      sfx("yip", { volume: 0.6, pitch: 1.15 });
+    }
+    this.pose = "sit";
+    if (this.phase === 1) {
+      const k = Math.min(1, this.t / GUARD_HOP);
+      this.lx = this.ax + (GUARD.x - this.ax) * k;
+      this.ly = this.ay + (GUARD.y - this.ay) * k;
+      this.hop = Math.sin(Math.PI * k) * 5;
+      if (k >= 1) {
+        this.phase = 2;
+        this.hop = 0;
+      }
+    }
   }
 
   private updateWalk(dt: number): void {
@@ -490,6 +550,8 @@ class Fox implements Entity {
 
   /** React to something happening nearby (a bunny, birds, the raccoon...). */
   react(kind: EmoteKind, towardX: number | null): void {
+    // On guard: he won't take his eyes off them.
+    if (this.state === "guard") return this.emote.show(kind);
     if (this.asleep || this.state === "pounce" || this.state === "walk") return;
     if (towardX !== null && this.state !== "nuzzle") this.flip = towardX < this.x;
     if (this.state !== "nuzzle") this.set("alert", rand(2.5, 4));
@@ -499,8 +561,8 @@ class Fox implements Entity {
 
 // ---------- hedgehog ----------
 
-type HogState = "idle" | "walk" | "ball" | "peek" | "nuzzle" | "sleep" | "party";
-type HogNext = "idle" | "nuzzle" | "sleep";
+type HogState = "idle" | "walk" | "ball" | "peek" | "nuzzle" | "sleep" | "party" | "hide";
+type HogNext = "idle" | "nuzzle" | "sleep" | "hide";
 
 interface HogMeta {
   anchor: number;
@@ -578,7 +640,9 @@ class Hedgehog implements Entity {
           this.sniffIn = rand(2, 5);
         }
         if (this.sniff > 0) this.sniff -= dt;
-        if (night) {
+        if (this.corner.standoff) {
+          this.goHide();
+        } else if (night) {
           this.walkTo(SNUGGLE.x, SNUGGLE.y, "sleep");
         } else if (this.t > this.dur) {
           if (this.visitIn <= 0 && fox.cuddleable) {
@@ -593,7 +657,8 @@ class Hedgehog implements Entity {
         const dx = this.tx - this.lx;
         const dy = this.ty - this.ly;
         const dist = Math.hypot(dx, dy);
-        const step = 8 * dt;
+        // (A hedgehog can hurry, when there are raccoons about.)
+        const step = (this.next === "hide" ? 20 : 8) * dt;
         if (Math.abs(dx) > 0.3) this.flip = dx < 0;
         if (this.next === "idle" && night) {
           this.walkTo(SNUGGLE.x, SNUGGLE.y, "sleep");
@@ -628,6 +693,14 @@ class Hedgehog implements Entity {
         if (this.t > this.dur) {
           if (this.ballFrom === "sleep" && night) this.set("sleep");
           else this.set("idle", rand(1, 3));
+        }
+        break;
+      case "hide":
+        this.form = "ball";
+        if (!this.corner.standoff) {
+          // The coast is clear: one more look, then he unrolls.
+          this.ballFrom = "idle";
+          this.set("peek", 0.9);
         }
         break;
       case "sleep":
@@ -667,7 +740,22 @@ class Hedgehog implements Entity {
     } else if (next === "sleep") {
       this.flip = false;
       this.set("sleep");
+    } else if (next === "hide") {
+      this.curlUp();
+      sfx("squeak", { volume: 0.35, pitch: 1.2 });
     } else this.set("idle", rand(2, 6));
+  }
+
+  /** Raccoons at the picnic! He hurries over behind Otto and curls up, peeking out now and then. */
+  goHide(): void {
+    if (this.state === "hide" || (this.state === "walk" && this.next === "hide")) return;
+    if (Math.abs(this.lx - HIDE.x) < 1 && Math.abs(this.ly - HIDE.y) < 1) this.curlUp();
+    else this.walkTo(HIDE.x, HIDE.y, "hide");
+  }
+
+  private curlUp(): void {
+    this.flip = false; // (peeking at them)
+    this.set("hide");
   }
 
   private frameKey(g: Game): string {
@@ -681,6 +769,9 @@ class Hedgehog implements Entity {
         return "hedgehog.ball.0";
       case "peek":
         return "hedgehog.peek";
+      case "hide":
+        // Mostly a ball; every few seconds a nose pokes out to check on them.
+        return this.t % 3.6 > 2.3 ? "hedgehog.peek" : "hedgehog.ball.0";
       case "sleep":
         return Math.floor(g.time / 1.6) % 2 ? "hedgehog.sleep.1" : "hedgehog.sleep.0";
       default:
@@ -693,7 +784,7 @@ class Hedgehog implements Entity {
     const d = dims(this.key);
     const flip = this.flip;
     // A tiny shiver while rolled up.
-    const shake = this.state === "ball" && this.t < 0.3 ? (Math.floor(this.t * 30) % 2 ? 1 : -1) : 0;
+    const shake = (this.state === "ball" || this.state === "hide") && this.t < 0.3 ? (Math.floor(this.t * 30) % 2 ? 1 : -1) : 0;
     const fx = Math.round(this.x) + shake;
     const fy = Math.round(this.y) - this.hop;
     drawShadow(ctx, this.x, this.y, meta.shadow);
@@ -718,6 +809,8 @@ class Hedgehog implements Entity {
   }
 
   hit(wx: number, wy: number): boolean {
+    // Curled up at Otto's side: not so much margin on top, so he doesn't steal taps meant for Otto's chest.
+    if (this.state === "hide") return inBox(wx, wy, this.hx - 6, this.hy - 2, this.hw + 12, this.hh + 5);
     return inBox(wx, wy, this.hx - 6, this.hy - 7, this.hw + 12, this.hh + 10);
   }
 
@@ -743,7 +836,7 @@ class Hedgehog implements Entity {
   }
 
   react(kind: EmoteKind, towardX: number | null): void {
-    if (this.state === "sleep" || this.state === "ball") return;
+    if (this.state === "sleep" || this.state === "ball" || this.state === "hide") return;
     if (towardX !== null && this.state === "idle") this.flip = towardX < this.x;
     this.emote.show(kind, 0.25);
   }
@@ -894,7 +987,7 @@ class Raccoon implements Entity {
   }
 }
 
-// ---------- Wine Wednesday, late ----------
+// ---------- Wine Wednesday evenings ----------
 
 /** The raccoon couple, arm in arm by the empty bottle, swaying a little. */
 class RaccoonPair implements Entity {
@@ -902,6 +995,8 @@ class RaccoonPair implements Entity {
   y = 0;
   layer = 1;
   dead = false;
+  /** Where they stand: behind the bottle while Otto and Milo are up, among the glasses once they sleep. */
+  readonly spot: { x: number; y: number };
   private t = 0;
   private alpha = 0;
   /** Nobody tapped them by then: they wander off on their own. */
@@ -909,12 +1004,18 @@ class RaccoonPair implements Entity {
   private light: Light = { x: 0, y: 0, radius: 22, color: MOONLIT };
   private opts: DrawOpts = { alpha: 0 };
 
-  constructor(private corner: Corner) {}
+  constructor(
+    private corner: Corner,
+    /** Otto and Milo are still up (the evening version). */
+    readonly crashing: boolean,
+  ) {
+    this.spot = crashing ? CRASH_SPOT : PAIR_SPOT;
+  }
 
   update(dt: number, g: Game): void {
     const c = hangout(g.layout);
-    this.x = c.x + PAIR_SPOT.x;
-    this.y = c.y + PAIR_SPOT.y;
+    this.x = c.x + this.spot.x;
+    this.y = c.y + this.spot.y;
     this.t += dt;
     this.alpha = Math.min(1, this.t / 0.8);
     if (this.t > this.stay) this.corner.splitRaccoons(false);
@@ -940,14 +1041,15 @@ class RaccoonPair implements Entity {
   }
 }
 
-/** One of the two, trotting off: the brown one out along the fence, the grey one home into the stump. */
+/**
+ * One of the two, trotting off along `path`: the grey one home into the stump, the brown one on
+ * away to the left (along the fence, or of an evening along the back, over Otto's head).
+ */
 class Trotter implements Entity {
   x = 0;
   y = 0;
   layer = 1;
   dead = false;
-  private lx: number;
-  private ly: number;
   private leg = 0;
   private t = Math.random();
   private alpha = 1;
@@ -956,25 +1058,24 @@ class Trotter implements Entity {
 
   constructor(
     private grey: boolean,
-    lx: number,
-  ) {
-    this.lx = lx;
-    this.ly = PAIR_SPOT.y;
-  }
+    private lx: number,
+    private ly: number,
+    private path: readonly { x: number; y: number }[],
+  ) {}
 
   update(dt: number, g: Game): void {
     this.t += dt;
     const c = hangout(g.layout);
-    if (this.grey) {
-      const to = STUMP_PATH[this.leg]!;
+    const to = this.path[this.leg];
+    if (to) {
       const dx = to.x - this.lx;
       const dy = to.y - this.ly;
       const d = Math.hypot(dx, dy);
-      const step = 30 * dt;
+      const step = (this.grey ? 30 : 38) * dt;
       if (d <= step) {
         this.lx = to.x;
         this.ly = to.y;
-        if (++this.leg >= STUMP_PATH.length) {
+        if (++this.leg >= this.path.length && this.grey) {
           // Home: a knock from inside, a puff of bark, gone.
           this.dead = true;
           sfx("thud");
@@ -1016,6 +1117,8 @@ export class Corner {
   hog: Hedgehog;
   raccoon: Raccoon;
   night = false;
+  /** Raccoons crashing the picnic while Otto and Milo are up: Otto's on guard, Milo's hiding. */
+  standoff = false;
   private lastTap = { fox: -99, hog: -99 };
   private zzzIn = 3;
   private zzzWho = 0;
@@ -1097,16 +1200,23 @@ export class Corner {
     // A Wine Wednesday evening (5 pm to midnight: never the small hours after Tuesday), a certain
     // couple, once a night at most.
     if (this.pair?.dead) this.pair = null;
+    if (this.standoff && !this.pair) this.standDown(false);
     this.pairIn -= dt;
     if (this.pairIn <= 0) {
       this.pairIn = rand(45, 90);
       const day = dayKey(g.env.now);
       const ok = wineDay(g) && g.env.hour >= 17 && lsGet("farm.wineRaccoons") !== day && chance(0.3);
       if (!this.pair && !this.raccoon.active && !bottomLaneBusy() && has(RACCOON_PAIR[0]!) && (ok || WINE_RACCOONS)) {
-        const pair = new RaccoonPair(this);
+        // Otto and Milo still up (they're asleep from about an hour after dusk)? Then it's a crash.
+        const pair = new RaccoonPair(this, !g.env.isNight);
         if (claimBottomLane(pair)) {
           this.pair = addSafe(g, pair, "raccoon pair");
           lsSet("farm.wineRaccoons", day);
+          if (pair.crashing) {
+            this.standoff = true;
+            this.fox.guard();
+            this.hog.goHide();
+          }
         }
       }
       // (?wineraccoons: just the once, as soon as the stump and the fence are clear.)
@@ -1155,8 +1265,9 @@ export class Corner {
   }
 
   /**
-   * The couple splits up: the brown one trots off along the fence, the grey one goes home to the
-   * stump. Tapped: they were caught, and the bottle goes over.
+   * The couple splits up: the brown one trots off along the fence (of an evening, along the back,
+   * past the stump), the grey one goes home to the stump. Tapped: they were caught, and the bottle
+   * goes over.
    */
   splitRaccoons(tapped: boolean): void {
     const pair = this.pair;
@@ -1170,9 +1281,25 @@ export class Corner {
       this.tipBottle();
       lsSet("farm.wineTipped", dayKey(this.g.env.now));
     }
-    const brown = new Trotter(false, PAIR_SPOT.x - 5);
+    const s = pair.spot;
+    const crashing = pair.crashing;
+    // (Of an evening the brown one starts a step further back, behind the grey one.)
+    const brown = new Trotter(false, s.x - 5, crashing ? s.y - 3 : s.y, crashing ? BACK_LANE : OFF_LEFT);
     if (claimBottomLane(brown)) addSafe(this.g, brown, "raccoon trot");
-    addSafe(this.g, new Trotter(true, PAIR_SPOT.x + 5), "raccoon home");
+    addSafe(this.g, new Trotter(true, s.x + 5, s.y, crashing ? STUMP_DASH : STUMP_PATH), "raccoon home");
+    if (crashing) this.standDown(tapped);
+  }
+
+  /** The picnic crashers are off: Otto watches them go (then lies back down), Milo unrolls. */
+  private standDown(tapped: boolean): void {
+    this.standoff = false;
+    const fox = this.fox;
+    if (fox.state === "guard") {
+      fox.flip = true;
+      fox.set("alert", rand(2, 2.8));
+      fox.emote.show(tapped ? "dots" : "question", 0.3);
+    }
+    // (Milo comes out of his ball on his own, now that the coast is clear.)
   }
 
   /** Is the patch of grass in front of the fox free for a pounce? (Not on Wednesdays: that's where the wine is.) */
@@ -1262,7 +1389,7 @@ export class Corner {
     setTimeout(() => {
       const { fox, hog } = this;
       fox.react(golden ? "heart" : "happy", x);
-      if (hog.state !== "sleep" && hog.state !== "ball" && hog.state !== "peek") {
+      if (!this.standoff && hog.state !== "sleep" && hog.state !== "ball" && hog.state !== "peek") {
         hog.set("party", 1.2);
         hog.emote.show("music", 0.15);
       }
@@ -1271,6 +1398,7 @@ export class Corner {
   }
 
   party(): void {
+    if (this.standoff) return; // (they're a little busy)
     if (!this.fox.asleep) {
       this.fox.set("party", 2.6);
       this.fox.emote.show("music");
