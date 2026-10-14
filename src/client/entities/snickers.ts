@@ -20,7 +20,8 @@
 //  - the morning coffee on a fence post (snickers-coffee.ts): he sits beside it, looks you dead in
 //    the eye and swipes it off, three times
 //  - the string from the chest (snickers-string.ts): closing the chest after poking it brings him
-//    running to pounce on it three times and loaf on top of it (then it's gone: he took it)
+//    running to the yard in front of the chest and the mailbox, to stalk it and pounce on it a few
+//    times, then loaf on top of it for a good while (then it gets yanked away)
 //  - a fish a seagull dropped (critter-flyers.ts): free lunch, eaten where it landed
 //  - the neighbor's hen (critter-hen.ts): he crouches low and stares her down until she leaves
 //
@@ -104,10 +105,43 @@ type State = "sit" | "side" | "loaf" | "groom" | "nap" | "sleep" | "walk" | "pet
 
 /** Knocking the coffee off the post: eye on the mug, then on you, then swipe, pause, swipe... */
 type KnockPhase = "eye" | "look" | "swipe" | "pause" | "after";
-/** The string: crouch, pounce (x3, landing crouched between), then loaf on top of it. */
-type HuntPhase = "crouch" | "pounce" | "land" | "on";
+/**
+ * The string: a long wiggly stalk, pounce, land (it whips out from under his paws), stalk again...
+ * 4-6 times, then he lies on it for a good while. Then he gets up, steps off it and eyes it, and
+ * just as he's about to go again it's yanked away.
+ */
+type HuntPhase = "crouch" | "pounce" | "land" | "on" | "up" | "look" | "gone";
 /** The hen: he spots her, crouches low and stares, holds it as she runs, then watches her go. */
 type StarePhase = "notice" | "crouch" | "hold" | "watch";
+
+interface Hunt {
+  toy: StringToy;
+  phase: HuntPhase;
+  /** Where it was dropped (the middle of the stretch the whole act stays within), and his feet row there. */
+  home: number;
+  row: number;
+  /**
+   * Portrait: how far up he's drawn whenever he's on his feet there (leaping, stepping off it). The
+   * row is a px or two below the yard strip, and his walking paws would dip behind the post caps.
+   */
+  lift: number;
+  /** Pounces so far, and how many it takes to catch it. */
+  n: number;
+  of: number;
+  /** A pounce (or stepping off it): from, to, and how high he leaps. */
+  x0: number;
+  x1: number;
+  peak: number;
+  mowed: boolean;
+  mlemmed: boolean;
+  purred: boolean;
+  /** Lying on it: when he squints happily again, and how long he has left (to pick up after a pet). */
+  squintAt: number;
+  left: number;
+}
+
+/** How far either side of where the string lands it all happens (his feet): every pounce, skitter and step. */
+const PLAY = 12;
 
 /** What the hen needs from a stare-down (critter-hen.ts). */
 export interface StareHooks {
@@ -298,7 +332,9 @@ class Snickers implements Entity {
   /** A butt wiggle before he'd pounce (px). */
   private wiggle = 0;
   private knock: { mug: Point; hooks: KnockHooks; phase: KnockPhase; swipes: number; hit: boolean } | null = null;
-  private hunt: { toy: StringToy; phase: HuntPhase; n: number; x0: number; x1: number; mowed: boolean; mlemmed: boolean } | null = null;
+  private hunt: Hunt | null = null;
+  /** Where the string lands in this yard (worked out once per yard). */
+  private stringAt: { yard: Yard; at: Point } | null = null;
   private stare: { target: Point; hooks: StareHooks; phase: StarePhase; sits: boolean } | null = null;
   /** A fish to eat (the gull dropped it), instead of what's in the dish. */
   private snack: { onEat: () => void; eaten: boolean } | null = null;
@@ -539,7 +575,7 @@ class Snickers implements Entity {
         this.updateKnock(yard, l);
         break;
       case "hunt":
-        this.updateHunt(yard);
+        this.updateHunt(dt, yard, l);
         break;
       case "stare":
         this.updateStare(yard, l);
@@ -1236,33 +1272,78 @@ class Snickers implements Entity {
     this.stare = null;
     this.snack = null;
     this.onArrive = null;
-    const at = stringSpot(yard);
-    const toy = new StringToy(at.x, at.y + 1);
+    this.hopY = 0;
+    this.wiggle = 0;
+    const at = this.stringSpot(yard);
+    const toy = new StringToy(at.x, at.y);
     this.g.add(guard(toy, "string"));
-    this.hunt = { toy, phase: "crouch", n: 0, x0: 0, x1: 0, mowed: false, mlemmed: false };
-    this.onArrive = () => this.huntCrouch();
-    this.walkTo(at.from, true);
+    const h: Hunt = {
+      toy,
+      phase: "crouch",
+      home: at.x,
+      row: at.y,
+      lift: yard.laneY !== null ? Math.max(0, at.y - yard.laneY) : 0,
+      n: 0,
+      of: 4 + Math.floor(Math.random() * 3),
+      x0: 0,
+      x1: 0,
+      peak: 5,
+      mowed: false,
+      mlemmed: false,
+      purred: false,
+      squintAt: 0,
+      left: 0,
+    };
+    this.hunt = h;
+    this.goToString(yard, h);
   }
 
-  /** Back to it after a pet: over to the string if he's not right by it, then crouch. */
+  /** Where the string lands in this yard. */
+  private stringSpot(yard: Yard): Point {
+    const c = this.stringAt;
+    if (c && c.yard === yard) return c.at;
+    const at = stringSpot(yard, this.yardOf ?? this.g.layout);
+    this.stringAt = { yard, at };
+    return at;
+  }
+
+  /** Trot over to the string: a pounce's length short of it, on whichever side he's coming from. */
+  private goToString(yard: Yard, h: Hunt): void {
+    // (In landscape he comes down the gap between the farm things, so that's the side he arrives on.)
+    const from = yard.spineX !== null && Math.abs(this.y - h.row) > 2 ? yard.spineX : this.x;
+    const dir = h.home >= from ? 1 : -1;
+    this.temp = { id: "string", kind: "yard", x: h.home - dir * PLAY, y: h.row, face: "front", low: true };
+    this.onArrive = () => this.huntCrouch(true);
+    this.walkTo(this.temp, true);
+  }
+
+  /** Back to it after a pet, wherever he'd got to. */
   private resumeHunt(): void {
     const h = this.hunt;
     const yard = this.yard;
-    if (!h || h.toy.dead || !yard) return;
-    if (h.phase === "on") {
-      this.set("hunt", rand(3, 6));
-      return;
+    if (!h || !yard) return;
+    if (h.toy.dead || h.phase === "gone") return this.endHunt(yard);
+    switch (h.phase) {
+      case "on":
+        // Still lying on it (the rest of his loaf).
+        this.set("hunt", Math.max(4, h.left));
+        return;
+      case "up":
+        this.stepOff(h, h.x1);
+        return;
+      case "look":
+        this.huntLook(rand(1.6, 2.4));
+        return;
+      default:
+        // Mid-hunt: back to stalking it right where he is (anywhere he plays, it's within a pounce),
+        // or over to it again if he never got there.
+        if (Math.abs(this.x - h.home) > PLAY || Math.round(this.y) !== h.row) this.goToString(yard, h);
+        else this.huntCrouch();
     }
-    if (Math.abs(this.x - h.toy.baseX) > 18) {
-      const at = stringSpot(yard);
-      this.onArrive = () => this.huntCrouch();
-      this.walkTo(at.from, true);
-      return;
-    }
-    this.huntCrouch();
   }
 
-  private huntCrouch(): void {
+  /** Crouched low, eyes locked on it, working up to a pounce (the first stalk is the longest). */
+  private huntCrouch(first = false): void {
     const h = this.hunt;
     if (!h || h.toy.dead) {
       this.hunt = null;
@@ -1273,55 +1354,108 @@ class Snickers implements Entity {
     this.spot = null;
     this.facing = h.toy.at >= this.x ? 1 : -1;
     h.phase = "crouch";
-    this.set("hunt", 0.9);
+    this.set("hunt", first ? rand(2.1, 2.7) : rand(1.4, 2));
   }
 
-  private updateHunt(yard: Yard): void {
+  /** Off the string at last: he gets up and steps over to `to` (then turns round to eye it). */
+  private stepOff(h: Hunt, to: number): void {
+    this.spot = null;
+    h.phase = "up";
+    h.x0 = this.x;
+    h.x1 = to;
+    this.facing = to >= this.x ? 1 : -1;
+    this.walkT = 0;
+    this.set("hunt", Math.max(0.2, Math.abs(to - this.x) / WALK_SPEED));
+  }
+
+  /** Eyeing the string, which is still twitching away. */
+  private huntLook(dur: number): void {
     const h = this.hunt;
-    if (!h || h.toy.dead) {
+    if (!h) return;
+    this.spot = null;
+    this.facing = h.toy.at >= this.x ? 1 : -1;
+    h.phase = "look";
+    this.hopY = 0;
+    this.set("hunt", dur);
+  }
+
+  private updateHunt(dt: number, yard: Yard, l: Layout): void {
+    const h = this.hunt;
+    if (!h || (h.toy.dead && h.phase !== "gone")) {
       this.endHunt(yard);
+      return;
+    }
+    // Rain: it's only string. Off to his dry spot (and somebody reels it in).
+    if (this.wet && h.phase !== "pounce") {
+      h.toy.yank(h.toy.at >= this.x ? 16 : -16);
+      this.hunt = null;
+      this.hopY = 0;
+      this.wiggle = 0;
+      this.next(yard, l);
       return;
     }
     const toy = h.toy;
     switch (h.phase) {
       case "crouch":
-      case "land": {
-        // Eyes on it. (A wiggle of the hindquarters first.)
+      case "land":
+      case "look": {
+        // Eyes on it. (Working up to a pounce: a wiggle of the hindquarters, slow, then quick.)
         if (Math.abs(toy.at - this.x) > 1) this.facing = toy.at > this.x ? 1 : -1;
-        this.wiggle = h.phase === "crouch" && !reducedMotion && this.t > this.dur - 0.4 ? Math.floor(this.t / 0.08) % 2 : 0;
-        if (this.t > this.dur) {
-          this.wiggle = 0;
-          h.phase = "pounce";
-          h.x0 = this.x;
-          h.x1 = toy.at;
+        const left = this.dur - this.t;
+        this.wiggle = h.phase !== "land" && !reducedMotion && left < 0.85 ? Math.floor(this.t / (left < 0.4 ? 0.07 : 0.13)) % 2 : 0;
+        if (this.t <= this.dur) break;
+        this.wiggle = 0;
+        if (h.phase === "land") {
+          h.phase = "crouch";
           this.t = 0;
-          this.dur = 0.35;
+          this.dur = rand(1.4, 2);
+          break;
         }
+        if (h.phase === "look") {
+          // Just as he's about to go again: whoever's on the other end yanks it away. Gone.
+          toy.yank((toy.at >= this.x ? 1 : -1) * 16);
+          sfx("rustle", { volume: 0.3, pitch: 1.6 });
+          this.showEmote("question");
+          h.phase = "gone";
+          this.t = 0;
+          this.dur = 1.6;
+          break;
+        }
+        h.phase = "pounce";
+        h.x0 = this.x;
+        h.x1 = toy.at;
+        // (A longer leap goes a little higher.)
+        h.peak = 4 + Math.min(2, Math.abs(h.x1 - h.x0) / 6);
+        this.t = 0;
+        this.dur = 0.36;
         break;
       }
       case "pounce": {
         const k = Math.min(1, this.t / this.dur);
         this.x = h.x0 + (h.x1 - h.x0) * k;
-        this.hopY = -Math.round(20 * k * (1 - k)); // a 5 px arc
+        this.hopY = -Math.max(h.lift, Math.round(4 * h.peak * k * (1 - k)));
         if (k < 1) break;
         this.hopY = 0;
         h.n++;
         sfx("rustle", { volume: 0.3, pitch: 1.4 });
-        if (h.n < 3) {
-          // It whips out from under his paws, round behind him: he spins after it.
-          toy.skitter(-this.facing * 7);
+        if (h.n < h.of) {
+          // It whips out from under his paws, round behind him (never far from where it fell): he
+          // spins after it.
+          const side = this.x > h.home ? 1 : this.x < h.home ? -1 : this.facing;
+          toy.skitterTo(h.home - side * rand(5, 8));
           h.phase = "land";
           this.t = 0;
-          this.dur = 0.3;
+          this.dur = rand(0.35, 0.55);
           break;
         }
-        // Got it. Now he lies on it.
+        // Got it. Now he lies on it (for a good while).
         h.phase = "on";
         this.t = 0;
-        this.dur = rand(8, 12);
+        this.dur = rand(20, 30);
+        h.left = this.dur;
+        h.squintAt = rand(9, 14);
         this.frontFlip = chance(0.3);
-        toy.tucked = chance(0.5) ? 1 : -1;
-        toy.catX = this.x;
+        toy.tuck(this.x, chance(0.5) ? 1 : -1);
         this.showEmote("heart");
         break;
       }
@@ -1336,20 +1470,46 @@ class Snickers implements Entity {
           const a = this.headAnchor();
           spawnMlem(this.g, a.x + (this.isFlipped() ? 12 : -12), a.y + 5, "mlem");
         }
+        if (!h.purred && this.t > h.squintAt) {
+          h.purred = true;
+          const a = this.headAnchor();
+          spawnMlem(this.g, a.x + (this.isFlipped() ? -13 : 13), a.y + 3, "purr...");
+        }
         toy.catX = this.x;
+        h.left = this.dur - this.t;
+        if (this.t > this.dur) {
+          // Up he gets: off it, over to the other side, and it's out in the open again.
+          toy.tucked = 0;
+          const side = this.x >= h.home ? -1 : 1;
+          this.stepOff(h, clamp(this.x + side * 14, h.home - PLAY, h.home + PLAY));
+        }
+        break;
+      case "up": {
+        this.walkT += dt;
+        const k = Math.min(1, this.t / this.dur);
+        this.x = h.x0 + (h.x1 - h.x0) * k;
+        this.hopY = -h.lift;
+        if (k >= 1) this.huntLook(rand(2.8, 3.8));
+        break;
+      }
+      case "gone":
+        // Still staring at where it was.
         if (this.t > this.dur) this.endHunt(yard);
         break;
     }
   }
 
-  /** He gets up, and the string's gone (he took it). */
+  /** It's over: as if nothing happened. */
   private endHunt(yard: Yard): void {
     if (this.hunt) this.hunt.toy.dead = true;
     this.hunt = null;
     this.hopY = 0;
     this.wiggle = 0;
     this.parkHere(yard, "string");
-    this.settle(rand(2, 4));
+    if (!this.lowHere()) {
+      this.frontFlip = chance(0.3);
+      this.set("groom", rand(2.5, 3.5));
+    } else this.set("loaf", rand(3, 6));
   }
 
   // The neighbor's hen.
@@ -1521,7 +1681,7 @@ class Snickers implements Entity {
       case "knock":
         return this.knock?.phase === "eye" ? "side" : "front";
       case "hunt":
-        return this.hunt?.phase === "pounce" ? "walk" : "loaf";
+        return this.hunt?.phase === "pounce" || this.hunt?.phase === "up" ? "walk" : "loaf";
       case "stare": {
         const s = this.stare;
         return s && s.sits && (s.phase === "notice" || s.phase === "watch") ? "side" : "loaf";
@@ -1531,7 +1691,10 @@ class Snickers implements Entity {
 
   /** Crouched low and side-on (his loaf with a side head), eyes locked on something. */
   private crouching(): boolean {
-    if (this.state === "hunt") return this.hunt?.phase === "crouch" || this.hunt?.phase === "land";
+    if (this.state === "hunt") {
+      const p = this.hunt?.phase;
+      return p === "crouch" || p === "land" || p === "look" || p === "gone";
+    }
     return this.state === "stare" && this.poseKind() === "loaf";
   }
 
@@ -1628,13 +1791,15 @@ class Snickers implements Entity {
           ];
         }
         if (h?.phase === "on") {
-          // Lying on it, extremely pleased with himself.
+          // Lying on it, extremely pleased with himself (and every so often, visibly so).
+          const happy = this.t < 1.6 || (this.t > h.squintAt && this.t < h.squintAt + 1.8);
           return [
             ["loafBody", 0, 0],
-            [this.t < 1.6 ? "headHappy" : blink ? "headBlink" : "headFront", HEAD_LOAF.dx, HEAD_LOAF.dy],
+            [happy ? "headHappy" : blink ? "headBlink" : "headFront", HEAD_LOAF.dx, HEAD_LOAF.dy],
             ["loafTail", this.tailT > 0 ? 1 : 0, 0],
           ];
         }
+        if (h?.phase === "up") return this.walking(blink);
         return this.crouch(true);
       }
       case "stare":
@@ -1698,17 +1863,20 @@ class Snickers implements Entity {
           ["sleepTail", 0, 0],
         ];
       }
-      case "walk": {
-        const i = Math.floor(this.walkT / WALK_FRAME) % 4;
-        const bob = i % 2 ? -1 : 0;
-        return [
-          ["walkTail", i % 2 ? 1 : 0, bob],
-          [WALK_LEGS[i] ?? "walkLegs0", 0, 0],
-          ["walkBody", 0, bob],
-          [blink ? "headSideBlink" : "headSide", HEAD_WALK.dx, HEAD_WALK.dy + bob],
-        ];
-      }
+      case "walk":
+        return this.walking(blink);
     }
+  }
+
+  private walking(blink: boolean): Layer[] {
+    const i = Math.floor(this.walkT / WALK_FRAME) % 4;
+    const bob = i % 2 ? -1 : 0;
+    return [
+      ["walkTail", i % 2 ? 1 : 0, bob],
+      [WALK_LEGS[i] ?? "walkLegs0", 0, 0],
+      ["walkBody", 0, bob],
+      [blink ? "headSideBlink" : "headSide", HEAD_WALK.dx, HEAD_WALK.dy + bob],
+    ];
   }
 
   private side(blink: boolean): Layer[] {
@@ -1805,18 +1973,45 @@ class Snickers implements Entity {
 }
 
 /**
- * Where the string goes: just right of the doorstep (where he can lie on it), else beside the
- * nearest spot that has room. `from` is where he pounces from.
+ * Where the string lands: out in the open right in front of the chest and the mailbox (portrait:
+ * the strip of yard between them and the top fence; landscape: the middle of the farm things), on
+ * the nearest spot where he can loaf anywhere within PLAY px either side of it, so the pounces, the
+ * skitters and the long loaf all stay clear of the farm things, the sign, the fence and the HUD.
  */
-function stringSpot(yard: Yard): { x: number; y: number; from: Spot } {
+function stringSpot(yard: Yard, l: Layout): Point {
+  const tx = Math.round((l.chest.x + l.mailbox.x) / 2);
+  const ty = l.portrait && yard.laneY !== null ? yard.laneY + 1 : Math.round((l.chest.y + l.mailbox.y) / 2);
+  const top = Math.min(l.chest.y, l.mailbox.y);
+  const bottom = l.portrait ? ty + 2 : Math.max(l.chest.y, l.mailbox.y) + 8;
+  let best: Point | null = null;
+  let score = Infinity;
+  // Rows nearest the target first, and no further than the best so far.
+  for (let d = 0; d <= bottom - top && d < score; d++) {
+    for (const y of d ? [ty - d, ty + d] : [ty]) {
+      if (y < top || y > bottom) continue;
+      const reach = Math.min(72, score - d) + PLAY;
+      let run = 0;
+      for (let x = tx - reach; x <= tx + reach; x++) {
+        run = yard.loafs(x, y) ? run + 1 : 0;
+        if (run <= PLAY * 2) continue;
+        const s = Math.abs(x - PLAY - tx) + d;
+        if (s < score) {
+          score = s;
+          best = { x: x - PLAY, y };
+        }
+      }
+    }
+  }
+  if (best) return best;
+  // (No such stretch of yard: just right of the doorstep, or beside the nearest spot with room.)
   const door = yard.door;
   const near = [door, ...yard.spots.filter((s) => s !== door).sort((a, b) => Math.hypot(a.x - door.x, a.y - door.y) - Math.hypot(b.x - door.x, b.y - door.y))];
   for (const s of near) {
     for (const dx of [12, 10, 14, -12, -10, -14]) {
-      if (yard.loafs(s.x + dx, s.y)) return { x: s.x + dx, y: s.y, from: s };
+      if (yard.loafs(s.x + dx, s.y)) return { x: s.x + dx, y: s.y };
     }
   }
-  return { x: door.x, y: door.y, from: door };
+  return { x: door.x, y: door.y };
 }
 
 // ---------- boot ----------
