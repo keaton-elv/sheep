@@ -557,7 +557,8 @@ export function initBigfoot(g: Game): void {
       return;
     }
     rollIn = 15;
-    if (g.time < 20 || document.hidden || isDialogOpen() || !canWalk(g) || !chance(0.3)) return;
+    // (Never under the title screen: once he's walked past, that's the evening.)
+    if (g.time < 20 || !g.shown || document.hidden || isDialogOpen() || !canWalk(g) || !chance(0.3)) return;
     spawn(g);
   });
 

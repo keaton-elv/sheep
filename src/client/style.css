@@ -94,6 +94,8 @@
 
   color-scheme: light;
   font-family: "Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  /* The farm cut's fi/fl ligatures point at the wrong glyph ("fluffy" read "Auffy"): plain letters only. */
+  font-variant-ligatures: none;
   font-size: 17px;
   line-height: 1.35;
   color: var(--ink);

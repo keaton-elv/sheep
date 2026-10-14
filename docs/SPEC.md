@@ -93,7 +93,8 @@ and desktop works great too.
   scarecrows, rarecrows, lampposts...), tools (shears), objects (wool, cloth, stardrop, forage),
   seasonal tilesets, clock box, billboard, mail paper, title-screen sky and clouds, critters, hats,
   lambs. (The fence is the log fence from the outdoor tilesets; the fonts are Pixelify Sans with its 2,
-  3, 5 and capital Z redrawn on its own pixel grid so they can't be misread; Snickers is hand-drawn.)
+  3, 5 and capital Z redrawn on its own pixel grid so they can't be misread, and ligatures off; Snickers
+  is hand-drawn.)
 - **Lambs:** a newly bought sheep arrives as a lamb (baby sheep sprite) and grows up after a day.
 - **Snickers** replaces the generic farm cat (see Critters). He's on the title page too, and his
   favorite toy (a secret item in the chest) is a piece of string.
@@ -106,6 +107,9 @@ and desktop works great too.
   - notch and home-bar safe areas
   - haptics on pet and shear (Android)
   - add-to-home-screen app icon
+- **No jump on first open:** the HUD and toolbar go up before the world is built, and the flock loads under the
+  title screen, so it fades off a finished farm.
+- **Steady toolbar:** slot icons are plain images and the hover lift snaps, so hovering never flashes a slot frame.
 
 ## Copy rules
 
@@ -124,49 +128,33 @@ and desktop works great too.
   about it. No counts anywhere. (They always change plans, then stick to the original.)
 - **The Bumblesteed:** a ladybug knight riding a bumblebee. A rare sighting drifts across the pasture,
   and Otto sometimes writes in about spotting one.
-- **First open, no jump:** the HUD and toolbar go up before the world is built, so the farm is laid out
-  around the toolbar from the start; after "Welcome home!" the flock loads under the title screen, which
-  fades off a finished farm. The clock's arrival sweep and the first-visit how-to wait for it to fade.
-- **Steady toolbar:** slot icons are plain images (not canvases) and the hover lift snaps, so the bar
-  stays one compositor layer and hovering never flashes a slot frame or the red "in your hand" frame.
-- **Bigfoot:** on a rare, date-seeded evening or dawn (always Oct 20, the Patterson-Gimlin anniversary; more
-  often in Karl the Fog) he walks past behind the top fence (landscape: along the bottom one), stops to look
-  right at you (blink, head tilt, two amber eyes), and walks on. Birds scatter, Otto and Milo jump, nearby
-  sheep go "!", Snickers couldn't care less. Tap him: a camera flash and a Blurry Photo in the chest.
-  (`?bigfoot`)
-- **Footprints:** the morning after a Bigfoot night, giant prints cross the pasture on both phones until
-  noon. Milo measured one. (`?footprints`)
-- **Wine Wednesday raccoons:** late on a Wednesday, while Otto and Milo sleep, a raccoon couple turns up arm
-  in arm by the wine. Tap them: they scatter (one goes home into the stump) and the bottle tips over.
-  (`?wineraccoons`)
-- **Cheering section:** Otto and Milo cheer every shearing, yours or the other phone's (at night they sleep
-  through it). (`?cheer`)
-- **The coffee on the fence post:** about one morning in five (same mornings on both phones, portrait), a steaming
-  mug sits on a fence post by the yard (tap: a sip). A minute or two later Snickers sits beside it, looks you dead in
-  the eye and swipes it off: three swipes. First time: *"He made eye contact the whole time."* (`?coffee`)
-- **The string, outside:** poke the string in the chest and close it, and Snickers comes running (even out of bed),
-  pounces on it three times, then loafs on top of it. When he gets up it's gone: he took it. (`?string`)
-- **Free lunch:** once in a while a seagull drops a fish by his dish (an anchovy, a sardine, now and then a salmon)
-  and Snickers eats it where it landed. *"Free lunch."* / *"SALMON. He'll be talking about this for weeks."*
+- **Bigfoot:** on a rare, date-seeded evening or dawn (always Oct 20, the Patterson-Gimlin anniversary; likelier in
+  Karl the Fog) he walks past behind the top fence (landscape: the bottom one) and stops to look right at you. Tap
+  him for a Blurry Photo in the chest. Snickers couldn't care less. (`?bigfoot`)
+- **Footprints:** giant prints cross the pasture the morning after a Bigfoot night, on both phones, until noon.
+  (`?footprints`)
+- **Otto's Bigfoot letters:** the next morning at 06:00; three take turns (in the third, he's trying to catch the J).
+  The photo's chest note: "It’s definitely him." (`?bigfootletter`)
+- **Wine Wednesday raccoons:** late on a Wednesday a raccoon couple turns up arm in arm by the wine; tap them and
+  the bottle tips over. (`?wineraccoons`)
+- **Cheering section:** Otto and Milo cheer every shearing, yours or the other phone's. (`?cheer`)
+- **Trench Coat alibis:** the day's first reveal gets a letter: Otto vouches for the raccoons, Milo denies
+  everything, Snickers ate one mosquito.
+- **The coffee on the fence post:** about one morning in five (portrait), Snickers swipes a steaming mug off a post
+  while looking you dead in the eye. (`?coffee`)
+- **The string, outside:** close the chest after poking the string and Snickers comes running, pounces, and loafs
+  on it. Then it's gone. (`?string`)
+- **Free lunch:** now and then a seagull drops a fish by his dish and Snickers wins it (sometimes a salmon).
   (`?gullfish`, `?gullfish=salmon`)
-- **The neighbor's hen:** about every other day a white hen wanders into the yard from the edge, pecks and clucks
-  (tap: a cluck and a hop). If Snickers is up and near, he crouches low and stares her down until she bawks and runs.
-  On a lucky morning a rooster crows first. First time: *"Snickers has never lost a staring contest."*
-  (`?hen`, `?hen=rooster|left|right`)
-- **Otto's Bigfoot letters:** the morning after Bigfoot walks past (06:00), Otto writes in. Three letters
-  take turns (Milo says it was Karl the Fog; wet ferns and Washington; he was trying to catch the J). The
-  blurry photo in the chest: "It’s definitely him." (?bigfootletter)
-- **Trench Coat alibis:** the first reveal of the day gets a letter. Otto vouches for the raccoons, Milo
-  denies everything (his first solo letter), and Snickers ate one mosquito.
-- **KitKat's postcards have a picture side:** little Arizona scenes built from the real Calico Desert
-  scenery (saguaros at sunset, a palm by the dunes, the skull and a cactus flower, red rocks, a
-  four-minute monsoon), each matched to what he wrote. (?kitkat=0..7)
-- **Monarchs & Mission blues:** in fall and winter a monarch glides down through the pasture "on its way
-  to Pacific Grove"; in spring, now and then a butterfly is a Mission blue. Tap one resting on the fence.
-- **The pond:** Stardew's real fish pond in the carpenter's shop ("Stow Lake, farm-sized"). Mallards fly
-  in and paddle (sometimes a mama waddles over with her ducklings), quack, and tuck their heads in at night;
-  a green turtle suns on the stones on warm days and slides in when tapped; rain frogs crowd its edge; the
-  moon shows on it at night; it freezes in winter and the ducks stay away. The sheep walk around it.
+- **The neighbor's hen:** about every other day she wanders into the yard and Snickers stares her down; on a lucky
+  morning a rooster crows first. (`?hen`, `?hen=rooster|left|right`)
+- **KitKat's postcards:** a picture side built from the real Calico Desert scenery, matched to what he wrote, and a
+  cactus-flower stamp. (`?kitkat=0..7`)
+- **Monarchs & Mission blues:** a monarch drifts through in fall and winter, a Mission blue now and then in spring;
+  tap one resting on the fence. (`?monarch`, `?missionblue`)
+- **The pond:** the carpenter's shop sells Stardew's real fish pond ("Stow Lake, farm-sized"): mallards (sometimes
+  with ducklings), a basking turtle, rain frogs, the moon on the water, ice in winter. The sheep walk around it.
+  (`?pond`, `?ducks`, `?ducklings`, `?turtle`)
 
 ## Lore (personal references; use with restraint, as winks)
 

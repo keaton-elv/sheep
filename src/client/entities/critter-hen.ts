@@ -353,7 +353,7 @@ export function initHen(g: Game): void {
     const key = dayKey(g.env.now);
     if (!force) {
       if (!henDay(key) || lsGet(DAY_KEY) === key || !henTime(g) || open < 20) return;
-      if (document.hidden || isDialogOpen() || !chance(0.15)) return;
+      if (!g.shown || document.hidden || isDialogOpen() || !chance(0.15)) return; // (once a day: not under the title screen)
       lsSet(DAY_KEY, key);
     }
     preloadSfx("cluck", "bawk", "rooster");

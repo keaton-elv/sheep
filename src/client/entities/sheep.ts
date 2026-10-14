@@ -504,6 +504,13 @@ class SheepEntity implements Entity {
     this.emote("heart");
   }
 
+  /** A pond went in right where we're standing: step off it (to bed, if we were asleep). */
+  leavePond(g: Game): void {
+    if (this.shearing || !onPond(g.layout, this.x, this.y)) return;
+    if (this.mode === "sleep") this.goToBed(g);
+    else if (this.mode === "idle" || this.mode === "graze") this.startWander(g);
+  }
+
   /** Un-sheared while walking to the barn: turn around and head back out to the pasture. */
   private comeBack(g: Game): void {
     const l = g.layout;
@@ -1535,6 +1542,7 @@ export function initSheep(g: Game): void {
       for (let i = list.length - 1; i >= 0; i--) {
         const e = list[i];
         if (e && e.data.shearedAt !== null && isRetired(e.data)) e.retire(g);
+        else e?.leavePond(g);
       }
     }
     todayCheck += dt;

@@ -340,7 +340,7 @@ export function initCoffee(g: Game, cat: CoffeeCat): void {
 
   onTick(g, "coffee", (dt) => {
     checkIn -= dt;
-    if (mug?.state === "sit" && mug.shown) {
+    if (mug?.state === "sit" && mug.shown && g.shown) {
       if (mug.catAt === Infinity) mug.catAt = g.time + (force ? 12 : rand(60, 120));
       if (g.time >= mug.catAt && !coming) {
         mug.catAt = g.time + 4; // (he's busy: ask again in a few seconds)
