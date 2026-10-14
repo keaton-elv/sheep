@@ -1,10 +1,13 @@
 // The morning coffee on the fence post. About one morning in five (the same mornings on both phones,
 // 6:00 to 10:30, dry weather), somebody leaves a steaming mug of Stardew coffee on a top-rail post
-// by the yard. Tap it for a sip. A minute or two later Snickers strolls over, sits down beside it,
-// turns to look you dead in the eye, and pushes it off the post: three swipes, eye contact the whole
-// time. It smashes in the grass, leaves a little splash until noon, and doesn't come back that day.
-// Portrait only (in landscape there's no top-rail post by his yard).
-// Debug: ?coffee puts the mug out right away (any day, hour or weather) and he comes after 12 s.
+// by the yard. Tap it for a sip. A minute or two later Snickers strolls over (getting up from his
+// nap for it), sits down beside it, turns to look you dead in the eye, and pushes it off the post:
+// three swipes, eye contact the whole time. It smashes in the grass, leaves a little splash until
+// noon, and doesn't come back that day.
+// In landscape the top rail is way up past the barn, out of his reach: there it's left on the roof
+// of the calendar board.
+// Debug: ?coffee puts the mug out right away (any day, hour or weather) and he comes after 12 s
+// (even out of his night's sleep).
 
 import { dayKey } from "../../shared/calendar";
 import { objectRegion } from "../art/regions";
@@ -16,6 +19,7 @@ import type { Layout, Point } from "../world/layout";
 import { hash2 } from "../world/world-pixels";
 import { freePosts, onLayoutChange, POST_TOP } from "./critter-place";
 import { addSafe, chance, dotPuff, lsGet, lsSet, onTick, params, rand, reducedMotion } from "./critter-util";
+import { DISH_H } from "./snickers-bowl";
 import type { Yard } from "./snickers-spots";
 
 REGIONS["item.coffee"] ??= objectRegion(395);
@@ -48,8 +52,11 @@ export interface KnockHooks {
 /** What the mug needs from Snickers (snickers.ts wires this up). */
 export interface CoffeeCat {
   yard(): Yard | null;
-  /** Walk over to `seat` and knock the mug at `mug` off: false if he's busy (asleep, eating...). */
-  knock(mug: Point, seat: Point, hooks: KnockHooks): boolean;
+  /**
+   * Walk over to `seat` and knock the mug at `mug` off: false if he's busy (asleep for the night,
+   * eating...). `forced` (?coffee): he gets up for it at any hour.
+   */
+  knock(mug: Point, seat: Point, hooks: KnockHooks, forced: boolean): boolean;
 }
 
 const seedOf = (key: string) => Number(key.replaceAll("-", ""));
@@ -60,10 +67,10 @@ function coffeeMorning(key: string): boolean {
 }
 
 interface Spotting {
-  /** The post's center x and the mug's feet (on the post cap). */
+  /** The perch's center x and the mug's feet (on the post cap, or on the calendar board's roof). */
   x: number;
   feet: number;
-  /** The fence run's feet line (the mug sorts just in front of it, like a bird on a post). */
+  /** The perch's feet line (the mug sorts just in front of it, like a bird on a post). */
   rail: number;
   /** Where Snickers sits to do it, and which way the mug falls (away from him). */
   seat: Point;
@@ -71,26 +78,44 @@ interface Spotting {
 }
 
 /**
- * A free top-rail post (clear of the gate) with room for him to sit up right beside it, close
- * enough that his paw reaches. Picked by the date, so it's the same post all morning.
+ * Where a mug could go: the free top-rail posts (clear of the gate). In landscape the top rail runs
+ * along the top of the screen, way past the barn, so: the roof of the calendar board (its left end,
+ * clear of its "!", where he can reach it from beside it), or the chest's lid. (world-objects.ts
+ * draws them 30 and 22 px tall. Not the mailbox: its letter bobs right there.)
+ */
+function perches(l: Layout): { x: number; feet: number; rail: number }[] {
+  if (!l.portrait) {
+    return [
+      { x: l.billboard.x - 8, feet: l.billboard.y - 28, rail: l.billboard.y },
+      { x: l.chest.x, feet: l.chest.y - 21, rail: l.chest.y },
+    ];
+  }
+  const out: { x: number; feet: number; rail: number }[] = [];
+  for (const p of freePosts(l, 16)) {
+    if (p.rail.top && Math.abs(p.x - l.gate.x) >= 14) out.push({ x: p.x, feet: p.rail.feet - POST_TOP + 1, rail: p.rail.feet });
+  }
+  return out;
+}
+
+/**
+ * A perch with room for him to sit up right beside it (just behind the post caps, or the board's
+ * roof), close enough that his paw reaches. Picked by the date, so it's the same post all morning.
  */
 function spotFor(l: Layout, yard: Yard, key: string): Spotting | null {
-  if (!l.portrait || yard.laneY === null) return null;
-  const lane = yard.laneY;
   const found: Spotting[] = [];
-  for (const p of freePosts(l, 16)) {
-    if (!p.rail.top || Math.abs(p.x - l.gate.x) < 14) continue;
+  for (const p of perches(l)) {
     let best: Spotting | null = null;
     // His swiping paw reaches ~9 px out from his feet: 14 px puts it right against the mug.
     for (const d of [14, 15, 13, 16, 12, 17, 18, 11, 10, 19, 20, 21, 22]) {
       for (const side of [1, -1] as const) {
         const sx = p.x + side * d;
-        // Not on the doorstep (the sheep's way in and out), and not on top of his dish.
-        if (Math.abs(sx - yard.door.x) < 16) continue;
-        if (yard.dish && Math.abs(sx - yard.dish.x) < 18) continue;
-        for (const sy of [lane, lane - 1]) {
+        for (const sy of [p.feet - 1, p.feet - 2]) {
+          // Not on the doorstep (the sheep's way in and out), and not in front of his dish.
+          if (Math.abs(sx - yard.door.x) < 16 && Math.abs(sy - yard.door.y) < 10) continue;
+          const dish = yard.dish;
+          if (dish && Math.abs(sx - dish.x) < 18 && sy > dish.y - DISH_H && sy - 25 < dish.y) continue;
           if (!yard.sitsUp(sx, sy)) continue;
-          best = { x: p.x, feet: p.rail.feet - POST_TOP + 1, rail: p.rail.feet, seat: { x: sx, y: sy }, away: side > 0 ? -1 : 1 };
+          best = { x: p.x, feet: p.feet, rail: p.rail, seat: { x: sx, y: sy }, away: side > 0 ? -1 : 1 };
           break;
         }
         if (best) break;
@@ -200,7 +225,7 @@ class Mug implements Entity {
     if (this.state !== "fall") return;
     this.ft += dt;
     const y = this.at.feet + 0.5 * 220 * this.ft * this.ft;
-    // (It falls in front of the rails, into the grass on the pasture side.)
+    // (It falls in front of the rails (or the board), into the grass.)
     this.y = Math.max(this.at.rail + 0.5, y);
     if (y >= this.landY) {
       this.state = "broken";
@@ -345,7 +370,7 @@ export function initCoffee(g: Game, cat: CoffeeCat): void {
       if (g.time >= mug.catAt && !coming) {
         mug.catAt = g.time + 4; // (he's busy: ask again in a few seconds)
         const at = mug.point;
-        if (cat.knock({ x: at.x, y: at.y }, mug.at.seat, hooks)) coming = true;
+        if (cat.knock({ x: at.x, y: at.y }, mug.at.seat, hooks, force)) coming = true;
       }
     }
     if (checkIn > 0) return;
@@ -377,7 +402,7 @@ export function initCoffee(g: Game, cat: CoffeeCat): void {
   });
 
   onLayoutChange(g, "coffee", () => {
-    // A rotation or a new window size: put it back on the right post (or nowhere, in landscape).
+    // A rotation or a new window size: put it back on the right post (or the board, in landscape).
     if (mug?.state === "fall") return;
     const yard = cat.yard();
     const s = yard ? spotFor(g.layout, yard, today()) : null;
