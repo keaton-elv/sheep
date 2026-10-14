@@ -62,7 +62,7 @@ import { nameTagVisible, positionTag, showNameTag, spawnMlem } from "./snickers-
 const FOUND_KEY = "farm.snickers.found";
 /** Exactly this, the first time ever. */
 export const LICK_BUTTON_LINE = "You found his lick button.";
-const FRENZY_TOAST = "Snickers licks the air uncontrollably...";
+const FRENZY_TOASTS = ["Snickers licks the air uncontrollably...", "Snickers loves licking toes. The air will have to do..."];
 
 /** Every few pets, a toast. He's a cat: short and dry. */
 const PET_LINES = [
@@ -72,6 +72,7 @@ const PET_LINES = [
   "Snickers is thinking about string again.",
   "Snickers misses his brother KitKat, way out in Arizona.",
   "His tongue is out. His tongue is always out.",
+  "Snickers would lick your toes, if you'd let him.",
 ];
 /** Pet mid-loaf, now and then. */
 const LOAF_LINE = "Snickers is on minute 47 of his 1 hour of loafing.";
@@ -884,7 +885,7 @@ class Snickers implements Entity {
       this.foundThisSession = true;
       if (g.time - this.lastToast > 45 && chance(0.3)) {
         this.lastToast = g.time;
-        toast(FRENZY_TOAST, { icon: "snickers.icon" });
+        toast(pick(FRENZY_TOASTS), { icon: "snickers.icon" });
       }
     }
   }
