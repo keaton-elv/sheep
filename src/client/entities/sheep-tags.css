@@ -38,9 +38,9 @@
   background: var(--tag-bg);
   color: var(--tag-ink);
   box-shadow: 0 max(1px, calc(var(--px) * 0.5)) 0 rgba(59, 35, 22, 0.35);
-  /* Compact on phones (10px, so a full flock doesn't bury the pasture), roomier and at least 13px
-     on bigger screens (below). */
-  font: 600 10px / 1.15 "Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  /* Compact on phones (9px: in Safari, with its bars, a full flock would bury the pasture), roomier
+     and at least 13px on bigger screens (below). */
+  font: 600 9px / 1.15 "Pixelify Sans", ui-rounded, system-ui, sans-serif;
   letter-spacing: 0.01em;
   white-space: nowrap;
   pointer-events: none;
@@ -109,7 +109,7 @@
   top: -0.85em;
   padding: 0.02em 0.32em 0.08em;
   border-radius: 0.3em;
-  font-size: 0.68em;
+  font-size: max(6.5px, 0.68em);
   line-height: 1.1;
 }
 .sheep-tag__done {
@@ -138,7 +138,7 @@
   border-radius: 0.18em;
   background: rgba(255, 246, 228, 0.94);
   color: #c4302b;
-  font-size: 0.62em;
+  font-size: max(6px, 0.62em);
   font-weight: 700;
   letter-spacing: 0.06em;
   transform: rotate(var(--og-rot));
