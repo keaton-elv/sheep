@@ -1,9 +1,11 @@
 // The neighbor's hen. Now and then (about every other day, the same days on both phones; once a day
 // at most per device; daytime, dry) a white hen wanders into the yard by the barn from the edge of
-// the screen, pecks about and clucks. If Snickers is up and close enough, he crouches low and stares
-// her down until she bawks and hurries back out the way she came. Tap her: a cluck and a little hop.
+// the screen, pecks about and clucks. Snickers hears her (her clucking gets him up from a nap), comes
+// over from wherever he is, crouches low and stares her down until she bawks and hurries back out
+// the way she came. (She keeps pecking until he gets there.) Tap her: a cluck and a little hop.
 // On a lucky morning a rooster crows (from a little way off) before she shows up.
-// Real frames from the White Chicken sheet (sprites/hen.png). Debug: ?hen (?hen=rooster|left|right)
+// Real frames from the White Chicken sheet (sprites/hen.png). Debug: ?hen (?hen=rooster|left|right):
+// she comes at any hour (and stays, even after dark), and he gets up for her even at night.
 
 import { dayKey } from "../../shared/calendar";
 import { preloadSfx, sfx } from "../audio";
@@ -102,8 +104,10 @@ class Hen implements Entity {
   private face: 1 | -1;
   /** Where she walks to next. */
   private tx = 0;
-  /** How long she potters about before wandering home on her own. */
+  /** How long she potters about before wandering home on her own (on hold while he's on his way). */
   private visit = rand(16, 26);
+  /** ...but never longer than this, whatever he's up to. */
+  private stay = 90;
   /** Pecks left in this burst, time into the current one, and the pause before what's next. */
   private burst = 0;
   private peckT = 0;
@@ -148,6 +152,8 @@ class Hen implements Entity {
     /** Seconds before she steps in (a rooster crows first, on a lucky morning). */
     private readonly delay: number,
     rooster: boolean,
+    /** Debug (?hen): any hour, and he always comes. */
+    private readonly forced = false,
   ) {
     const l = g.layout;
     const ln = lane(l);
@@ -197,10 +203,11 @@ class Hen implements Entity {
       // A neighbor's rooster, a little way off.
       if (this.crowIn <= 0) sfx("rooster", { volume: 0.7 });
     }
-    // Dusk, or rain: she heads home.
+    // Dusk, or rain: she heads home. (Or she's been here long enough.)
     const e = g.env;
     const pottering = this.state === "in" || this.state === "peck" || this.state === "walk" || this.state === "eyed";
-    if (pottering && (e.darkness > 0.3 || e.weather === "rain" || e.weather === "storm")) this.leave();
+    if (pottering) this.stay -= dt;
+    if (pottering && ((e.darkness > 0.3 && !this.forced) || e.weather === "rain" || e.weather === "storm" || this.stay <= 0)) this.leave();
 
     switch (this.state) {
       case "wait":
@@ -217,7 +224,8 @@ class Hen implements Entity {
         break;
       case "peck":
         this.peck(dt);
-        this.visit -= dt;
+        // (Not while he's on his way over: that'd be no fun.)
+        if (!this.stared) this.visit -= dt;
         if (this.visit <= 0 && this.burst === 0) this.leave();
         break;
       case "eyed":
@@ -241,7 +249,9 @@ class Hen implements Entity {
       this.askIn -= dt;
       if (this.askIn <= 0) {
         this.askIn = 3;
-        this.stared = snickersStare(this, this.hooks);
+        this.stared = snickersStare(this, this.hooks, this.forced);
+        // (A cluck: that's what he heard.)
+        if (this.stared) sfx("cluck", { volume: 0.55, pitch: rand(0.95, 1.08) });
       }
     }
   }
@@ -282,7 +292,8 @@ class Hen implements Entity {
     if (this.pause > 0) return;
     this.pause = rand(0.5, 1.4);
     if (chance(0.35)) sfx("cluck", { volume: 0.5, pitch: rand(0.95, 1.08) });
-    if (chance(0.35)) {
+    // (Not while he's on his way over: she stays put, so he doesn't end up nose to beak with her.)
+    if (!this.stared && chance(0.35)) {
       // A few steps somewhere else in her patch.
       const z = zone(this.g.layout, this.edge, this.laneY);
       const to = this.x + (chance(0.5) ? 1 : -1) * rand(6, 16);
@@ -364,7 +375,7 @@ export function initHen(g: Game): void {
     const edges = lane(g.layout).edges;
     const want = params.get("hen") === "right" ? 1 : params.get("hen") === "left" ? -1 : 0;
     const edge = edges.find((e) => e === want) ?? edges[Math.floor(Math.random() * edges.length)] ?? -1;
-    hen = addSafe(g, new Hen(g, edge, rooster ? 8 : 1.5, rooster), "hen");
+    hen = addSafe(g, new Hen(g, edge, rooster ? 8 : 1.5, rooster, force), "hen");
   });
 
   onLayoutChange(g, "hen", () => {

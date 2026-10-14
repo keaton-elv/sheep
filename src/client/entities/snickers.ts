@@ -103,16 +103,16 @@ const NOMS: Record<Food, readonly string[]> = {
 
 type State = "sit" | "side" | "loaf" | "groom" | "nap" | "sleep" | "walk" | "pet" | "frenzy" | "watch" | "eat" | "beg" | "knock" | "hunt" | "stare";
 
-/** Knocking the coffee off the post: eye on the mug, then on you, then swipe, pause, swipe... */
-type KnockPhase = "eye" | "look" | "swipe" | "pause" | "after";
+/** Knocking the coffee off the post: (up from his nap,) eye on the mug, then on you, then swipe, pause, swipe... */
+type KnockPhase = "wake" | "eye" | "look" | "swipe" | "pause" | "after";
 /**
  * The string: a long wiggly stalk, pounce, land (it whips out from under his paws), stalk again...
  * 4-6 times, then he lies on it for a good while. Then he gets up, steps off it and eyes it, and
  * just as he's about to go again it's yanked away.
  */
 type HuntPhase = "crouch" | "pounce" | "land" | "on" | "up" | "look" | "gone";
-/** The hen: he spots her, crouches low and stares, holds it as she runs, then watches her go. */
-type StarePhase = "notice" | "crouch" | "hold" | "watch";
+/** The hen: (her clucking wakes him,) he spots her, crouches low and stares, holds it as she runs, watches her go. */
+type StarePhase = "wake" | "notice" | "crouch" | "hold" | "watch";
 
 interface Hunt {
   toy: StringToy;
@@ -331,11 +331,11 @@ class Snickers implements Entity {
   private hopY = 0;
   /** A butt wiggle before he'd pounce (px). */
   private wiggle = 0;
-  private knock: { mug: Point; hooks: KnockHooks; phase: KnockPhase; swipes: number; hit: boolean } | null = null;
+  private knock: { mug: Point; seat: Spot; hooks: KnockHooks; phase: KnockPhase; swipes: number; hit: boolean } | null = null;
   private hunt: Hunt | null = null;
   /** Where the string lands in this yard (worked out once per yard). */
   private stringAt: { yard: Yard; at: Point } | null = null;
-  private stare: { target: Point; hooks: StareHooks; phase: StarePhase; sits: boolean } | null = null;
+  private stare: { target: Point; hooks: StareHooks; phase: StarePhase; sits: boolean; forced: boolean } | null = null;
   /** A fish to eat (the gull dropped it), instead of what's in the dish. */
   private snack: { onEat: () => void; eaten: boolean } | null = null;
 
@@ -1098,9 +1098,12 @@ class Snickers implements Entity {
     return !!(this.knock || this.hunt || this.stare || this.onArrive || this.snack);
   }
 
-  /** Up for something: awake, dry, not mid-fuss, mid-walk or mid-meal. (A nap, if `napOk`: he gets up.) */
-  private free(napOk: boolean): boolean {
-    if (!this.placed || this.sleepy || this.wet || this.busy()) return false;
+  /**
+   * Up for something: awake, dry, not mid-fuss, mid-walk or mid-meal. (A nap, if `napOk`: he gets up.
+   * Asleep for the night, if `forced`: a debug flag wants the whole moment, any hour.)
+   */
+  private free(napOk: boolean, forced = false): boolean {
+    if (!this.placed || (this.sleepy && !forced) || this.wet || this.busy()) return false;
     switch (this.state) {
       case "sit":
       case "side":
@@ -1110,7 +1113,9 @@ class Snickers implements Entity {
       case "beg":
         return true;
       case "nap":
-        return napOk;
+        return napOk || forced;
+      case "sleep":
+        return forced;
       default:
         return false;
     }
@@ -1174,14 +1179,27 @@ class Snickers implements Entity {
 
   // The coffee mug on the fence post.
 
-  /** Asked to see to the mug: walk over to `seat` beside it. False if he's not up for it right now. */
-  knockMug(mug: Point, seat: Point, hooks: KnockHooks): boolean {
-    if (!this.yard || !this.free(true)) return false;
-    this.knock = { mug, hooks, phase: "eye", swipes: 0, hit: false };
-    this.temp = { id: "mug", kind: "fence", x: Math.round(seat.x), y: Math.round(seat.y), face: "front" };
-    this.onArrive = () => this.startKnock();
-    this.walkTo(this.temp);
+  /**
+   * Asked to see to the mug: walk over to `seat` beside it (up from a nap first). False if he's not
+   * up for it right now. `forced` (?coffee): even out of his night's sleep.
+   */
+  knockMug(mug: Point, seat: Point, hooks: KnockHooks, forced = false): boolean {
+    if (!this.yard || !this.free(true, forced)) return false;
+    const spot: Spot = { id: "mug", kind: "fence", x: Math.round(seat.x), y: Math.round(seat.y), face: "front" };
+    const dozing = this.state === "nap" || this.state === "sleep";
+    this.knock = { mug, seat: spot, hooks, phase: dozing ? "wake" : "eye", swipes: 0, hit: false };
+    // Dozing: his head comes up first (he's noticed), then he gets up and strolls over.
+    if (dozing) this.set("knock", rand(1, 1.4));
+    else this.goKnock();
     return true;
+  }
+
+  private goKnock(): void {
+    const k = this.knock;
+    if (!k) return;
+    this.temp = k.seat;
+    this.onArrive = () => this.startKnock();
+    this.walkTo(k.seat);
   }
 
   private startKnock(): void {
@@ -1204,6 +1222,9 @@ class Snickers implements Entity {
       return;
     }
     switch (k.phase) {
+      case "wake":
+        if (this.t > this.dur) this.goKnock();
+        break;
       case "eye":
         // Considering the mug. Then: you.
         if (this.t > this.dur) {
@@ -1514,13 +1535,16 @@ class Snickers implements Entity {
 
   // The neighbor's hen.
 
-  /** The neighbor's hen wandered into the yard. If he's up and close enough: oh, it's on. */
-  stareDown(hen: Point, hooks: StareHooks): boolean {
+  /**
+   * The neighbor's hen wandered into the yard, clucking. Oh, it's on (even out of a nap, from across
+   * the yard). `forced` (?hen): even out of his night's sleep.
+   */
+  stareDown(hen: Point, hooks: StareHooks, forced = false): boolean {
     const yard = this.yard;
-    if (!yard || this.busy() || this.sleepy || this.wet) return false;
-    if (!this.free(false) && this.state !== "walk") return false;
+    if (!yard || this.busy() || (this.sleepy && !forced) || this.wet) return false;
+    if (!this.free(true, forced) && this.state !== "walk") return false;
     const dx = hen.x - this.x;
-    if (Math.hypot(dx, hen.y - this.y) > 150) return false;
+    const dozing = this.state === "nap" || this.state === "sleep";
     if (this.state === "walk") {
       // Stopped mid-stroll.
       this.path = [];
@@ -1530,28 +1554,35 @@ class Snickers implements Entity {
     }
     this.facing = dx >= 0 ? 1 : -1;
     this.showEmote("exclaim");
-    this.stare = { target: hen, hooks, phase: "notice", sits: !this.lowHere() };
-    this.set("stare", 0.8);
+    // Napping: ears up, a look her way (still lying down), then he's up.
+    this.stare = { target: hen, hooks, phase: dozing ? "wake" : "notice", sits: !this.lowHere(), forced };
+    this.set("stare", dozing ? rand(0.8, 1.1) : 0.8);
     return true;
   }
 
-  /** Creep closer (if she's a way off), then crouch. */
+  /** Creep closer (if she's a way off: a trot first, from across the yard), then crouch. */
   private stalk(yard: Yard): void {
     const s = this.stare;
     if (!s) return;
     const dx = s.target.x - this.x;
-    if (Math.abs(dx) > 52) {
-      const side = dx > 0 ? -1 : 1; // (stays on his side of her)
+    const far = Math.hypot(dx, s.target.y - this.y);
+    if (Math.abs(dx) > 52 || far > 60) {
+      const near = dx > 0 ? -1 : 1; // (stays on his side of her, if there's room)
       const lane = yard.laneY ?? yard.door.y;
-      for (const d of [36, 42, 30, 48]) {
-        const x = Math.round(s.target.x + side * d);
-        // (On the strip, or a row back where the fence posts' caps don't get in the way.)
-        const y = yard.loafs(x, lane) ? lane : yard.loafs(x, lane - 1) ? lane - 1 : NaN;
-        if (!Number.isFinite(y)) continue;
-        this.temp = { id: "stalk", kind: "yard", x, y, face: "front", low: !yard.sitsUp(x, y) };
-        this.onArrive = () => this.stareCrouch();
-        this.walkTo(this.temp);
-        return;
+      const dish = yard.dish;
+      for (const side of [near, -near]) {
+        for (const d of [36, 42, 30, 48, 54, 24, 60]) {
+          const x = Math.round(s.target.x + side * d);
+          // (Not on top of his dish.)
+          if (dish && Math.abs(x - dish.x) < 14 && Math.abs(lane - dish.y) < 8) continue;
+          // (On the strip, or a row back where the fence posts' caps don't get in the way.)
+          const y = yard.loafs(x, lane) ? lane : yard.loafs(x, lane - 1) ? lane - 1 : NaN;
+          if (!Number.isFinite(y)) continue;
+          this.temp = { id: "stalk", kind: "yard", x, y, face: "front", low: !yard.sitsUp(x, y) };
+          this.onArrive = () => this.stareCrouch();
+          this.walkTo(this.temp, far > 90);
+          return;
+        }
       }
     }
     this.stareCrouch();
@@ -1571,7 +1602,7 @@ class Snickers implements Entity {
 
   private updateStare(yard: Yard, l: Layout): void {
     const s = this.stare;
-    if (!s || this.wet || this.sleepy) {
+    if (!s || this.wet || (this.sleepy && !s.forced)) {
       s?.hooks.off();
       this.stare = null;
       this.wiggle = 0;
@@ -1579,6 +1610,16 @@ class Snickers implements Entity {
       return;
     }
     switch (s.phase) {
+      case "wake":
+        if (!s.hooks.alive()) return this.endStare(yard);
+        if (this.t > this.dur) {
+          // Up (sitting, where he fits), eyes on her.
+          s.phase = "notice";
+          s.sits = !this.lowHere();
+          this.t = 0;
+          this.dur = 0.7;
+        }
+        break;
       case "notice":
         if (!s.hooks.alive()) return this.endStare(yard);
         if (this.t > this.dur) this.stalk(yard);
@@ -1679,7 +1720,7 @@ class Snickers implements Entity {
       case "walk":
         return "walk";
       case "knock":
-        return this.knock?.phase === "eye" ? "side" : "front";
+        return this.knock?.phase === "eye" ? "side" : this.knock?.phase === "wake" ? "loaf" : "front";
       case "hunt":
         return this.hunt?.phase === "pounce" || this.hunt?.phase === "up" ? "walk" : "loaf";
       case "stare": {
@@ -1766,6 +1807,14 @@ class Snickers implements Entity {
       case "knock": {
         const k = this.knock;
         if (!k || k.phase === "eye") return this.side(blink);
+        if (k.phase === "wake") {
+          // Head up out of his nap. (Coffee?)
+          return [
+            ["loafBody", 0, 0],
+            [blink ? "headBlink" : "headFront", HEAD_LOAF.dx, HEAD_LOAF.dy],
+            ["loafTail", this.tailT > 0 ? 1 : 0, 0],
+          ];
+        }
         if (k.phase === "swipe") {
           // Paw up... and out.
           const flick = this.tailT > 0 ? 1 : 0;
@@ -2156,7 +2205,7 @@ export function initSnickers(g: Game): void {
     }
   });
   try {
-    initCoffee(g, { yard: () => s.currentYard(), knock: (mug, seat, hooks) => s.knockMug(mug, seat, hooks) });
+    initCoffee(g, { yard: () => s.currentYard(), knock: (mug, seat, hooks, forced) => s.knockMug(mug, seat, hooks, forced) });
   } catch (err) {
     report("coffee", err);
   }
@@ -2189,10 +2238,13 @@ export function snickersSnack(onEat: () => void, at: Point | null = null): boole
   }
 }
 
-/** The neighbor's hen is in the yard (pass her: he keeps an eye on where she is). Will he stare her down? */
-export function snickersStare(hen: Point, hooks: StareHooks): boolean {
+/**
+ * The neighbor's hen is in the yard (pass her: he keeps an eye on where she is). Will he stare her
+ * down? `forced` (?hen): yes, even at night.
+ */
+export function snickersStare(hen: Point, hooks: StareHooks, forced = false): boolean {
   try {
-    return snickers?.stareDown(hen, hooks) ?? false;
+    return snickers?.stareDown(hen, hooks, forced) ?? false;
   } catch (err) {
     report("stare", err);
     return false;

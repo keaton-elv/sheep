@@ -141,7 +141,7 @@ and desktop works great too.
 - **Cheering section:** Otto and Milo cheer every shearing, yours or the other phone's. (`?cheer`)
 - **Trench Coat alibis:** the day's first reveal gets a letter: Otto vouches for the raccoons, Milo denies
   everything, Snickers ate one mosquito.
-- **The coffee on the fence post:** about one morning in five (portrait), Snickers swipes a steaming mug off a post
+- **The coffee on the fence post:** about one morning in five, Snickers swipes a steaming mug off a post
   while looking you dead in the eye. (`?coffee`)
 - **The string, outside:** close the chest after poking the string and Snickers comes running, pounces, and loafs
   on it. Then it's gone. (`?string`)
