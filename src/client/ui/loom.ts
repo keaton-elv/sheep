@@ -402,9 +402,7 @@ function openChest(): void {
               el("span", null, "A bundle is ready!"),
             )
           : list.length
-            ? has("ui.menu.chest")
-              ? null
-              : el("span", { class: "fm-chest__idle" }, "...")
+            ? el("span", { class: "fm-chest__idle" }, "Tap something for a closer look...")
             : el("span", { class: "fm-chest__idle" }, "Empty... shear a sheep!"),
       );
     }

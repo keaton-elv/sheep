@@ -73,7 +73,7 @@ const TRIVIA = [
   "Plans change. The ORIGINAL PLAN usually wins.",
   // The local news.
   "In the news: Mayor Lurie has not visited the farm yet. The sheep remain hopeful.",
-  "Muni update: the N is running late. The sheep decided to walk.",
+  "Muni update: the J is 10 minutes away. It has been 10 minutes away for 20 minutes.",
   "Wildlife report: the parrots of Telegraph Hill are loud today. As usual.",
   "Traffic: light on the Golden Gate. Heavy porpoise traffic under it.",
   "Tilden Little Farm, Berkeley: out of celery again. The cousins regret nothing.",

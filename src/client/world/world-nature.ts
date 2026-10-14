@@ -370,13 +370,17 @@ class Tree implements Entity {
   /** Fans shaken loose this visit (they join the carpet). */
   private shaken = 0;
   private fallen = 0;
+  /** Where it was planted (the ginkgo may stand a little off it to show its crown). */
+  readonly home: { x: number; y: number };
   constructor(
     public x: number,
     public y: number,
     /** Mutable: Nature makes sure every kind (and so every seed) is somewhere on the farm. */
     public kind: TreeKind,
     private nature: Nature,
-  ) {}
+  ) {
+    this.home = { x, y };
+  }
   private get golden(): boolean {
     return this.ginkgo && this.season === "fall";
   }
@@ -754,7 +758,11 @@ export class Nature {
    */
   private assignTreeKinds(): void {
     const trees = this.trees;
-    for (const t of trees) t.ginkgo = false;
+    for (const t of trees) {
+      t.ginkgo = false;
+      t.x = t.home.x;
+      t.y = t.home.y;
+    }
     if (!trees.length) return;
     const n = dayNumber(this.g.env.now);
     if (trees.length < TREE_KINDS.length) {
@@ -796,12 +804,29 @@ export class Nature {
     const best = (list: Tree[]) => list.reduce((a, b) => (inView(b, l) > inView(a, l) ? b : a));
     const doubled = trees.filter((t) => trees.some((o) => o !== t && o.kind === t.kind));
     if (doubled.length) {
-      best(doubled).ginkgo = true;
+      const gold = best(doubled);
+      gold.ginkgo = true;
+      this.showOff(gold);
       return;
     }
     const gold = best(trees);
     gold.ginkgo = true;
+    this.showOff(gold);
     trees.filter((t) => t !== gold).forEach((t, i) => (t.kind = TREE_KINDS[(n + i) % TREE_KINDS.length]!));
+  }
+
+  /**
+   * The ginkgo is the farm's fall show-off: if the top of the screen cuts off its crown (on phones it
+   * stands between the barn and the clock), it steps down and a little left to show more of it, as
+   * long as its canopy stays clear of the barn.
+   */
+  private showOff(t: Tree): void {
+    const clipped = 80 - t.home.y;
+    if (clipped <= 0) return;
+    const barn = inflate(this.g.layout.barn, 2);
+    const dx = t.home.x - 26 > barn.x + barn.w ? -6 : 0;
+    t.x = t.home.x + dx;
+    t.y = t.home.y + Math.min(10, clipped);
   }
 
   private obstacles(l: Layout): Rect[] {
