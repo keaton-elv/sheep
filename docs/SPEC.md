@@ -141,6 +141,18 @@ and desktop works great too.
   (`?wineraccoons`)
 - **Cheering section:** Otto and Milo cheer every shearing, yours or the other phone's (at night they sleep
   through it). (`?cheer`)
+- **The coffee on the fence post:** about one morning in five (same mornings on both phones, portrait), a steaming
+  mug sits on a fence post by the yard (tap: a sip). A minute or two later Snickers sits beside it, looks you dead in
+  the eye and swipes it off: three swipes. First time: *"He made eye contact the whole time."* (`?coffee`)
+- **The string, outside:** poke the string in the chest and close it, and Snickers comes running (even out of bed),
+  pounces on it three times, then loafs on top of it. When he gets up it's gone: he took it. (`?string`)
+- **Free lunch:** once in a while a seagull drops a fish by his dish (an anchovy, a sardine, now and then a salmon)
+  and Snickers eats it where it landed. *"Free lunch."* / *"SALMON. He'll be talking about this for weeks."*
+  (`?gullfish`, `?gullfish=salmon`)
+- **The neighbor's hen:** about every other day a white hen wanders into the yard from the edge, pecks and clucks
+  (tap: a cluck and a hop). If Snickers is up and near, he crouches low and stares her down until she bawks and runs.
+  On a lucky morning a rooster crows first. First time: *"Snickers has never lost a staring contest."*
+  (`?hen`, `?hen=rooster|left|right`)
 
 ## Lore (personal references; use with restraint, as winks)
 

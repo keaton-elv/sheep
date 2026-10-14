@@ -53,6 +53,8 @@ export interface Yard {
   spineX: number | null;
   /** Would he fit sitting up with his feet here? (For fusses mid-walk, off any spot.) */
   sitsUp(x: number, y: number): boolean;
+  /** Would he fit lying down (loafed, crouched) with his feet here? */
+  loafs(x: number, y: number): boolean;
 }
 
 const mid = (a: number, b: number) => Math.round((a + b) / 2);
@@ -321,6 +323,7 @@ export function computeYard(l: Layout): Yard {
     laneY,
     spineX,
     sitsUp: (x, y) => fits(rm, Math.round(x), Math.round(y), TALL),
+    loafs: (x, y) => fits(rm, Math.round(x), Math.round(y), LOW),
   };
 }
 

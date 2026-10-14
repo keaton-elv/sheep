@@ -4,15 +4,30 @@
 //    Tap them (or near them) and they're off, with a toast the first time.
 //  - Seagulls: one or two glide over, slow and nosy (more on foggy days). Tap one and it lets you
 //    know it has its eye on your pizza.
-// Daytime only, never in rain or snow. Debug: ?parrots=1 ?gulls=1
+//  - Once in a while (a day at most, per device) a gull comes over the yard instead, carrying lunch,
+//    and drops it by Snickers' dish: an anchovy, a sardine or (rarely) a SALMON. Snickers wins.
+// Daytime only, never in rain or snow. Debug: ?parrots=1 ?gulls=1 ?gullfish (=salmon)
 
+import { dayKey } from "../../shared/calendar";
+import { objectRegion } from "../art/regions";
 import { sfx } from "../audio";
 import type { Entity, Game } from "../engine/game";
-import { draw, isReal } from "../engine/sprites";
+import { draw, isReal, REGIONS } from "../engine/sprites";
 import { toast } from "../ui/dom";
+import type { Point } from "../world/layout";
 import { GULL, PARROT } from "./critter-lore-art";
 import { claimRail, onLayoutChange, RAIL_TOP, railGaps } from "./critter-place";
-import { addSafe, chance, onAnyTap, onTick, params, rand, report } from "./critter-util";
+import { addSafe, chance, lsGet, lsSet, onAnyTap, onTick, params, rand, report } from "./critter-util";
+import { snickersDish, snickersSnack } from "./snickers";
+
+/** The fish a gull might drop (objects.png): mostly little ones, now and then the real thing. */
+const FISH = { anchovy: 129, sardine: 131, salmon: 139 } as const;
+type FishKind = keyof typeof FISH;
+for (const [name, id] of Object.entries(FISH)) REGIONS[`item.fish.${name}`] ??= objectRegion(id);
+const FISH_DAY = "farm.gull.fish";
+const FISH_FIRST = "farm.gull.fishFirst";
+const SALMON_LINE = "SALMON. He'll be talking about this for weeks.";
+const FREE_LUNCH = "Free lunch.";
 
 const easeOut = (k: number) => 1 - (1 - k) * (1 - k);
 
@@ -287,6 +302,8 @@ class Gull implements Entity {
   private readonly vx: number;
   private readonly y0: number;
   toasted = false;
+  /** Carrying something: let go of it over x. */
+  drop: { x: number; fn: (x: number, y: number) => void } | null = null;
 
   constructor(
     private g: Game,
@@ -314,6 +331,11 @@ class Gull implements Entity {
         this.flapIn = rand(2, 4.5);
         this.flap = 0;
       }
+    }
+    const d = this.drop;
+    if (d && Math.abs(this.x - d.x) < 4) {
+      this.drop = null;
+      d.fn(this.x, this.y);
     }
     const l = this.g.layout;
     if ((this.vx > 0 && this.x > l.w + 40) || (this.vx < 0 && this.x < -40)) this.dead = true;
@@ -343,17 +365,142 @@ function spawnGulls(g: Game): Gull[] {
   return out;
 }
 
+// ---------- a fish from the sky ----------
+
+const FALL = 0.55;
+const FISH_STAY = 60;
+
+/** Dropped from on high: it tumbles down (spinning in quarter turns), slaps onto the grass, bounces twice, and lies there. */
+class Fish implements Entity {
+  x: number;
+  y: number;
+  layer = 3;
+  dead = false;
+  private t = 0;
+  private landed = false;
+  private lieT = 0;
+  /** Snickers is on his way for it (if he's busy, it waits for him, asking every couple of seconds). */
+  private claimed = false;
+  private askIn = 0;
+  private readonly grav: number;
+
+  constructor(
+    readonly key: string,
+    private readonly sx: number,
+    private readonly sy: number,
+    private readonly to: Point,
+    private readonly claim: () => boolean,
+  ) {
+    this.x = sx;
+    this.y = sy;
+    this.grav = (2 * Math.max(8, to.y - sy)) / (FALL * FALL);
+  }
+
+  update(dt: number): void {
+    if (!this.landed) {
+      this.t += dt;
+      const k = Math.min(1, this.t / FALL);
+      this.x = this.sx + (this.to.x - this.sx) * k;
+      this.y = Math.min(this.to.y, this.sy + 0.5 * this.grav * this.t * this.t);
+      if (k < 1) return;
+      this.landed = true;
+      this.layer = 1;
+      this.x = this.to.x;
+      this.y = this.to.y + 0.5;
+      sfx("slap", { volume: 0.45 });
+      return;
+    }
+    this.lieT += dt;
+    if (!this.claimed && this.lieT < FISH_STAY) {
+      this.askIn -= dt;
+      if (this.askIn <= 0) {
+        this.askIn = 2.5;
+        this.claimed = this.claim();
+      }
+    }
+    // Nobody wanted it (somehow): it fades away.
+    if (this.lieT > FISH_STAY + 1.5) this.dead = true;
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    const cx = Math.round(this.x);
+    if (!this.landed) {
+      ctx.save();
+      ctx.translate(cx, Math.round(this.y) - 8);
+      ctx.rotate((Math.floor(this.t / 0.1) % 4) * (Math.PI / 2));
+      draw(ctx, this.key, -8, -8);
+      ctx.restore();
+      return;
+    }
+    // Two little bounces (2 px, then 1), then it lies flat.
+    const b = this.lieT;
+    const hop = b < 0.16 ? Math.round(2 * Math.sin((Math.PI * b) / 0.16)) : b < 0.28 ? Math.round(Math.sin((Math.PI * (b - 0.16)) / 0.12)) : 0;
+    const alpha = this.lieT > FISH_STAY ? Math.max(0, 1 - (this.lieT - FISH_STAY) / 1.5) : 1;
+    draw(ctx, this.key, cx - 8, Math.round(this.to.y) - 15 - hop, { alpha });
+  }
+}
+
+function pickFish(): FishKind {
+  if (params.get("gullfish") === "salmon") return "salmon";
+  const r = Math.random() * 12;
+  return r < 5 ? "anchovy" : r < 10 ? "sardine" : "salmon";
+}
+
+/**
+ * Maybe make this gull pass a fish run (darkness < 0.3, a day at most, 1 in 10): one gull, low over
+ * the yard, that lets go of a fish right by Snickers' dish. `force` (?gullfish) skips the odds.
+ */
+function fishRun(g: Game, force: boolean, onFish: (f: Fish) => void): Gull[] | null {
+  if (!isReal(GULL.glide)) return null;
+  const dish = snickersDish();
+  if (!dish) return null;
+  const today = dayKey(g.env.now);
+  if (!force && (g.env.darkness >= 0.3 || lsGet(FISH_DAY) === today || !chance(0.1))) return null;
+  const kind = pickFish();
+  const key = `item.fish.${kind}`;
+  const gull = addSafe(g, new Gull(g, chance(0.5), dish.y - 34, 0), "gull");
+  const to = { x: dish.x + 12, y: dish.y };
+  gull.drop = {
+    x: to.x,
+    fn: (gx, gy) => {
+      lsSet(FISH_DAY, today);
+      // (It cries about it on the way off.)
+      window.setTimeout(() => sfx("seagull", { volume: 0.3, pitch: rand(0.96, 1.04) }), 300);
+      const fish: Fish = addSafe(
+        g,
+        // Snickers heard that. It's gone at his first nom.
+        new Fish(key, gx, gy + 4, to, () =>
+          snickersSnack(() => {
+            fish.dead = true;
+            if (kind === "salmon") toast(SALMON_LINE, { icon: key });
+            else if (!lsGet(FISH_FIRST)) {
+              lsSet(FISH_FIRST, String(Date.now()));
+              toast(FREE_LUNCH, { icon: key });
+            }
+          }, to),
+        ),
+        "fish",
+      );
+      onFish(fish);
+    },
+  };
+  return [gull];
+}
+
 // ---------- spawner ----------
 
 export function initFlyers(g: Game): void {
   const forceParrots = params.has("parrots");
   const forceGulls = params.has("gulls");
+  const forceFish = params.has("gullfish");
   let flocks: ParrotFlock[] = [];
   let gulls: Gull[] = [];
+  let fish: Fish | null = null;
+  const onFish = (f: Fish) => (fish = f);
   // A decent chance of a fly-by in the first few seconds (short visits deserve wildlife too).
   let parrotIn = forceParrots ? 2 : rand(6, 18);
   let parrotFirst = true;
-  let gullIn = forceGulls ? 3 : rand(8, 22);
+  let gullIn = forceGulls || forceFish ? 3 : rand(8, 22);
   let gullFirst = true;
   let gullToasts = 0;
 
@@ -376,11 +523,11 @@ export function initFlyers(g: Game): void {
 
     gullIn -= dt;
     if (gullIn <= 0) {
-      gullIn = forceGulls ? 20 : rand(50, 120);
+      gullIn = forceGulls ? 20 : forceFish ? 25 : rand(50, 120);
       // Karl the Fog brings the gulls in.
       const p = gullFirst ? 0.2 : g.env.weather === "fog" ? 0.5 : 0.25;
       gullFirst = false;
-      if (!gulls.length && ((ok && chance(p)) || forceGulls)) gulls = spawnGulls(g);
+      if (!gulls.length && ((ok && chance(p)) || forceGulls || forceFish)) gulls = fishRun(g, forceFish, onFish) ?? spawnGulls(g);
     }
   });
 
@@ -416,7 +563,9 @@ export function initFlyers(g: Game): void {
   onLayoutChange(g, "flyers", () => {
     for (const f of flocks) for (const p of f.parrots) p.dead = true;
     for (const b of gulls) b.dead = true;
+    if (fish) fish.dead = true;
     flocks = [];
     gulls = [];
+    fish = null;
   });
 }
