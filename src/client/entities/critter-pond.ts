@@ -665,9 +665,9 @@ class Turtle implements Entity {
   state: TurtleState = "away";
   private t = 0;
   private dur = 0;
-  /** Pond-local feet on the back stones, and which way it faces. */
-  private bx = 0;
-  private by = 12;
+  /** Pond-local feet on the back stones (the ducks keep clear while it's out), and which way it faces. */
+  bx = 0;
+  by = 12;
   private face = 1;
   private lookIn = rand(5, 10);
   /** Seconds until it next feels like coming out. */
@@ -696,6 +696,8 @@ class Turtle implements Entity {
       case "away":
         if (!warm) break;
         this.wait -= dt;
+        // (Not while a duck is floating right below its stone: it waits for it to paddle off.)
+        if (this.wait <= 0 && this.flock.duckBelow(this.bx, this.by)) this.wait = 3;
         if (this.wait <= 0) {
           this.state = "climb";
           this.t = 0;
@@ -799,14 +801,30 @@ class Flock {
 
   constructor(readonly g: Game) {}
 
-  /** Distance from pond-local (lx, ly) to the nearest other duck (or where it's headed). */
+  /** Distance from pond-local (lx, ly) to the nearest other duck (or where it's headed), or the turtle. */
   roomAt(lx: number, ly: number, self: Duck): number {
-    let best = 60;
+    let best = this.turtleRoom(lx, ly);
     for (const d of this.ducks) {
       if (d === self || !d.onWater) continue;
       best = Math.min(best, Math.hypot(d.lx - lx, d.ly - ly));
     }
     return best;
+  }
+
+  /**
+   * How far a duck at pond-local (lx, ly) would be from the turtle sunning on the back stones (60 =
+   * plenty, or it's not out): a duck floating right below it would sit on top of its shell.
+   */
+  private turtleRoom(lx: number, ly: number): number {
+    const tt = this.turtle;
+    if (!tt || tt.state === "away") return 60;
+    return Math.min(60, Math.hypot(tt.bx - lx, (tt.by + 8 - ly) * 1.5));
+  }
+
+  /** Is a duck on the water just below pond-local (x, y) (where the turtle climbs out)? */
+  duckBelow(x: number, y: number): boolean {
+    for (const d of this.ducks) if (d.onWater && Math.abs(d.lx - x) < 22 && d.ly - y < 22) return true;
+    return false;
   }
 
   private canArrive(): boolean {
@@ -822,7 +840,7 @@ class Flock {
       const lx = wb.x + half + Math.random() * Math.max(1, wb.w - half * 2);
       const ly = wb.y + 6 + Math.random() * Math.max(1, wb.h - 9);
       if (!floats(a, lx, ly, half)) continue;
-      let room = 60;
+      let room = this.turtleRoom(lx, ly);
       for (const d of this.ducks) if (d.onWater || d.state === "fly") room = Math.min(room, Math.hypot(d.lx - lx, d.ly - ly));
       if (room > best) {
         best = room;

@@ -8,7 +8,7 @@
 import { dayKey } from "../../shared/calendar";
 import { preloadSfx, sfx } from "../audio";
 import { DUSK_HOUR, type Entity, type Game } from "../engine/game";
-import { draw, isReal, REGIONS, SHEETS } from "../engine/sprites";
+import { draw, isReal, REGIONS, SHEETS, type DrawOpts } from "../engine/sprites";
 import { isDialogOpen, toast } from "../ui/dom";
 import type { Layout } from "../world/layout";
 import { hash2 } from "../world/world-pixels";
@@ -116,6 +116,7 @@ class Hen implements Entity {
   private crowIn: number;
   private readonly laneY: number;
   private readonly emote = new Emote();
+  private readonly opts: DrawOpts = { flipX: false };
 
   readonly hooks: StareHooks = {
     crouch: () => {
@@ -313,7 +314,8 @@ class Hen implements Entity {
     if (this.state === "flee" && this.t >= 0.3 && !reducedMotion) lift += Math.floor(this.anim / 0.07) % 2;
     drawShadow(ctx, x, y, 10);
     const key = this.frameKey();
-    draw(ctx, key, x - 8, y - 15 - lift, { flipX: key === HEN.peck && this.face > 0 });
+    this.opts.flipX = key === HEN.peck && this.face > 0;
+    draw(ctx, key, x - 8, y - 15 - lift, this.opts);
     this.emote.draw(ctx, x, y - 16 - lift);
   }
 

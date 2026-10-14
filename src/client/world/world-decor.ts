@@ -7,7 +7,7 @@ import { sfx } from "../audio";
 import { dayKey, type Season } from "../../shared/calendar";
 import type { Decoration, DecorKind, FarmState } from "../../shared/types";
 import { tinted } from "../engine/pixelart";
-import type { Entity, Game } from "../engine/game";
+import type { Entity, Game, Light } from "../engine/game";
 import { draw, has, spriteCanvas } from "../engine/sprites";
 import { store } from "../net";
 import { el, openMenu, spriteIcon, uiRoot } from "../ui/dom";
@@ -89,6 +89,8 @@ class DecorEntity implements Entity {
   private fish = -1;
   private fishX = 0;
   private fishY = 0;
+  /** The moonlight pooling on the pond at night (reused every frame). */
+  private moonLight: Light = { x: 0, y: 0, radius: 16, color: "rgba(180,196,255,0.22)" };
   private wiggle = 0;
   /** Bee houses have honey on some days (cosmetic, per day). */
   honey = false;
@@ -191,7 +193,11 @@ class DecorEntity implements Entity {
     const top = this.y - a.h;
     const wb = a.water;
     // A little moonlight pooling on the water (the glint itself is drawn above the night).
-    if (env.darkness > 0.45 && moonOut(g)) g.addLight({ x: left + wb.x + wb.w * 0.66, y: top + wb.y + wb.h * 0.4, radius: 16, color: "rgba(180,196,255,0.22)" });
+    if (env.darkness > 0.45 && moonOut(g)) {
+      this.moonLight.x = left + wb.x + wb.w * 0.66;
+      this.moonLight.y = top + wb.y + wb.h * 0.4;
+      g.addLight(this.moonLight);
+    }
     if (env.season === "winter") {
       this.fxTimer -= dt;
       if (this.fxTimer <= 0 && !reducedMotion) {

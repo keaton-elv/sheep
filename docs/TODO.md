@@ -4,7 +4,8 @@
 
 - **Toolbar hover flash (desktop), check by eye:** the fix is in (one compositor layer, no layers added or removed on
   hover), but the flash never showed in headless Chrome, before or after. Hover slot 8 and the selected tool in real
-  Chrome and Safari to confirm.
+  Chrome and Safari to confirm, with and without unread mail: the mailbox icon's endless bounce (`tb-mail-bounce` in
+  toolbar.css) still gives slot 7 a layer of its own, so if it only flashes while mail is waiting, that's the next suspect.
 
 ## Easter eggs & random events
 
