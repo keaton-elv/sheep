@@ -312,6 +312,8 @@ function openChest(): void {
   const root = el("div", { class: "fm-chest fm-menu" });
   let selected: string | null = null;
   let secretPokes = 0;
+  /** The string's secret poke got Snickers' attention: he comes for it once the chest closes. */
+  let called = false;
   let busy = false;
   /** The bundle item each card is showing the name of (tap a slot to see what it is). */
   const peek = new Map<string, string>();
@@ -326,7 +328,10 @@ function openChest(): void {
       { label: "Loom", onClick: () => (openMenu("loom"), false) },
       { label: "Shop", icon: "item.cloth", kind: "primary", onClick: () => (openMenu("shop"), false) },
     ],
-    onClose: () => off(),
+    onClose: () => {
+      off();
+      if (called) currentGame?.emit("string");
+    },
   });
   sfx("chest");
 
@@ -552,6 +557,7 @@ function openChest(): void {
     if (item.id === "string" && selected === "string") {
       secretPokes++;
       if (secretPokes === 1) {
+        called = true;
         sfx("meow");
         toast("Somewhere outside, a grey cat's ears just perked up...", { icon: "item.string" });
         return;

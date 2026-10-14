@@ -443,6 +443,10 @@ DEBUG: ?muni starts the first pass at 2 s, repeats every 35 s, and always stops.
 
 ### 12. Plumbing for the new moments: sounds, preloads, and the string hook (group B)
 
+**Done** (Oct 13). Also plumbed for the new art: sfx 'quack', 'cluck', 'bawk', 'rooster' (a crow, the bird, stays 'crow'),
+'lap' (water lapping) and 'plop' (dropped in water), plus preloadSfx(...names) in audio.ts, which a critter calls when it shows
+up so its first sound isn't skipped while the file loads.
+
 **Why:** It keeps the two groups' files completely separate. Group A only calls sfx names and listens for 'string'. Every new sound is a real Stardew recording from the raw folders, with a synth fallback, so nothing breaks before the files ship.
 
 **Files:** src/client/audio.ts; NEW src/client/public/sounds/camera.wav, slap.wav, sip.wav, smash.wav; src/client/ui/loom.ts

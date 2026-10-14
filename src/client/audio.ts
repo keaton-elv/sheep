@@ -1,11 +1,12 @@
 // Sound effects.
 // Plays real recordings from public/sounds (see FILES): the Stardew effects, plus the critter
 // voices (the real Stardew baa, a lamb's bleat, Snickers's "Mow" and meows, birds, seagulls, a
-// bunny, the banana slug's squelch, Otto's yip). A sound can have several takes (each play picks
-// one, optionally weighted). Anything without a recording (pet, lick), or whose file fails to
-// load, is synthesized with WebAudio (oscillators, noise, filters, envelopes): every name has a
-// synth fallback. Only files listed in FILES / AMBIENCE_FILES are ever fetched: nothing probes
-// the server for recordings that might not exist (except the music, below: once per track).
+// bunny, the banana slug's squelch, Otto's yip, a duck, a hen and a rooster). A sound can have
+// several takes (each play picks one, optionally weighted). Anything without a recording (pet,
+// lick, the J's bell), or whose file fails to load, is synthesized with WebAudio (oscillators,
+// noise, filters, envelopes): every name has a synth fallback. Only files listed in FILES /
+// AMBIENCE_FILES are ever fetched: nothing probes the server for recordings that might not exist
+// (except the music, below: once per track). preloadSfx() warms a few up ahead of time.
 // Also runs a quiet ambience bed (the real Stardew loops in public/sounds/ambience: seasonal days,
 // night insects, rain, wind gusts, a campfire's crackle, the pond's babble) while unmuted.
 // And the music (public/sounds/music/<title|spring|summer|fall|winter>.m4a, if they're there):
@@ -66,7 +67,20 @@ export type Sfx =
   | "tweet" // a songbird
   | "seagull"
   | "bunny"
-  | "squelch"; // the banana slug
+  | "squelch" // the banana slug
+  // Easter-egg moments (real recordings, except the J's bell):
+  | "camera" // a camera shutter (the blurry photo)
+  | "slap" // a fish landing flat on the grass
+  | "sip" // a sip of something hot
+  | "smash" // pottery breaking (a mug off a fence post)
+  | "ding" // the J-Church streetcar's bell (synthesized: no recording)
+  // Barnyard and pond visitors (real recordings):
+  | "quack" // a duck
+  | "cluck" // a hen pottering about: a few soft bok-boks
+  | "bawk" // a startled hen
+  | "rooster" // a rooster's crow (a crow, the bird, is "crow")
+  | "lap" // water lapping: something paddling by, a ripple
+  | "plop"; // something small dropping into water
 
 export interface SfxOpts {
   /** Multiplier on the sound's own level (default 1). */
@@ -139,26 +153,35 @@ const MEOWS: readonly Take[] = [
 const FILES: Partial<Record<Sfx, Recording>> = {
   baa: "baa.wav", // the real Stardew sheep
   baaLamb: "baa-lamb.wav", // a goat kid's bleat: reads as a lamb
+  // The second take is the louder one: the gains bring both to the same loudness.
+  bawk: [{ file: "bawk1.wav", gain: 1.2 }, "bawk2.wav"],
   blip: "blip.wav",
   bunny: "bunny.wav",
+  camera: "camera.wav",
   cancel: "cancel.wav",
   chest: "chest.wav",
   chime: "chime.wav",
+  cluck: "cluck.m4a",
   coin: "coin.wav",
   croak: "croak.wav",
   crow: "crow.wav",
   door: "door.wav",
   harvest: "harvest.wav",
   chirp: "junimo.wav", // (the recording's original file name)
+  // Two takes of the pond lapping; the first was recorded ~12 dB quieter.
+  lap: [{ file: "lap1.wav", gain: 3.8 }, "lap2.wav"],
   loom: "loom.wav",
   meow: MEOWS,
   menuClose: "menuClose.wav",
   menuOpen: "menuOpen.wav",
   mow: MEOWS,
   owl: "owl.m4a",
+  plop: "plop.wav", // something dropped in the water
   pop: "pop.wav",
   purchase: "purchase.wav",
+  quack: "quack.wav",
   reward: "reward.m4a",
+  rooster: "rooster.m4a",
   rustle: "rustle.wav",
   // The takes were recorded ~20 dB apart: the gains bring each to the same loudness.
   seagull: [
@@ -168,6 +191,9 @@ const FILES: Partial<Record<Sfx, Recording>> = {
   ],
   secret: "secret.m4a",
   select: "select.wav",
+  sip: "sip.wav", // (trimmed of the dead air before the slurp)
+  slap: "slap.wav", // a fish slapping the ground (cut to its first half second)
+  smash: "smash.wav",
   snip: "snip.wav",
   sparkle: "sparkle.wav",
   splash: "splash.wav",
@@ -198,27 +224,37 @@ const FILES: Partial<Record<Sfx, Recording>> = {
 const FILE_GAIN: Partial<Record<Sfx, number>> = {
   baa: 0.9,
   baaLamb: 1.8,
+  bawk: 0.6,
   blip: 1.2,
   bunny: 15,
+  camera: 0.6,
   cancel: 2.4,
   chest: 0.9,
   chime: 1.8,
+  cluck: 0.8,
   croak: 0.6,
   crow: 0.6,
   door: 5,
   chirp: 0.65,
+  lap: 1.5, // a soft background splish, well under the critters
   loom: 0.8,
   meow: 0.3,
   menuClose: 0.9,
   menuOpen: 0.9,
   mow: 0.3,
+  plop: 1.25,
   pop: 3,
   purchase: 4,
+  quack: 0.45,
   reward: 1.3,
+  rooster: 0.4, // a neighbor's rooster, a little way off
   rustle: 2.2,
   seagull: 1.75,
   secret: 1.4,
   select: 1.3,
+  sip: 4, // the recording is very quiet
+  slap: 2,
+  smash: 0.7,
   snip: 4,
   sparkle: 4,
   splash: 1.6,
@@ -232,7 +268,7 @@ const FILE_GAIN: Partial<Record<Sfx, number>> = {
 /** Little UI sounds worth having decoded before the first tap. */
 const PRELOAD: Sfx[] = ["select", "cancel", "reward", "menuOpen", "menuClose", "blip", "pop", "snip", "purchase", "rustle", "thud", "woosh", "sparkle", "chime", "door"];
 /** Then, a little later, the small critter voices you get by tapping things (every take). */
-const PRELOAD_LATER: Sfx[] = ["baa", "baaLamb", "meow", "yip", "tweet", "bunny", "squelch"];
+const PRELOAD_LATER: Sfx[] = ["baa", "baaLamb", "meow", "yip", "tweet", "bunny", "squelch", "camera", "slap", "sip", "smash"];
 /** Sounds that never overlap themselves (or each other, within a group): a cat has one mouth. */
 const SOLO: Partial<Record<Sfx, string>> = { meow: "cat", mow: "cat" };
 
@@ -582,7 +618,10 @@ export function unlockAudio(): void {
       // Decode the little UI sounds now, so the very first click already sounds like Stardew,
       // then the critter voices once the farm has had a moment to load.
       setTimeout(() => preloadFiles(PRELOAD), 60);
-      setTimeout(() => preloadFiles(PRELOAD_LATER), 2500);
+      setTimeout(() => {
+        preloadFiles([...PRELOAD_LATER, ...preloadAsked]);
+        preloadAsked.clear();
+      }, 2500);
       emitStatus();
     }
     if (muted) {
@@ -592,6 +631,23 @@ export function unlockAudio(): void {
     wake();
   } catch (err) {
     console.warn("[audio] unlock", err);
+  }
+}
+
+/** Sounds preloadSfx() was asked for before the first tap (loaded with the critter voices). */
+const preloadAsked = new Set<Sfx>();
+
+/**
+ * Have a few sounds decoded ahead of their first play: a critter calls this when it shows up, so
+ * its first quack isn't skipped while the recording is still on its way. Cheap to call again
+ * (each file is only ever fetched once). Before the first tap it just remembers them for later.
+ */
+export function preloadSfx(...names: Sfx[]): void {
+  try {
+    if (unlocked && ctx) preloadFiles(names);
+    else for (const n of names) preloadAsked.add(n);
+  } catch (err) {
+    console.warn("[audio] preload", err);
   }
 }
 
@@ -1516,6 +1572,159 @@ const SYNTHS: Record<Sfx, Synth> = {
     });
     return 0.34;
   },
+
+  // ---- easter-egg moments (normally played from their real recordings, except the J's bell) ----
+
+  camera(d, t, p) {
+    // The shutter: two tiny, bright clicks (open, shut).
+    for (let i = 0; i < 2; i++) noise(d, t + i * 0.045, { dur: 0.008, vol: 0.45, type: "highpass", f: 2000 * p, attack: 0.001 });
+    return 0.06;
+  },
+
+  slap(d, t, p) {
+    // Wet and flat: a low thump with a smack of noise on top.
+    tone(d, t, { f: 120 * p, f2: 70 * p, dur: 0.06, vol: 0.8, attack: 0.002 });
+    noise(d, t, { dur: 0.05, vol: 0.5, type: "bandpass", f: 1600 * p, q: 0.9, attack: 0.001 });
+    return 0.07;
+  },
+
+  sip(d, t, p) {
+    // A slurp: breathy noise that swells in, then it's gone.
+    noise(d, t, { dur: 0.25, vol: 0.5, attack: 0.12, type: "bandpass", f: 1100 * p, path: [[0.25, 1900 * p]], q: 2.5, sustain: true });
+    return 0.27;
+  },
+
+  smash(d, t, p) {
+    // Crockery: three bright, staggered crashes and one shard ringing out.
+    [0, 0.04, 0.11].forEach((o, i) =>
+      noise(d, t + o, { dur: 0.16 - i * 0.03, vol: 0.55 - i * 0.12, type: "highpass", f: (1800 + i * 900) * p, attack: 0.001 }),
+    );
+    tone(d, t + 0.02, { f: 2500 * p, dur: 0.3, vol: 0.1, attack: 0.001 });
+    return 0.35;
+  },
+
+  ding(d, t, p) {
+    // The streetcar's bell, struck twice: ding-ding. Each strike's level is shared by its partials.
+    const vol = 0.25 / 2;
+    for (const o of [0, 0.18]) {
+      tone(d, t + o, { f: 1480 * p, dur: 0.6, vol, attack: 0.003 });
+      tone(d, t + o, { f: 2350 * p, dur: 0.6, vol, attack: 0.003 });
+      tone(d, t + o, { f: 3700 * p, dur: 0.6, vol: vol * 0.2, attack: 0.003 });
+    }
+    return 0.8;
+  },
+
+  // ---- barnyard and pond visitors (normally played from their real recordings) ----
+
+  quack(d, t, p) {
+    // A nasal little "wak": a buzzy voice squeezed through a narrow, honky band.
+    const path: [number, number][] = [
+      [0.03, 640 * p],
+      [0.15, 420 * p],
+    ];
+    tone(d, t, { type: "sawtooth", f: 560 * p, path, dur: 0.16, vol: 0.7, attack: 0.008, filter: { type: "bandpass", f: 1250, q: 2 } });
+    tone(d, t, { type: "square", f: 560 * p, path, dur: 0.16, vol: 0.1, filter: { type: "lowpass", f: 1400 } });
+    return 0.18;
+  },
+
+  cluck(d, t, p) {
+    // A hen talking to herself: "bok, bok, bok...", each one a little softer.
+    for (let i = 0; i < 4; i++) {
+      const f = rand(330, 380) * p;
+      const path: [number, number][] = [
+        [0.025, f * 1.15],
+        [0.08, f * 0.75],
+      ];
+      const vol = 1 - i * 0.18;
+      const ti = t + i * 0.2 + rand(0, 0.04);
+      tone(d, ti, { type: "sawtooth", f, path, dur: 0.09, vol: vol * 0.6, attack: 0.005, filter: { type: "bandpass", f: 900, q: 1.2 } });
+      tone(d, ti, { f, path, dur: 0.09, vol: vol * 0.3, attack: 0.005 });
+    }
+    return 0.9;
+  },
+
+  bawk(d, t, p) {
+    // "BAWK!": a startled squawk that jumps up and cracks.
+    const f = rand(620, 700) * p;
+    const path: [number, number][] = [
+      [0.04, f * 1.3],
+      [0.2, f * 0.9],
+    ];
+    tone(d, t, { type: "sawtooth", f: f * 0.8, path, dur: 0.22, vol: 0.7, attack: 0.006, vibRate: 32, vibDepth: 0.05, filter: { type: "bandpass", f: 1500, q: 1.2 } });
+    noise(d, t, { dur: 0.08, vol: 0.2, type: "bandpass", f: 3000 * p, q: 1.5 });
+    return 0.24;
+  },
+
+  rooster(d, t, p) {
+    // "Cock-a-doodle-doooo": three quick notes stepping up, then a long one that swells, holds and
+    // falls away, all through one raspy throat.
+    const c = ctx!;
+    const throat = c.createBiquadFilter();
+    throat.type = "bandpass";
+    throat.frequency.value = 1400;
+    throat.Q.value = 1.4;
+    throat.connect(d);
+    const note = (at: number, len: number, path: [number, number][], vol: number) => {
+      const t0 = t + at;
+      const osc = c.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(path[0]![1] * p, t0);
+      for (const [dt, f] of path.slice(1)) osc.frequency.linearRampToValueAtTime(f * p, t0 + dt);
+      // The rasp: a fast wobble in pitch.
+      const vib = c.createOscillator();
+      vib.frequency.value = 28;
+      const depth = c.createGain();
+      depth.gain.value = 18 * p;
+      vib.connect(depth).connect(osc.frequency);
+      const env = c.createGain();
+      env.gain.setValueAtTime(0.0001, t0);
+      env.gain.linearRampToValueAtTime(vol, t0 + 0.03);
+      env.gain.setValueAtTime(vol, t0 + len * 0.7);
+      env.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+      osc.connect(env).connect(throat);
+      for (const o of [osc, vib]) {
+        o.start(t0);
+        o.stop(t0 + len + 0.05);
+      }
+    };
+    note(0, 0.13, [[0, 520], [0.13, 600]], 0.2);
+    note(0.17, 0.12, [[0, 640], [0.12, 700]], 0.2);
+    note(0.33, 0.15, [[0, 700], [0.15, 780]], 0.22);
+    note(0.53, 1, [[0, 720], [0.15, 880], [0.65, 840], [1, 540]], 0.24);
+    return 1.6;
+  },
+
+  lap(d, t, p) {
+    // Water against the bank: a soft, low swash and a couple of small glugs.
+    noise(d, t, {
+      dur: 0.6,
+      vol: 0.17,
+      attack: 0.2,
+      type: "lowpass",
+      f: 900 * p,
+      path: [
+        [0.3, 1400 * p],
+        [0.6, 500 * p],
+      ],
+      sustain: true,
+    });
+    for (let i = 0; i < 2; i++) {
+      const f = rand(380, 600) * p;
+      tone(d, t + rand(0.1, 0.4), { f, f2: f * 1.6, dur: 0.06, vol: 0.05 });
+    }
+    return 0.62;
+  },
+
+  plop(d, t, p) {
+    // "Bloop": a drop's quick rising note, a little splash, then a bubble or two.
+    tone(d, t, { f: 320 * p, f2: 1100 * p, dur: 0.07, vol: 0.5, attack: 0.002 });
+    noise(d, t, { dur: 0.12, vol: 0.2, type: "lowpass", f: 2200, path: [[0.12, 600]] });
+    for (let i = 0; i < 2; i++) {
+      const f = rand(700, 1100) * p;
+      tone(d, t + 0.12 + i * rand(0.07, 0.12), { f, f2: f * 1.5, dur: 0.04, vol: 0.06 });
+    }
+    return 0.4;
+  },
 };
 
 // Some sounds would be annoying if they stacked up (typing blips, menu clicks).
@@ -1535,6 +1744,13 @@ const MIN_GAP: Partial<Record<Sfx, number>> = {
   bunny: 0.1,
   squelch: 0.12,
   yip: 0.1,
+  camera: 0.3,
+  quack: 0.1,
+  cluck: 1.2,
+  bawk: 0.15,
+  rooster: 2,
+  lap: 0.25,
+  plop: 0.1,
 };
 const lastPlayed = new Map<Sfx, number>();
 /** SOLO group -> audio-clock time its current sound finishes. */
