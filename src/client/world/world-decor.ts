@@ -1,6 +1,7 @@
 // Decorations from the carpenter's shop (scarecrows, rarecrows, lampposts, a campfire, a pond,
 // a golden sheep statue...), kept in sync with the farm state, plus "placement mode": a ghost
-// that follows your finger until you pick a spot.
+// that follows your finger until you pick a spot. The pond's art and its place in the world live
+// in world-pond.ts; its ducks, turtle and frogs in entities/critter-pond.ts.
 
 import { sfx } from "../audio";
 import { dayKey, type Season } from "../../shared/calendar";
@@ -10,10 +11,27 @@ import type { Entity, Game } from "../engine/game";
 import { draw, has, spriteCanvas } from "../engine/sprites";
 import { store } from "../net";
 import { el, openMenu, spriteIcon, uiRoot } from "../ui/dom";
-import { contains, inflate, toFraction } from "./layout";
-import { DECOR_VARIANTS, STATUE_SHINE_FRAMES, VARIANT_NAMES, decorSize, drawArt, fireFrames, getPond, lilyPads, miniPad } from "./world-art";
+import { contains, inflate, toFraction, type Rect } from "./layout";
+import { DECOR_VARIANTS, STATUE_SHINE_FRAMES, VARIANT_NAMES, decorSize, drawArt, fireFrames, lilyPads, miniPad } from "./world-art";
 import { dustPuff, fx, reducedMotion, sparkle } from "./world-fx";
 import { hash2 } from "./world-pixels";
+import {
+  debugPond,
+  drawRipples,
+  isDebugPond,
+  onPond,
+  onWater,
+  pondArt,
+  pondFeet,
+  pondPicture,
+  ponds,
+  registerPondIcon,
+  ripple,
+  setPondHidden,
+  setPondPending,
+  updateRipples,
+  type PondArt,
+} from "./world-pond";
 import { guard, safeOn, safePass } from "./world-safe";
 import { keepClear } from "./world-zones";
 import "./world.css";
@@ -25,6 +43,8 @@ const FIRE_LIGHT = "rgba(255,150,70,0.95)";
 const PUMPKIN_LIGHT = "rgba(255,170,60,0.85)";
 /** Render pass for the placement ghost: anything that must stay readable at night uses > 110. */
 const GHOST_PASS = 115;
+/** The moon on the pond at night: just above the night overlay (100), under the weather glow (110). */
+const MOON_PASS = 105;
 
 /** Clamp any variant number (even NaN or negative ones from an old save) into range. */
 function variantIndex(kind: DecorKind, variant: number, n = DECOR_VARIANTS[kind] ?? 1): number {
@@ -49,15 +69,11 @@ export function variantName(kind: DecorKind, variant: number): string | null {
 
 let game: Game | null = null;
 const entities = new Map<string, DecorEntity>();
+/** The ?pond debug pond: only on this screen, and only while the farm has no pond of its own. */
+let debugEntity: DecorEntity | null = null;
 let synced = false;
 
 // ---------- one decoration ----------
-
-interface Ripple {
-  x: number;
-  y: number;
-  t: number;
-}
 
 class DecorEntity implements Entity {
   x = 0;
@@ -70,7 +86,6 @@ class DecorEntity implements Entity {
   private t = Math.random() * 100;
   private fxTimer = Math.random() * 2;
   private shineT = -1;
-  private ripples: Ripple[] = [];
   private fish = -1;
   private fishX = 0;
   private fishY = 0;
@@ -90,15 +105,23 @@ class DecorEntity implements Entity {
     this.d = d;
     this.layer = d.kind === "pond" ? 0 : 1;
     this.key = decorKey(d.kind, d.variant);
-    if (this.pending && Math.abs(d.fx - this.pending.fx) < 0.002 && Math.abs(d.fy - this.pending.fy) < 0.002) this.pending = null;
+    if (this.pending && Math.abs(d.fx - this.pending.fx) < 0.002 && Math.abs(d.fy - this.pending.fy) < 0.002) this.setPending(null);
+  }
+
+  setPending(p: { fx: number; fy: number; until: number } | null): void {
+    this.pending = p;
+    if (this.d.kind === "pond") setPondPending(this.d.id, p);
   }
 
   update(dt: number, g: Game): void {
-    if (this.pending && g.time > this.pending.until) this.pending = null;
+    if (this.pending && g.time > this.pending.until) this.setPending(null);
     const pos = this.pending ?? this.d;
     const pa = g.layout.pasture;
-    this.x = Math.round(pa.x + pos.fx * pa.w);
-    this.y = Math.round(pa.y + pos.fy * pa.h);
+    if (this.d.kind === "pond") pondFeet(g.layout, pos.fx, pos.fy, this);
+    else {
+      this.x = Math.round(pa.x + pos.fx * pa.w);
+      this.y = Math.round(pa.y + pos.fy * pa.h);
+    }
     this.t += dt;
     if (this.wiggle > 0) this.wiggle = Math.max(0, this.wiggle - dt);
     if (this.drop > 0) {
@@ -143,7 +166,7 @@ class DecorEntity implements Entity {
         if (dark > 0.3) g.addLight({ x: this.x, y: this.y - 20, radius: 16, color: "rgba(255,220,120,0.5)" });
         break;
       case "pond":
-        this.updatePond(dt, env.season, env.weather === "rain" || env.weather === "storm");
+        this.updatePond(dt, g);
         break;
       case "tree":
         // Now and then a leaf lets go (petals in spring).
@@ -161,30 +184,32 @@ class DecorEntity implements Entity {
     }
   }
 
-  private updatePond(dt: number, season: Season, raining: boolean): void {
-    if (season === "winter") {
+  private updatePond(dt: number, g: Game): void {
+    const env = g.env;
+    const a = pondArt(env.season);
+    const left = Math.round(this.x - a.w / 2);
+    const top = this.y - a.h;
+    const wb = a.water;
+    // A little moonlight pooling on the water (the glint itself is drawn above the night).
+    if (env.darkness > 0.45 && moonOut(g)) g.addLight({ x: left + wb.x + wb.w * 0.66, y: top + wb.y + wb.h * 0.4, radius: 16, color: "rgba(180,196,255,0.22)" });
+    if (env.season === "winter") {
       this.fxTimer -= dt;
       if (this.fxTimer <= 0 && !reducedMotion) {
         this.fxTimer = 2 + Math.random() * 3;
-        sparkle(this.x + (Math.random() * 24 - 12), this.y - 13 + (Math.random() * 8 - 4), 1, 2, "#ffffff");
+        sparkle(left + wb.x + 4 + Math.random() * (wb.w - 8), top + wb.y + 3 + Math.random() * (wb.h - 6), 1, 2, "#ffffff");
       }
       return;
-    }
-    for (let i = this.ripples.length - 1; i >= 0; i--) {
-      const r = this.ripples[i]!;
-      r.t += dt;
-      if (r.t >= 1.3) this.ripples.splice(i, 1);
     }
     this.fxTimer -= dt;
     if (this.fxTimer <= 0) {
       // Raindrops dimple the pond much more often.
-      this.fxTimer = raining ? 0.15 + Math.random() * 0.25 : 1.1 + Math.random() * 1.8;
-      const pond = getPond(season);
+      const raining = env.weather === "rain" || env.weather === "storm";
+      this.fxTimer = raining ? 0.12 + Math.random() * 0.2 : 1.1 + Math.random() * 1.8;
       for (let k = 0; k < 8; k++) {
-        const x = 8 + Math.floor(Math.random() * (pond.w - 16));
-        const y = 8 + Math.floor(Math.random() * (pond.h - 14));
-        if (pond.mask[y * pond.w + x]) {
-          this.ripples.push({ x, y, t: 0 });
+        const x = wb.x + 3 + Math.floor(Math.random() * Math.max(1, wb.w - 6));
+        const y = wb.y + 3 + Math.floor(Math.random() * Math.max(1, wb.h - 6));
+        if (a.mask[y * a.w + x]) {
+          ripple(left + x, top + y);
           break;
         }
       }
@@ -193,13 +218,13 @@ class DecorEntity implements Entity {
     if (this.fish < 0) {
       if (Math.random() < dt / 25 && !reducedMotion) {
         this.fish = 0;
-        this.fishX = 14 + Math.random() * 14;
-        this.fishY = 12 + Math.random() * 4;
+        this.fishX = wb.x + 6 + Math.random() * Math.max(1, wb.w - 26);
+        this.fishY = wb.y + wb.h * (0.4 + Math.random() * 0.3);
       }
     } else {
       this.fish += dt;
       if (this.fish > 0.7) {
-        this.ripples.push({ x: Math.round(this.fishX + 6), y: Math.round(this.fishY), t: 0 });
+        ripple(left + Math.round(this.fishX + 12), top + Math.round(this.fishY));
         this.fish = -1;
       }
     }
@@ -247,34 +272,42 @@ class DecorEntity implements Entity {
   }
 
   private drawPond(ctx: CanvasRenderingContext2D, x: number, y: number, season: Season): void {
-    const pond = getPond(season);
+    const pond = pondArt(season);
+    const wb = pond.water;
     const left = Math.round(x - pond.w / 2);
     const top = Math.round(y - pond.h);
-    ctx.drawImage(pond.water, left, top);
+    ctx.drawImage(pond.bed, left, top);
     if (season !== "winter") {
-      // Glints drifting on the water.
-      ctx.fillStyle = "#9fd2f6";
-      for (let i = 0; i < 3; i++) {
-        const gx = Math.round(10 + ((this.t * (3 + i) + i * 9) % 22));
-        const gy = 9 + i * 3;
-        if (pond.mask[gy * pond.w + gx] && pond.mask[gy * pond.w + gx + 1]) ctx.fillRect(left + gx, top + gy, 2, 1);
-      }
-      // Ripple rings.
-      ctx.fillStyle = "#b8e2ff";
-      for (const r of this.ripples) {
-        const rad = 1 + r.t * 4.5;
-        ctx.globalAlpha = Math.max(0, 1 - r.t / 1.3);
-        for (let a = 0; a < 16; a++) {
-          const ang = (a / 16) * Math.PI * 2;
-          const px = Math.round(r.x + Math.cos(ang) * rad);
-          const py = Math.round(r.y + Math.sin(ang) * rad * 0.5);
-          if (px >= 0 && py >= 0 && px < pond.w && py < pond.h && pond.mask[py * pond.w + px]) ctx.fillRect(left + px, top + py, 1, 1);
+      if (pond.shimmer) {
+        // Stardew's shimmer strip, twice, drifting and breathing out of step (the rim hides its ends).
+        const sw = pond.shimmer.width;
+        for (let i = 0; i < 2; i++) {
+          const k = this.t + i * 2.3;
+          const sx = left + wb.x + Math.round((wb.w - sw) / 2 + Math.sin(k * 0.45) * 5);
+          const sy = top + wb.y + Math.round(wb.h * (0.22 + 0.4 * i) + Math.sin(k * 0.7) * 1.5);
+          ctx.globalAlpha = 0.35 + 0.45 * Math.sin(k * 0.9) ** 2;
+          ctx.drawImage(pond.shimmer, sx, sy);
+        }
+        ctx.globalAlpha = 1;
+      } else {
+        // (Hand-drawn pond) glints drifting on the water.
+        ctx.fillStyle = "#9fd2f6";
+        for (let i = 0; i < 3; i++) {
+          const gx = Math.round(10 + ((this.t * (3 + i) + i * 9) % 22));
+          const gy = 9 + i * 3;
+          if (pond.mask[gy * pond.w + gx] && pond.mask[gy * pond.w + gx + 1]) ctx.fillRect(left + gx, top + gy, 2, 1);
         }
       }
-      ctx.globalAlpha = 1;
+      drawRipples(ctx, pond, left, top);
       const pad = lilyPads[Math.floor(this.t * 1.5) % Math.max(1, lilyPads.length)];
-      if (pad) ctx.drawImage(pad, left + 7, top + 3);
-      if (miniPad) ctx.drawImage(miniPad, left + pond.w - 16, top + pond.h - 11);
+      if (pond.real) {
+        // A lily pad by the front stones, a little flowering one tucked under the far bank.
+        if (pad && season !== "fall") ctx.drawImage(pad, left + wb.x + 1, top + wb.y + wb.h - 15);
+        if (miniPad) ctx.drawImage(miniPad, left + wb.x + wb.w - 12, top + wb.y + 7);
+      } else {
+        if (pad) ctx.drawImage(pad, left + 7, top + 3);
+        if (miniPad) ctx.drawImage(miniPad, left + pond.w - 16, top + pond.h - 11);
+      }
       // The jumping fish: a little orange arc.
       if (this.fish >= 0) {
         const k = this.fish / 0.7;
@@ -293,17 +326,62 @@ class DecorEntity implements Entity {
 
   hit(wx: number, wy: number): boolean {
     if (this.hidden || placement) return false;
-    const s = decorSize(this.d.kind);
+    const s = sizeOf(this.d.kind);
     // A comfy thumb-sized target even for little things like the gnome.
     const w = Math.max(22, s.w + 4);
     const h = Math.max(22, s.h);
     return wx >= this.x - w / 2 && wx <= this.x + w / 2 && wy >= this.y - h && wy <= this.y + 4;
   }
 
-  onTap(): void {
-    this.wiggle = 0.25;
+  onTap(g: Game, wx: number, wy: number): void {
+    if (this.d.kind === "pond") {
+      // A plop where the finger lands on the water (and the pond's own menu, unless it's pretend).
+      const season = g.env.season;
+      const spot = ponds(g.layout).find((p) => p.id === this.d.id);
+      if (spot && season !== "winter" && onWater(spot, wx, wy, season)) {
+        ripple(wx, wy);
+        sfx("plop", { volume: 0.5, pitch: 1.1 });
+      }
+      if (isDebugPond(this.d.id)) return;
+    }
+    this.wiggle = this.d.kind === "pond" ? 0 : 0.25;
     openMenu("decor", this.d.id);
   }
+}
+
+/** In-world size of a kind (the pond's comes from its art: real or hand-drawn). */
+function sizeOf(kind: DecorKind): { w: number; h: number } {
+  if (kind !== "pond") return decorSize(kind);
+  const a = pondArt("spring");
+  return { w: a.w, h: a.h };
+}
+
+/** Is the sky clear enough for the moon to show on the pond? */
+function moonOut(g: Game): boolean {
+  const w = g.env.weather;
+  return w === "sunny" || w === "cloudy" || w === "windy";
+}
+
+/** The moon's reflection: three wobbling streaks, upper right of the open water. */
+function drawMoonGlint(ctx: CanvasRenderingContext2D, a: PondArt, left: number, top: number, t: number, alpha: number, frozen: boolean): void {
+  const wb = a.water;
+  const cx = left + wb.x + Math.round(wb.w * 0.66);
+  const cy = top + wb.y + Math.round(wb.h * 0.36);
+  ctx.globalAlpha = alpha;
+  for (let row = 0; row < 3; row++) {
+    const half = row === 1 ? 3 : row === 0 ? 2 : 1;
+    // Ice holds the moon still; water breaks it up a little.
+    const wob = frozen ? 0 : Math.round(Math.sin(t * 1.6 + row * 1.9) * 1.2);
+    ctx.fillStyle = row === 1 ? "#f4f8ff" : "#cddcff";
+    for (let dx = -half; dx < half; dx++) {
+      const px = cx + dx + wob;
+      const py = cy + row * 2;
+      const lx = px - left;
+      const ly = py - top;
+      if (lx >= 0 && ly >= 0 && lx < a.w && ly < a.h && a.mask[ly * a.w + lx]) ctx.fillRect(px, py, 1, 1);
+    }
+  }
+  ctx.globalAlpha = 1;
 }
 
 // ---------- syncing with the farm state ----------
@@ -327,14 +405,30 @@ function sync(state: FarmState | null): void {
   for (const [id, e] of entities) {
     if (seen.has(id)) continue;
     if (!e.hidden) dustPuff(e.x, e.y, 12);
+    if (e.d.kind === "pond") setPondHidden(id, false);
     g.remove(e);
     entities.delete(id);
   }
+  // The pretend pond steps aside once there's a real one.
+  if (debugEntity) debugEntity.hidden = !ponds(g.layout).some((p) => p.debug);
   if (state) synced = true;
 }
 
 export function initDecor(g: Game): void {
   game = g;
+  registerPondIcon();
+  const dbg = debugPond();
+  if (dbg) debugEntity = g.add(guard(new DecorEntity(dbg, false), "decor.pond"));
+  safeOn(g, "tick", "pond ripples", (dt: number) => updateRipples(dt));
+  safePass(g, MOON_PASS, "pond moon", (ctx, gg) => {
+    const env = gg.env;
+    if (env.darkness < 0.45 || !moonOut(gg)) return;
+    const a = pondArt(env.season);
+    for (const p of ponds(gg.layout)) {
+      if (p.hidden) continue;
+      drawMoonGlint(ctx, a, p.left, p.top, gg.time, Math.min(0.8, (env.darkness - 0.45) * 2.2), env.season === "winter");
+    }
+  });
   g.canvas.addEventListener("pointerdown", (ev) => (lastPointerType = ev.pointerType || "mouse"), { capture: true });
   store.changed.on((s) => {
     try {
@@ -384,18 +478,48 @@ export function isPlacing(): boolean {
   return placement !== null;
 }
 
+const touches = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
 function validSpot(g: Game, x: number, y: number, kind: DecorKind, movingId: string | null): boolean {
   const l = g.layout;
   if (!contains(l.pasture, x, y)) return false;
+  if (kind === "pond") return validPondSpot(g, x, y, movingId);
   if (l.blocked.some((r) => contains(inflate(r, 2), x, y))) return false;
   // Not in the fox & hedgehog's corner (or just above it), nor in the barn door yard: the whole
-  // base counts, so a wide pond next to the corner can't spill over the fox.
+  // base counts, so a wide decoration next to the corner can't spill over the fox.
   const half = Math.max(4, decorSize(kind).w / 2 - 2);
   const base = { x: x - half, y: y - 4, w: half * 2, h: 6 };
-  if (keepClear(l).some((r) => base.x < r.x + r.w && base.x + base.w > r.x && base.y < r.y + r.h && base.y + base.h > r.y)) return false;
+  if (keepClear(l).some((r) => touches(base, r))) return false;
+  // Nor on a pond.
+  if (onPond(l, x, y, 4)) return false;
   for (const e of entities.values()) {
     if (e.d.id === movingId || e.hidden) continue;
     if (Math.abs(e.x - x) < 10 && Math.abs(e.y - y) < 7) return false;
+  }
+  return true;
+}
+
+/**
+ * A pond (x, y = its clamped feet) takes a big bite of pasture: all of it has to stay clear of the
+ * HUD, the fox's corner, the barn door yard, the path in from the gate, other ponds and every other
+ * decoration's feet.
+ */
+function validPondSpot(g: Game, x: number, y: number, movingId: string | null): boolean {
+  const l = g.layout;
+  const a = pondArt("spring");
+  const box: Rect = { x: x - a.w / 2, y: y - a.h, w: a.w, h: a.h };
+  if (l.blocked.some((r) => touches(box, r))) return false;
+  if (keepClear(l).some((r) => touches(box, r))) return false;
+  const gt = l.gate;
+  const gateWay: Rect = gt.side === "top" ? { x: gt.x - 18, y: gt.y, w: 36, h: 40 } : { x: gt.x, y: gt.y - 18, w: 40, h: 36 };
+  if (touches(box, gateWay)) return false;
+  for (const p of ponds(l)) {
+    if (p.id === movingId || p.hidden || p.debug) continue;
+    if (touches(box, inflate({ x: p.left, y: p.top, w: p.w, h: p.h }, 4))) return false;
+  }
+  for (const e of entities.values()) {
+    if (e.d.id === movingId || e.hidden || e.d.kind === "pond") continue;
+    if (contains(inflate(box, 4), e.x, e.y)) return false;
   }
   return true;
 }
@@ -428,16 +552,24 @@ export function beginPlacement(kind: DecorKind, variant: number, movingId: strin
   if (placement) finish(null);
   return new Promise((resolve) => {
     const key = decorKey(kind, variant);
-    const art = spriteCanvas(has(key) ? key : "world.crate");
+    // (The pond's ghost is the whole pond: its icon is a half-size picture.)
+    const art = kind === "pond" ? pondPicture(g.env.season) : spriteCanvas(has(key) ? key : "world.crate");
     const good = tinted(null, art, "#7dff8a", 0.35);
     const bad = tinted(null, art, "#ff4a4a", 0.5);
     const l = g.layout;
-    let start = { x: l.pasture.x + l.pasture.w / 2, y: l.pasture.y + l.pasture.h / 2 };
+    // A pond's feet snap to where the whole pond fits inside the fence.
+    const snap = (wx: number, wy: number) => {
+      if (kind !== "pond") return { x: wx, y: wy };
+      const f = toFraction(g.layout, wx, wy);
+      return pondFeet(g.layout, f.fx, f.fy);
+    };
+    let start = snap(l.pasture.x + l.pasture.w / 2, l.pasture.y + l.pasture.h / 2);
     if (movingId) {
       const e = entities.get(movingId);
       if (e) {
         start = { x: e.x, y: e.y };
         e.hidden = true;
+        if (kind === "pond") setPondHidden(movingId, true);
       }
     }
 
@@ -469,9 +601,10 @@ export function beginPlacement(kind: DecorKind, variant: number, movingId: strin
     sfx("woosh", { volume: 0.5 });
 
     const moveTo = (wx: number, wy: number) => {
-      p.x = wx;
-      p.y = wy;
-      p.valid = validSpot(g, wx, wy, kind, movingId);
+      const at = snap(wx, wy);
+      p.x = at.x;
+      p.y = at.y;
+      p.valid = validSpot(g, at.x, at.y, kind, movingId);
       p.ok.disabled = !p.valid;
     };
     ok.disabled = !p.valid;
@@ -484,7 +617,7 @@ export function beginPlacement(kind: DecorKind, variant: number, movingId: strin
       const f = toFraction(g.layout, p.x, p.y);
       if (movingId) {
         const e = entities.get(movingId);
-        if (e) e.pending = { fx: f.fx, fy: f.fy, until: g.time + 6 };
+        e?.setPending({ fx: f.fx, fy: f.fy, until: g.time + 6 });
         dustPuff(p.x, p.y, 10);
       }
       sfx("select");
@@ -564,6 +697,7 @@ function finish(result: { fx: number; fy: number } | null): void {
   if (p.movingId) {
     const e = entities.get(p.movingId);
     if (e) e.hidden = false;
+    setPondHidden(p.movingId, false);
   }
   p.resolve(result);
 }

@@ -10,6 +10,7 @@
 //   critter-small.ts    a hummingbird among the flowers, a banana slug in the rain
 //   critter-night.ts    the opossum (plays dead!), mosquitoes around the lights on summer nights
 //   critter-trench.ts   the Trench Coat (it was raccoons / hedgehogs / mosquitoes all along)
+//   critter-pond.ts     mallards (and ducklings) on the pond, a green turtle sunning on its stones
 //   critter-lore-*.ts   art for those (hand-drawn data + real frames from companions/critters/raccoons)
 //   critter-star.ts     the rare shooting star (make a wish!)
 //   critter-place.ts    where critters can stand: grass, fence rails & posts, decorations
@@ -25,6 +26,7 @@ import { initFlyers } from "./critter-flyers";
 import { initCorner } from "./critter-fox";
 import { registerLoreArt } from "./critter-lore-art";
 import { initNight } from "./critter-night";
+import { initPond } from "./critter-pond";
 import { initSmall } from "./critter-small";
 import { initTrench } from "./critter-trench";
 import { initParticles, report } from "./critter-util";
@@ -47,6 +49,7 @@ export function initCritters(g: Game): void {
     ["small", () => initSmall(g)],
     ["night", () => initNight(g)],
     ["trenchcoat", () => initTrench(g)],
+    ["pond", () => initPond(g)],
   ];
   for (const [name, init] of parts) {
     try {

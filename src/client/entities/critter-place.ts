@@ -9,6 +9,7 @@ import type { DecorKind } from "../../shared/types";
 import type { Game } from "../engine/game";
 import { store } from "../net";
 import { contains, fromFraction, inflate, type Layout, type Point, type Rect } from "../world/layout";
+import { onPond } from "../world/world-pond";
 import { critterZone, signFeet } from "../world/world-zones";
 import { report } from "./critter-util";
 
@@ -249,6 +250,7 @@ export function openGrass(l: Layout, x: number, y: number, margin = 8): boolean 
   for (const b of l.blocked) if (overlaps(body, b)) return false;
   if (contains(critterZone(l), x, y)) return false;
   for (const d of decorPoints(l)) if (Math.abs(d.x - x) < 12 && y > d.y - 14 && y < d.y + 5) return false;
+  if (onPond(l, x, y, 6)) return false;
   return true;
 }
 

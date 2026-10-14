@@ -124,6 +124,12 @@ and desktop works great too.
   about it. No counts anywhere. (They always change plans, then stick to the original.)
 - **The Bumblesteed:** a ladybug knight riding a bumblebee. A rare sighting drifts across the pasture,
   and Otto sometimes writes in about spotting one.
+- **Monarchs & Mission blues:** in fall and winter a monarch glides down through the pasture "on its way
+  to Pacific Grove"; in spring, now and then a butterfly is a Mission blue. Tap one resting on the fence.
+- **The pond:** Stardew's real fish pond in the carpenter's shop ("Stow Lake, farm-sized"). Mallards fly
+  in and paddle (sometimes a mama waddles over with her ducklings), quack, and tuck their heads in at night;
+  a green turtle suns on the stones on warm days and slides in when tapped; rain frogs crowd its edge; the
+  moon shows on it at night; it freezes in winter and the ducks stay away. The sheep walk around it.
 
 ## Lore (personal references; use with restraint, as winks)
 

@@ -15,6 +15,7 @@ import { clamp, type Entity, type Game } from "../engine/game";
 import { api, isLamb, isRetired, serverNow, store } from "../net";
 import { openMenu, toast } from "../ui/dom";
 import { contains, fromFraction, inflate, type Layout, type Point, type Rect } from "../world/layout";
+import { onPond, steerAround } from "../world/world-pond";
 import { drawEmote, registerEmoteArt, type EmoteKind } from "./emotes";
 import { FEET, FRAME, buildSheepArt, drawSheepFrame, type SheepArt } from "./sheep-art";
 import { SNIP_TIMES, WOOL_FLIGHT_TIME, initSheepFx, launchWool, spawnPlusHeart, spawnPuff, spawnSparkle, spawnTufts, startShears } from "./sheep-fx";
@@ -246,6 +247,7 @@ function freeSpot(x: number, y: number, l: Layout): boolean {
   const bx = x - 11;
   const by = y - 22;
   for (const b of l.blocked) if (bx < b.x + b.w && bx + 22 > b.x && by < b.y + b.h && by + 25 > b.y) return false;
+  if (onPond(l, x, y, 4)) return false;
   const decor = store.state?.decorations;
   if (decor) {
     for (const d of decor) {
@@ -847,8 +849,10 @@ class SheepEntity implements Entity {
   private followPath(dt: number, g: Game): void {
     const target = this.path[0];
     if (!target) return this.arrive(g);
-    const dx = target.x - this.x;
-    const dy = target.y - this.y;
+    // Round a pond, not across it: the aim is a corner of it (always > 1 step away) until the way is clear.
+    const aim = steerAround(g.layout, this.x, this.y, target);
+    const dx = aim.x - this.x;
+    const dy = aim.y - this.y;
     const d = Math.hypot(dx, dy);
     const lamb = this.lambNow;
     const speed = this.p.speed * (this.mode === "walk" ? 1 : 1.1) * (lamb ? LAMB_SPEED : 1) * (this.follow ? LAMB_TROT : 1);

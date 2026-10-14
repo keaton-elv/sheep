@@ -19,7 +19,7 @@ export const DECOR_INFO: Record<DecorKind, DecorInfo> = {
   beehouse: { name: "Bee House", desc: "Home for some very busy bees. Bzzz...", glyph: "⬢" },
   pumpkin: { name: "Pumpkin", desc: "A giant pumpkin. Half Moon Bay would be proud.", glyph: "●" },
   tree: { name: "Tree", desc: "Not quite Muir Woods. The sheep nap under it anyway.", glyph: "♣" },
-  pond: { name: "Pond", desc: "Might hold a legendary fish. Snickers is keeping a close eye on it...", glyph: "≈" },
+  pond: { name: "Pond", desc: "Stow Lake, farm-sized. The ducks will find it.", glyph: "≈" },
   gnome: { name: "Garden Gnome", desc: "He's watching the sheep. Lovingly. Constantly...", glyph: "♠" },
   sheepstatue: { name: "Sheep Statue", desc: "A grand monument to fluff.", glyph: "♛" },
 };

@@ -18,6 +18,7 @@ import { GINKGO_LEAF, GINKGO_LEAF_EDGE, GINKGO_LEAF_SMALL, type ArtData } from "
 import { dustPuff, fx, reducedMotion } from "./world-fx";
 import type { Ground } from "./world-ground";
 import { flipPx, hash2, remapPx, rowsToPx } from "./world-pixels";
+import { onPond } from "./world-pond";
 import { guard, safeOn } from "./world-safe";
 import { canvasPx, ctx2d, cut, makeCanvasEl, pxCanvas } from "./world-sheets";
 import { doorYard, keepClear, signFeet } from "./world-zones";
@@ -870,6 +871,7 @@ export class Nature {
       !l.blocked.some((b) => contains(inflate(b, 6), x, y)) &&
       !clearZones.some((z) => overlaps(footprint(x, y), z)) &&
       !decor.some((d) => Math.abs(d.x - x) < 18 && y > d.y - 40 && y < d.y + 10) &&
+      !onPond(l, x, y, 8) &&
       !taken.some((t) => Math.abs(t.x - x) < 16 && Math.abs(t.y - y) < 14) &&
       !this.ground.isDirt(x, y);
     // What grows today (and whether there are worms) depends only on the date, so both farmers find
