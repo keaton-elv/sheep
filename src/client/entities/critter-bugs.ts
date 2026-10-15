@@ -538,12 +538,13 @@ export function initBugs(g: Game): void {
       }
     }
 
-    // The Bumblesteed: a rare sighting on a fine day (about once every half hour or so of farm time).
+    // The Bumblesteed: a rare sighting on a fine day (about once every half hour or so of daytime
+    // farm time, spring through fall; the bees sleep through winter).
     if (steed?.dead) steed = null;
     steedIn -= dt;
     if (steedIn <= 0) {
       steedIn = forceSteed ? 25 : rand(60, 120);
-      const p = season === "spring" || season === "summer" ? 0.05 : season === "fall" ? 0.025 : 0;
+      const p = season === "winter" ? 0 : 0.05;
       if (!steed && ((bugTime(g) && chance(p)) || forceSteed)) steed = addSafe(g, new Bumblesteed(g, forceSteed), "bumblesteed");
     }
 
