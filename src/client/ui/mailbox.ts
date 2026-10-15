@@ -704,7 +704,12 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
       if (bundle?.id === "junk") {
         return { ...base, greeting: "Mow.", body: "You traded the rusty spoon for cloth. I was going to knock that off a table...", sign: SNICKERS, gift: sack };
       }
-      return e.id % 2
+      if (bundle?.id === "research") {
+        return { ...base, greeting: "Psst!", body: "The Field Research Bundle is in. Milo wants to publish. I told him nobody believes a hedgehog...", sign: OTTO, gift: sack };
+      }
+      // Snickers only writes about the snack sacks (the forage ones); the dig bundles get Otto.
+      const snacks = bundle ? bundle.items.every((k) => k.startsWith("item.forage.")) : true;
+      return e.id % 2 || !snacks
         ? {
             ...base,
             greeting: "Psst!",

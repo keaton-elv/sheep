@@ -129,8 +129,15 @@ const SACK_COLORS: Record<string, readonly [string, string, string, string, stri
   summer: ["#e8a51e", "#ffe07a", "#a8650e", "#f5c440", "#c8861a"],
   fall: ["#d0602a", "#f5a060", "#8e3414", "#e88040", "#b04a1c"],
   winter: ["#5a8fd8", "#a8d0ff", "#33589a", "#7aaef0", "#4672b8"],
+  wild: ["#e86f8f", "#ffb0c4", "#a83a5a", "#f590aa", "#c85074"],
+  exotic: ["#c8403c", "#f08a7a", "#82221e", "#e0605a", "#a83430"],
   seeds: ["#9a6a3a", "#d0a070", "#5e3e1e", "#b8844a", "#7a522a"],
   junk: ["#9a62c8", "#d0a8f0", "#5e3488", "#b484e0", "#7a4aa8"],
+  beach: ["#2fa8a0", "#84e0d4", "#1a6a66", "#50c8bc", "#258a84"],
+  antiques: ["#7d8396", "#c0c6d6", "#4a4f60", "#9aa0b2", "#646a7c"],
+  // The two rarest wear gold ruffles: charcoal for the deepest digs, night blue for the sightings.
+  rare: ["#4a4038", "#7a6a5c", "#2a221c", "#e8c040", "#b08c20"],
+  research: ["#3e4a9a", "#8090e0", "#222a60", "#f0d060", "#c0a030"],
 };
 
 /** The sack sprite for a bundle (a plain brown one for any bundle without its own color). */

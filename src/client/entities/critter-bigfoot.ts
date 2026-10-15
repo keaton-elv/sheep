@@ -14,13 +14,14 @@ import { preloadSfx, sfx } from "../audio";
 import { currentGame, DUSK_HOUR, type Entity, type Game, type Light } from "../engine/game";
 import { makeCanvas } from "../engine/pixelart";
 import { draw, isReal, REGIONS, SHEETS, sheet, type DrawOpts } from "../engine/sprites";
-import { api, ApiError, store } from "../net";
+import { store } from "../net";
 import { isDialogOpen, toast } from "../ui/dom";
 import type { Layout } from "../world/layout";
 import { smoothstep } from "../world/sky-light";
 import { signFeet } from "../world/world-zones";
 import { hash2 } from "../world/world-pixels";
 import { critterReact, critterStartle, hangout } from "./critter-fox";
+import { BLURRY_PHOTO, sendToChest } from "./critter-keepsake";
 import { claimBottomLane, FENCE_HIDE, onLayoutChange, openGrass } from "./critter-place";
 import { addSafe, chance, drawShadow, inBox, lsGet, lsSet, onTick, params, rand, reducedMotion, report } from "./critter-util";
 import { sheepStartle } from "./sheep";
@@ -37,7 +38,7 @@ const WALK = Array.from({ length: 8 }, (_, i) => cell(`critter.bigfoot.walk.${i}
 const FRONT = Array.from({ length: 8 }, (_, i) => cell(`critter.bigfoot.front.${i}`, 32 * i, 48));
 cell("critter.bigfoot.icon", 4, 48, 24, 24);
 
-export const PHOTO = "item.artifact.blurry-photo";
+export const PHOTO = BLURRY_PHOTO;
 export const PRINT = "critter.bigfoot.print";
 
 /**
@@ -314,20 +315,10 @@ class Bigfoot implements Entity {
     this.frameT = 0;
     if (this.snapped) return;
     this.snapped = true;
+    // (The toast already says it's a photo, so no extra "→ chest" line.)
     toast("Got him! ...It's blurry.", { icon: PHOTO });
-    sendPhoto(1);
+    sendToChest(PHOTO);
   }
-}
-
-function sendPhoto(retries: number): void {
-  api.collectItem(PHOTO).catch((err: unknown) => {
-    const status = err instanceof ApiError ? err.status : 0;
-    if (retries > 0 && (status === 0 || status >= 500)) {
-      window.setTimeout(() => sendPhoto(retries - 1), 4000);
-      return;
-    }
-    toast("Couldn't reach the chest...", { icon: PHOTO });
-  });
 }
 
 // ---------- the flash ----------

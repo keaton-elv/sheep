@@ -127,7 +127,7 @@ and desktop works great too.
   card offers "Go back to the ORIGINAL PLAN?" once a plan has changed, and the sheep writes a letter
   about it. No counts anywhere. (They always change plans, then stick to the original.)
 - **The Bumblesteed:** a ladybug knight riding a bumblebee. A rare sighting drifts across the pasture,
-  and Otto sometimes writes in about spotting one.
+  and Otto sometimes writes in about spotting one. Hail it for Royal Honey in the chest (see Keepsakes).
 - **Bigfoot:** on a rare, date-seeded evening or dawn (always Oct 20, the Patterson-Gimlin anniversary; likelier in
   Karl the Fog) he walks past behind the top fence (landscape: the bottom one) and stops to look right at you. Tap
   him for a Blurry Photo in the chest. Snickers couldn't care less. (`?bigfoot`)
@@ -162,8 +162,10 @@ and desktop works great too.
 - **San Francisco:** parks, bakeries (Tartine, Arsicault...), coffee (Blue Bottle, Sightglass, Ritual, Philz),
   hikes (Muir Woods, Mt. Tam, Point Reyes...), Karl the Fog, Muni & BART, the wild parrots of Telegraph Hill,
   banana slugs, a light Mayor Daniel Lurie mention, Bay to Breakers, Outside Lands, Fleet Week, Hardly Strictly
-  Bluegrass. Never San Jose.
-- **Washington roots:** Sumner (Rhubarb Pie Capital of the World) and Bonney Lake. Lavender. Coffee.
+  Bluegrass, the Sutro Baths ruins at Lands End (Sutro's museum of curios; Laffing Sal at the Musée Mécanique).
+  Never San Jose.
+- **Washington roots:** Sumner (Rhubarb Pie Capital of the World) and Bonney Lake (its bundle: salmonberries,
+  wild onions and morels, what spring tastes like there). Lavender. Coffee.
 - **Snickers:** says "Mow", loves string, Fancy Feast and Whisker Lickins, would eat salmon for every meal; his
   brother **KitKat** lives in Arizona (sends the occasional postcard).
 - **Things she loves:** 1 hour of loafing, 3 hours in the black hole, salmon sashimi (also the ranch's joke
@@ -173,8 +175,32 @@ and desktop works great too.
   coat (the Trench Coat easter egg); she goes to sketching meetups all the time; nobody wants to go to karaoke;
   Wine Wednesday; sometimes Thursday is THURSDAY!!!!!; they always end up on the ORIGINAL PLAN.
 - **ORIGINAL PLAN** covers the plan's name and its date (moving the date away and back counts too).
-- **Chest & bundles:** forage, tree seeds and dug-up artifacts go into the shared chest; Community Center–style
-  bundles (seasonal foraging, tree seeds, treasure) trade one of each item for cloth.
+- **Chest & bundles:** forage, tree seeds, dug-up artifacts and the rare visitors' keepsakes go into the shared
+  chest; Community Center–style bundles trade one of each item for cloth, again and again. Every item the farm
+  gives belongs to exactly one bundle.
+  - **The chest has two tabs** (remembered for the visit): *Chest* (the 6-wide slots, forage → tree seeds → digs →
+    keepsakes; tap one for a closer look, and "For the X Bundle" opens that bundle) and *Bundles*, with a gold dot
+    when one is ready.
+  - **Bundles tab = the Community Center board:** 12 sacks in a fixed 4 x 3 order, never reshuffled. Each tile
+    has its sack, a short label, a pip per item and ★×N once done; ready ones wiggle with a gold ring; one whose
+    missing items can't turn up this season fades (never hides). The open bundle's card sits below the board:
+    slots (tap one for where to find it), +N cloth, Complete!
+  - **The twelve** (cloth): Spring, Summer (+ Fiddlehead Fern), Fall, Winter (+ Holly) Foraging (1 each);
+    Bonney Lake (Salmonberry, Spring Onion, Morel; 1); Exotic Foraging (Red Mushroom, Chanterelle, Purple
+    Mushroom, Coffee Bean; 2); Tree Seed (1); Treasure (Rusty Spoon, Rusty Cog, Glass Shards; 1); Beachcomber
+    (Anchor, Dried Starfish, Chipped Amphora; 2); Sutro Baths (Arrowhead, Ancient Doll, Chicken Statue,
+    Ornamental Fan, Lost Book; 2); Rare Finds (Elvish Jewelry, Bone Flute, Rare Disc, Dinosaur Egg; 3); Field
+    Research (the five keepsakes; 5, exactly a Sheep Statue).
+  - **Odds:** only the four seasonal Foraging bundles' items turn up twice as often as other forage. Worms most
+    days, a second patch every other day.
+  - **Never rename or re-id a bundle:** completions are counted per id on the server, and the mailbox finds a
+    bundle's sack by its name. Snickers writes about the forage ones, Otto about the rest.
+- **Keepsakes (the Field Research Bundle):** the first tap per sighting leaves one in the shared chest, with a
+  "→ chest" toast after the event's own. Hail a Bumblesteed: Royal Honey. Catch a golden ladybug: Pocket
+  Sunshine. Snap Bigfoot: the Blurry Photo. Unmask the Trench Coat: a Suspicious Fedora. Wish on a shooting
+  star: Stardust (the first wish of an evening per phone, so a meteor shower doesn't fill the chest). The bugs
+  sleep through winter, so honey and sunshine wait for spring. Forcing an event with its debug flag (`?bumblesteed`,
+  `?golden`, `?bigfoot`, `?trenchcoat`, `?star`, which also skips the Stardust limit) drops a real keepsake.
 - **Economy (short sessions):** the loom takes 4 wool; 10% of sheep are golden (2 wool).
 
 ## Mobile & accessibility rules

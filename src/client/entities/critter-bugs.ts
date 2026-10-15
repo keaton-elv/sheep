@@ -1,11 +1,11 @@
 // Bugs, tiny and hand-drawn:
 //  - Ladybugs crawl slowly over the grass, up and down fence posts and over the flower tubs.
 //    Tap one and it flutters off: it's your lucky day (once a day). A very rare golden one is
-//    extra lucky.
+//    extra lucky (and leaves Pocket Sunshine in the chest).
 //  - Bumblebees bumble from flower to flower (tubs, pumpkins, blossoming trees, the corner's
 //    wildflowers) and keep a little cluster busy around every bee house you've placed.
 //  - The Bumblesteed: a ladybug knight riding a bumblebee. A rare sighting, galloping across
-//    the pasture; tap it to hail the knight.
+//    the pasture; tap it to hail the knight (Royal Honey goes in the chest).
 // Lots in spring & summer, a few in fall, none in winter; none at night or in the rain.
 // Debug: ?ladybug=1 (more ladybugs, sooner), ?golden=1 (the next ladybug is golden), ?bees=1,
 // ?bumblesteed=1
@@ -17,6 +17,7 @@ import type { Layout } from "../world/layout";
 import { dayKey } from "../../shared/calendar";
 import { toast } from "../ui/dom";
 import { hangout, wineDay } from "./critter-fox";
+import { keepsake, POCKET_SUNSHINE, ROYAL_HONEY } from "./critter-keepsake";
 import { decorPoints, freePosts, onLayoutChange, openGrass, pastureSpot, wildflowers } from "./critter-place";
 import { addSafe, chance, drawShadow, inBox, lsGet, lsSet, onAnyTap, onTick, params, rand, report, sparkleBurst } from "./critter-util";
 
@@ -228,6 +229,8 @@ class Ladybug implements Entity {
       sfx("secret");
       sparkleBurst(this.px, this.py - 2, 8, 14);
       toast("A golden ladybug!! Rarer than a sunny day in the Sunset.", { icon: "critter.goldbug.icon" });
+      // (It flies off, so this happens once per golden ladybug.)
+      keepsake(POCKET_SUNSHINE, "Pocket Sunshine");
       return;
     }
     if (lsGet(LUCKY_KEY) !== today) {
@@ -489,6 +492,7 @@ class Bumblesteed implements Entity {
     sfx("secret");
     sparkleBurst(this.px, this.py - 3, 8, 14);
     toast("A Bumblesteed! A ladybug knight on her trusty bee.", { icon: "critter.bumblesteed.icon" });
+    keepsake(ROYAL_HONEY, "Royal Honey");
     bumblesteedSighted(this.g);
   }
 }

@@ -166,6 +166,68 @@
 .sv-dialog.fm-chest-dialog {
   width: min(470px, 100%);
 }
+
+/* Chest | Bundles: two big buttons under the title; the one showing looks pressed in, like a slot. */
+.fm-chest__tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 4px 8px;
+}
+.fm-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 8px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: none;
+  cursor: pointer;
+  border-style: solid;
+  border-width: calc(var(--fm-px) * 3);
+  border-color: transparent;
+  border-image: var(--img-button) 4 fill / calc(var(--fm-px) * 3) stretch;
+  image-rendering: pixelated;
+  touch-action: manipulation;
+}
+.fm-tab.is-on {
+  color: var(--ink);
+  border-image: var(--img-slot) 5 fill / calc(var(--fm-px) * 3) stretch;
+  text-shadow: 1px 1px 0 rgba(255, 240, 200, 0.7);
+}
+.fm-tab:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 0 var(--focus)) drop-shadow(0 0 calc(var(--fm-px) * 1.5) var(--focus));
+}
+@media (hover: hover) {
+  .fm-tab:not(.is-on):hover {
+    color: var(--ink);
+    border-image-source: var(--img-button-hover);
+  }
+}
+.fm-tab__icon {
+  flex: none;
+  margin: -6px 0;
+}
+.fm-tab:not(.is-on) .fm-tab__icon {
+  opacity: 0.8;
+}
+/* "A bundle is ready!" */
+.fm-tab__dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  background: #ffc93a;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1.5px #8a5208,
+    0 0 6px 1px rgba(255, 214, 90, 0.9);
+}
 /* 6 x 4 slots, like a (small) Stardew chest. */
 .fm-chest__grid {
   display: grid;
@@ -270,15 +332,33 @@ button.fm-slot:focus-visible {
   color: var(--ink-soft);
   font-style: italic;
 }
+/* "For the X Bundle": opens that bundle on the Bundles tab. A fingertip tall, without making the box taller. */
 .fm-chest__for {
+  align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-height: 40px;
+  margin: -8px 0 -10px -4px;
+  padding: 0 4px;
+  font: inherit;
   font-size: 0.85em;
   font-weight: 700;
   color: #8a3c0e;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(138, 60, 14, 0.4);
+  text-underline-offset: 3px;
+  touch-action: manipulation;
 }
-/* "A bundle is ready!": jumps down to it. */
+.fm-chest__for:focus-visible {
+  outline: 2px dashed #8a3c0e;
+  outline-offset: -6px;
+}
+/* "A bundle is ready!": opens it on the Bundles tab. */
 .fm-chest__nudge {
   display: inline-flex;
   align-items: center;
@@ -306,64 +386,212 @@ button.fm-slot:focus-visible {
 
 /* ---------- bundles (Community Center style) ---------- */
 
-.fm-bundles {
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 2px dashed rgba(201, 147, 90, 0.6);
-}
-.fm-bundles__title {
-  text-align: center;
-}
-.fm-bundles__list {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-}
-
-/* Each bundle wears its sack's color on a little ribbon along the top. */
-.fm-bundle {
+/* Each bundle wears its sack's color: the board's tiles and the open bundle's ribbon. */
+.fm-bundle,
+.fm-sack {
   --bc: #9a6a3a;
   --bc-dark: #5e3e1e;
   --bc-soft: #f3e2c2;
+}
+.is-spring:is(.fm-bundle, .fm-sack) {
+  --bc: #5fae3a;
+  --bc-dark: #2f6a1e;
+  --bc-soft: #e2f3cf;
+}
+.is-summer:is(.fm-bundle, .fm-sack) {
+  --bc: #e8a51e;
+  --bc-dark: #8a5208;
+  --bc-soft: #fff0c4;
+}
+.is-fall:is(.fm-bundle, .fm-sack) {
+  --bc: #d0602a;
+  --bc-dark: #7a2c10;
+  --bc-soft: #fde0cc;
+}
+.is-winter:is(.fm-bundle, .fm-sack) {
+  --bc: #5a8fd8;
+  --bc-dark: #2a4c88;
+  --bc-soft: #dde9fb;
+}
+.is-wild:is(.fm-bundle, .fm-sack) {
+  --bc: #e06a8a;
+  --bc-dark: #8e2a48;
+  --bc-soft: #fde3ea;
+}
+.is-exotic:is(.fm-bundle, .fm-sack) {
+  --bc: #c8403c;
+  --bc-dark: #7a1e1a;
+  --bc-soft: #fbe0dc;
+}
+.is-seeds:is(.fm-bundle, .fm-sack) {
+  --bc: #9a6a3a;
+  --bc-dark: #5e3e1e;
+  --bc-soft: #f1e2cc;
+}
+.is-junk:is(.fm-bundle, .fm-sack) {
+  --bc: #9a62c8;
+  --bc-dark: #52307a;
+  --bc-soft: #efe2fa;
+}
+.is-beach:is(.fm-bundle, .fm-sack) {
+  --bc: #2fa8a0;
+  --bc-dark: #175e5a;
+  --bc-soft: #d6f2ee;
+}
+.is-antiques:is(.fm-bundle, .fm-sack) {
+  --bc: #7d8396;
+  --bc-dark: #3e4252;
+  --bc-soft: #e6e8ef;
+}
+.is-rare:is(.fm-bundle, .fm-sack) {
+  --bc: #b08c20;
+  --bc-dark: #4a3a10;
+  --bc-soft: #f6ecc8;
+}
+.is-research:is(.fm-bundle, .fm-sack) {
+  --bc: #3e4a9a;
+  --bc-dark: #222a60;
+  --bc-soft: #e0e4f8;
+}
+
+/* The board: 4 x 3 sacks on the chest's wood, always in the same spots (the rarest bottom-right). */
+.fm-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  padding: 6px;
+  background: #8a3c0e;
+  box-shadow:
+    inset 0 0 0 2px #4a1f0a,
+    inset 0 0 0 4px #c25f17;
+}
+.fm-sack {
+  position: relative;
+  min-width: 0;
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  font: inherit;
+  color: inherit;
+  background: #fff4dc;
+  border: 0;
+  box-shadow: inset 0 0 0 2px #d9a866;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.fm-sack__icon {
+  flex: none;
+  transform-origin: 50% 100%;
+}
+.fm-sack__label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 2.3em;
+  max-width: 100%;
+  padding: 0 3px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--bc-dark);
+  hyphens: manual;
+  -webkit-hyphens: manual;
+}
+.fm-sack__pips {
+  display: flex;
+  gap: 3px;
+}
+.fm-sack__pips i {
+  width: 6px;
+  height: 6px;
+  box-shadow: inset 0 0 0 1.5px var(--bc);
+  opacity: 0.7;
+}
+.fm-sack__pips i.is-have {
+  background: var(--bc);
+  box-shadow: inset 0 0 0 1px var(--bc-dark);
+  opacity: 1;
+}
+/* ★×N up in the corner, beside the sack's narrow neck. */
+.fm-sack__times {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: #8a5208;
+}
+/* Nothing it's still missing turns up this season: it waits, a little faded. */
+.fm-sack.is-asleep > * {
+  opacity: 0.55;
+}
+.fm-sack.is-asleep .fm-sack__icon {
+  filter: saturate(0.6);
+}
+.fm-sack.is-open {
+  background: var(--bc-soft);
+  box-shadow:
+    inset 0 0 0 3px var(--bc),
+    inset 0 0 0 5px #fff4dc;
+}
+.fm-sack.is-ready {
+  background: #fff9e6;
+  box-shadow:
+    inset 0 0 0 2px #e8a92c,
+    0 0 0 2px #ffd65a,
+    0 0 8px 2px rgba(255, 214, 90, 0.75);
+  z-index: 1;
+}
+.fm-sack.is-ready.is-open {
+  background: var(--bc-soft);
+  box-shadow:
+    inset 0 0 0 3px var(--bc),
+    inset 0 0 0 5px #fff4dc,
+    0 0 0 2px #ffd65a,
+    0 0 8px 2px rgba(255, 214, 90, 0.75);
+}
+.fm-sack.is-ready .fm-sack__icon {
+  animation: fm-bundle-wiggle 1.4s steps(1, end) infinite;
+}
+.fm-sack:focus-visible {
+  outline: 2px dashed var(--bc-dark);
+  outline-offset: -8px;
+}
+@media (hover: hover) {
+  .fm-sack:not(.is-open):hover {
+    filter: brightness(1.05);
+  }
+  .fm-sack:not(.is-open):hover .fm-sack__icon {
+    transform: translateY(-1px);
+  }
+}
+/* Phones: a hair smaller, so "Beachcomber" fits its tile at 430px. */
+@media (max-width: 440px) {
+  .fm-sack__label {
+    font-size: 11px;
+  }
+}
+
+/* The open bundle, under the board. */
+.fm-bundle {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin-top: 8px;
   padding: 6px 8px 8px;
   background: #fff4dc;
   box-shadow:
     inset 0 0 0 2px #d9a866,
     0 2px 0 rgba(60, 28, 8, 0.2);
-}
-.fm-bundle.is-spring {
-  --bc: #5fae3a;
-  --bc-dark: #2f6a1e;
-  --bc-soft: #e2f3cf;
-}
-.fm-bundle.is-summer {
-  --bc: #e8a51e;
-  --bc-dark: #8a5208;
-  --bc-soft: #fff0c4;
-}
-.fm-bundle.is-fall {
-  --bc: #d0602a;
-  --bc-dark: #7a2c10;
-  --bc-soft: #fde0cc;
-}
-.fm-bundle.is-winter {
-  --bc: #5a8fd8;
-  --bc-dark: #2a4c88;
-  --bc-soft: #dde9fb;
-}
-.fm-bundle.is-seeds {
-  --bc: #9a6a3a;
-  --bc-dark: #5e3e1e;
-  --bc-soft: #f1e2cc;
-}
-.fm-bundle.is-junk {
-  --bc: #9a62c8;
-  --bc-dark: #52307a;
-  --bc-soft: #efe2fa;
 }
 .fm-bundle.is-ready {
   background: #fff9e6;
@@ -424,13 +652,6 @@ button.fm-slot:focus-visible {
   color: #8a5208;
 }
 
-.fm-bundle__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
 .fm-bundle__slots {
   display: flex;
   flex-wrap: wrap;
@@ -471,13 +692,14 @@ button.fm-slot:focus-visible {
     filter: brightness(1.08);
   }
 }
+/* "+N cloth", up in the ribbon next to the name (so 5 slots always fit on one row). */
 .fm-bundle__reward {
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  margin-left: auto;
-  padding: 1px 4px 1px 7px;
+  margin: 2px 0;
+  padding: 0 3px 0 6px;
   font-weight: 700;
   color: var(--ok-ink);
   background: #f6e7c4;
@@ -617,6 +839,7 @@ button.fm-slot:focus-visible {
   .fm-loom__collect,
   .fm-slot.is-selected,
   .fm-bundle.is-ready .fm-bundle__sack,
+  .fm-sack.is-ready .fm-sack__icon,
   .fm-bundle__go {
     animation: none;
   }

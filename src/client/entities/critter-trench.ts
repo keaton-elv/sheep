@@ -2,7 +2,8 @@
 // shuffles along the bottom fence, stops, glances left... right... and shuffles on. Something
 // about it is off (a ringed tail under the hem? a tuft of spines? a faint buzzing?). Tap it and
 // the coat collapses: it was a hundred raccoons, or a hundred hedgehogs, or ten thousand
-// mosquitoes, all along. They scatter off-screen; the coat and hat are left in a heap.
+// mosquitoes, all along. They scatter off-screen; the coat and hat are left in a heap (and a
+// Suspicious Fedora turns up in the chest).
 //
 // Emits g.emit("trenchcoat", insides) and sets localStorage farm.trenchcoat.lastSeen when revealed.
 // Debug: ?trenchcoat=1 (or =raccoons / =hedgehogs / =mosquitoes)
@@ -13,6 +14,7 @@ import { draw, has, isReal } from "../engine/sprites";
 import { toast } from "../ui/dom";
 import { bigfootTonight } from "./critter-bigfoot";
 import { critterReact, hangout } from "./critter-fox";
+import { keepsake, SUSPICIOUS_FEDORA } from "./critter-keepsake";
 import { RACCOON_RUN } from "./critter-lore-art";
 import { COAT_EYES } from "./critter-lore-sprites";
 import { claimBottomLane, FENCE_HIDE, onLayoutChange } from "./critter-place";
@@ -199,6 +201,8 @@ class TrenchCoat implements Entity {
     setTimeout(() => {
       sfx("secret");
       toast(REVEAL[this.insides], { icon: "critter.trenchcoat.icon", ms: 4500 });
+      // Nobody stays to claim the hat. (`standing` guards the tap, so once per Trench Coat.)
+      keepsake(SUSPICIOUS_FEDORA, "Suspicious Fedora");
     }, 700);
     setTimeout(() => critterReact("exclaim", x), 400);
     lsSet("farm.trenchcoat.lastSeen", String(Date.now()));
