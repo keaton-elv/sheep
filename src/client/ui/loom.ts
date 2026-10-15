@@ -1,11 +1,14 @@
-// The loom (LOOM_WOOL_COST wool -> 1 cloth, 4 in-game hours) and the chest (everything you've
-// earned, everything picked up around the farm, and the Community Center–style bundles).
+// The loom (LOOM_WOOL_COST wool -> 1 cloth, 4 in-game hours) and the chest: two tabs, the chest
+// itself (everything you've earned and everything picked up around the farm) and the bundles, a
+// Community Center–style board of sacks with the open one's slots below it.
 
 import "./loom.css";
 import { sfx } from "../audio";
 import { currentGame } from "../engine/game";
 import { has, isReal } from "../engine/sprites";
+import { BLURRY_PHOTO, KEEPSAKE_KEYS, POCKET_SUNSHINE, ROYAL_HONEY, STARDUST, SUSPICIOUS_FEDORA } from "../entities/critter-keepsake";
 import { api, serverNow, store } from "../net";
+import { COFFEE_BEAN, FORAGE_BY_SEASON, forageKey } from "../world/world-art";
 import { BUNDLES, ITEM_KEY_PATTERN, type Bundle } from "../../shared/bundles";
 import { seasonOf, type Season } from "../../shared/calendar";
 import { LOOM_DURATION_MS, LOOM_WOOL_COST, type FarmState } from "../../shared/types";
@@ -219,7 +222,12 @@ const ITEM_NOTES: Record<string, string> = {
   "item.artifact.dried-starfish": "Washed up from Ocean Beach, probably.",
   "item.artifact.anchor": "A Fleet Week souvenir?",
   "item.artifact.dinosaur-egg": "It's... warm?",
-  "item.artifact.blurry-photo": "It’s definitely him.",
+  "item.artifact.ancient-doll": "Laffing Sal's little cousin?",
+  [BLURRY_PHOTO]: "It’s definitely him.",
+  [ROYAL_HONEY]: "From a ladybug knight's saddlebag.",
+  [POCKET_SUNSHINE]: "Karl the Fog missed a spot.",
+  [SUSPICIOUS_FEDORA]: "Nobody's claiming it.",
+  [STARDUST]: "Swept up after a wish.",
 };
 
 function itemDesc(key: string): string {
@@ -235,9 +243,31 @@ const BUNDLE_HINTS: Record<string, string> = {
   summer: "In the grass, in summer.",
   fall: "In the grass, in fall.",
   winter: "Out in the snow, in winter.",
+  wild: "In the grass, in spring.",
+  exotic: "In the grass, in fall.",
   seeds: "Shake a tree, then grab what falls.",
   junk: "Dig where the worms wiggle.",
+  beach: "Dig where the worms wiggle.",
+  antiques: "Dig where the worms wiggle.",
+  rare: "Keep digging where the worms wiggle.",
+  research: "Rare visitors leave keepsakes...",
 };
+
+/** Where to find one item, when its bundle's hint isn't the whole story. */
+const ITEM_HINTS: Record<string, string> = {
+  "item.forage.red-mushroom": "In the grass, in summer and fall.",
+  "item.forage.coffee-bean": "Turns up now and then, any season.",
+  [ROYAL_HONEY]: "Hail a Bumblesteed on a sunny day.",
+  [POCKET_SUNSHINE]: "Catch a golden ladybug on a sunny day.",
+  [BLURRY_PHOTO]: "Snap something tall at dusk...",
+  [SUSPICIOUS_FEDORA]: "Late at night, unmask a trench coat.",
+  [STARDUST]: "Wish on a shooting star.",
+};
+
+/** The keepsakes only bugs leave (and the bugs sleep through winter). */
+const BUG_KEEPSAKES: ReadonlySet<string> = new Set([ROYAL_HONEY, POCKET_SUNSHINE]);
+const KEEPSAKES: ReadonlySet<string> = new Set(KEEPSAKE_KEYS);
+const COFFEE_KEY = forageKey(COFFEE_BEAN);
 
 /** The farm's season (the world's, which can be overridden for testing), for the hints. */
 function farmSeason(): Season {
@@ -256,6 +286,24 @@ function bundleHint(b: Bundle): string {
   return BUNDLE_HINTS[b.id] ?? "";
 }
 
+function itemHint(key: string): string | null {
+  if (BUG_KEEPSAKES.has(key) && farmSeason() === "winter") return "The bugs are napping till spring...";
+  return Object.hasOwn(ITEM_HINTS, key) ? ITEM_HINTS[key]! : null;
+}
+
+/** Can this turn up on the farm this season? (Digs, coffee and most keepsakes: any season.) */
+function inSeason(key: string, season: Season): boolean {
+  if (BUG_KEEPSAKES.has(key) || TREE_SEEDS.has(key)) return season !== "winter";
+  if (!key.startsWith("item.forage.") || key === COFFEE_KEY) return true;
+  return FORAGE_BY_SEASON[season].some((name) => forageKey(name) === key);
+}
+
+/**
+ * "Spring Foraging Bundle" -> "Spring", "Tree Seed Bundle" -> "Tree Seed" (the board's labels). A
+ * soft hyphen lets "Beach-comber" break on a 360px phone, where it's wider than its tile.
+ */
+const shortName = (b: Bundle): string => b.name.replace(/ (Foraging )?Bundle$/, "").replace("Beachcomber", "Beach\u00adcomber");
+
 const bundleFor = (key: string): Bundle | undefined => BUNDLES.find((b) => b.items.includes(key));
 
 /** How many of `key` are in the shared chest (0 for anything odd). */
@@ -271,6 +319,27 @@ function bundleReady(st: FarmState, b: Bundle): boolean {
 function timesDone(st: FarmState, b: Bundle): number {
   const n = Math.floor(Number(st.bundles?.[b.id] ?? 0));
   return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Can't be finished this season: something it's still missing doesn't turn up now. */
+function bundleAsleep(st: FarmState, b: Bundle, season: Season): boolean {
+  return b.items.some((k) => countOf(st, k) < 1 && !inSeason(k, season));
+}
+
+/** The bundle to open first: a ready one, or the first one that can be worked on this season. */
+function defaultBundle(st: FarmState, season: Season): string {
+  return (BUNDLES.find((b) => bundleReady(st, b)) ?? BUNDLES.find((b) => !bundleAsleep(st, b, season)) ?? BUNDLES[0]!).id;
+}
+
+/** Chest order: forage, then tree seeds, then digs, then keepsakes (first-landed within each). */
+function itemRank(key: string): number {
+  if (KEEPSAKES.has(key)) return 3;
+  if (key.startsWith("item.artifact.")) return 2;
+  return TREE_SEEDS.has(key) ? 1 : 0;
+}
+
+function starIcon(scale = 1): HTMLElement {
+  return has("ui.star") ? spriteIcon("ui.star", { scale }) : el("span", null, "★");
 }
 
 /** An item's icon, or a little "?" if its sprite never registered. */
@@ -299,18 +368,21 @@ function chestItems(st: FarmState): ChestItem[] {
       desc: "Woven from your adventures. Buys decorations and hats.",
     });
   }
-  // Everything picked up around the farm, in the order it first landed in the chest.
-  for (const key of Object.keys(st.items ?? {})) {
-    if (!ITEM_KEY_PATTERN.test(key)) continue;
-    const count = countOf(st, key);
-    if (!count) continue;
-    list.push({ id: key, icon: key, name: itemName(key), count, desc: itemDesc(key), bundle: bundleFor(key) });
+  // Everything picked up around the farm, by kind, each kind in the order it first landed in the chest.
+  const keys = Object.keys(st.items ?? {}).filter((key) => ITEM_KEY_PATTERN.test(key) && countOf(st, key) > 0);
+  keys.sort((a, b) => itemRank(a) - itemRank(b)); // (stable)
+  for (const key of keys) {
+    list.push({ id: key, icon: key, name: itemName(key), count: countOf(st, key), desc: itemDesc(key), bundle: bundleFor(key) });
   }
   return list;
 }
 
+type ChestTab = "chest" | "bundles";
+/** Which side of the chest is showing, remembered for the visit. */
+let chestTab: ChestTab = "chest";
+
 function openChest(): void {
-  const root = el("div", { class: "fm-chest fm-menu" });
+  const root = el("div", { class: "fm-chest fm-menu", role: "tabpanel", id: "fm-chest-panel" });
   let selected: string | null = null;
   let secretPokes = 0;
   /** The string's secret poke got Snickers' attention: he comes for it once the chest closes. */
@@ -318,8 +390,10 @@ function openChest(): void {
   let busy = false;
   /** The bundle item each card is showing the name of (tap a slot to see what it is). */
   const peek = new Map<string, string>();
-  /** Ready bundles first, decided once per visit so cards don't jump around while you're looking. */
-  let order: Bundle[] | null = null;
+  /** The bundle open under the board (picked when the board first shows; see defaultBundle). */
+  let openBundle: string | null = null;
+  /** The Bundles tab's tallest height so far, at this width (see holdBoard). */
+  let boardFloor = { w: 0, h: 0 };
 
   const d = openDialog({
     title: "Chest",
@@ -336,6 +410,11 @@ function openChest(): void {
   });
   sfx("chest");
 
+  // Chest | Bundles sit between the title and the scrolling body, so they never scroll away.
+  const tabs = el("div", { class: "fm-chest__tabs", role: "tablist", "aria-label": "Chest" });
+  d.box.querySelector(".sv-dialog__main")?.before(tabs);
+  const scroller = d.box.querySelector<HTMLElement>(".sv-dialog__content");
+
   const secret: ChestItem | null = has("item.string")
     ? {
         id: "string",
@@ -346,12 +425,91 @@ function openChest(): void {
       }
     : null;
 
+  function setTab(tab: ChestTab): void {
+    if (tab === chestTab) return;
+    chestTab = tab;
+    sfx("select");
+    if (scroller) scroller.scrollTop = 0;
+    render();
+  }
+
+  /** Over to the Bundles tab, with this bundle open. */
+  function showBundle(id: string): void {
+    openBundle = id;
+    peek.delete(id);
+    chestTab = "bundles";
+    sfx("select");
+    if (scroller) scroller.scrollTop = 0;
+    render();
+  }
+
+  function renderTabs(st: FarmState | null | undefined): void {
+    const anyReady = !!st && BUNDLES.some((b) => bundleReady(st, b));
+    const tab = (id: ChestTab, label: string, icon: string, dot: boolean): HTMLElement =>
+      el(
+        "button",
+        {
+          type: "button",
+          class: `fm-tab ${chestTab === id ? "is-on" : ""}`,
+          role: "tab",
+          id: `fm-chest-tab-${id}`,
+          "aria-selected": String(chestTab === id),
+          "aria-controls": "fm-chest-panel",
+          tabindex: chestTab === id ? "0" : "-1",
+          dataset: { focus: `tab-${id}` },
+          on: {
+            click: () => setTab(id),
+            keydown: (ev: KeyboardEvent) => {
+              if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+              ev.preventDefault();
+              const other: ChestTab = id === "chest" ? "bundles" : "chest";
+              setTab(other);
+              tabs.querySelector<HTMLElement>(`#fm-chest-tab-${other}`)?.focus();
+            },
+          },
+        },
+        has(icon) ? spriteIcon(icon, { class: "fm-tab__icon" }) : null,
+        el("span", null, label),
+        dot ? el("span", { class: "fm-tab__dot", role: "img", "aria-label": "(a bundle is ready)" }) : null,
+      );
+    // (The Bundles tab carries this season's sack.)
+    tabs.replaceChildren(tab("chest", "Chest", "ui.icon.chest", false), tab("bundles", "Bundles", bundleSackKey(farmSeason()), anyReady));
+  }
+
   function render(): void {
     const st = store.state;
+    // Re-rendering replaces every button: keep the keyboard where it was.
+    const active = document.activeElement;
+    const focusKey = active instanceof HTMLElement && d.box.contains(active) ? active.dataset.focus : undefined;
+    renderTabs(st);
     if (!st) {
       root.replaceChildren(el("p", { class: "sv-say" }, "Stuck... (still loading)"));
       return;
     }
+    root.setAttribute("aria-labelledby", `fm-chest-tab-${chestTab}`);
+    root.style.minHeight = "";
+    root.replaceChildren(...(chestTab === "bundles" ? bundlesPanel(st) : chestPanel(st)));
+    if (chestTab === "bundles") holdBoard();
+    if (focusKey) d.box.querySelector<HTMLElement>(`[data-focus="${focusKey}"]`)?.focus({ preventScroll: true });
+  }
+
+  /**
+   * After the Bundles tab renders: a card name on two lines (narrow phones) gets its ribbon stripe
+   * moved out from behind the words, and the tab only grows while the chest is open (a shorter card,
+   * with no Complete! button or a one-line name, would re-center the dialog and slide the board out
+   * from under your thumb).
+   */
+  function holdBoard(): void {
+    const name = root.querySelector<HTMLElement>(".fm-bundle__name");
+    if (name) name.parentElement?.classList.toggle("is-wrapped", name.offsetHeight > parseFloat(getComputedStyle(name).lineHeight) * 1.5);
+    const w = root.clientWidth;
+    const h = root.offsetHeight; // (layout height: the dialog's pop-in transform doesn't count)
+    boardFloor = w === boardFloor.w ? { w, h: Math.max(boardFloor.h, h) } : { w, h }; // (a new width starts over)
+    root.style.minHeight = `${boardFloor.h}px`;
+  }
+
+  /** The chest itself: the slots, a closer look at the selected one, and the lifetime wool. */
+  function chestPanel(st: FarmState): HTMLElement[] {
     const list = chestItems(st);
     const all = new Map<string, ChestItem>(list.map((i) => [i.id, i]));
     if (secret) all.set(secret.id, secret);
@@ -374,6 +532,7 @@ function openChest(): void {
           role: "listitem",
           "aria-label": item.count > 1 ? `${item.name}, ${item.count}` : item.name,
           "aria-pressed": String(selected === item.id),
+          dataset: { focus: `slot-${item.id}` },
           on: { click: () => pick(item) },
         },
         // (spriteIcon sets --s inline, so the slot scale has to be passed here, not in CSS.)
@@ -386,12 +545,18 @@ function openChest(): void {
     const sel = selected ? all.get(selected) : undefined;
     const info = el("div", { class: "fm-chest__info", "aria-live": "polite" });
     if (sel) {
+      const bundle = sel.bundle;
       append(
         info,
         el("b", null, sel.count > 1 ? `${sel.name} ×${sel.count}` : sel.name),
         el("span", null, sel.desc),
-        sel.bundle
-          ? el("span", { class: "fm-chest__for" }, spriteIcon(bundleSackKey(sel.bundle.id), { scale: 0.75 }), `For the ${sel.bundle.name}`)
+        bundle
+          ? el(
+              "button",
+              { type: "button", class: "fm-chest__for", dataset: { focus: "for" }, on: { click: () => showBundle(bundle.id) } },
+              spriteIcon(bundleSackKey(bundle.id), { scale: 0.75 }),
+              el("span", null, `For the ${bundle.name}`),
+            )
           : null,
       );
     } else {
@@ -403,7 +568,7 @@ function openChest(): void {
         ready
           ? el(
               "button",
-              { type: "button", class: "fm-chest__nudge", on: { click: () => scrollToReady() } },
+              { type: "button", class: "fm-chest__nudge", dataset: { focus: "nudge" }, on: { click: () => showBundle(ready.id) } },
               spriteIcon(bundleSackKey(ready.id)),
               el("span", null, "A bundle is ready!"),
             )
@@ -413,9 +578,7 @@ function openChest(): void {
       );
     }
 
-    order ??= [...BUNDLES].sort((a, b) => Number(bundleReady(st, b)) - Number(bundleReady(st, a)));
-
-    root.replaceChildren(
+    return [
       grid,
       info,
       el(
@@ -425,12 +588,46 @@ function openChest(): void {
         `Lifetime wool: ${st.totalWool}`,
         st.loom ? el("span", { class: "fm-chest__loom" }, phaseOf(st) === "ready" ? " · cloth's ready in the loom!" : " · loom: clack, clack...") : null,
       ),
-      el(
-        "section",
-        { class: "fm-bundles", "aria-label": "Bundles" },
-        el("h3", { class: "fm-bundles__title" }, "Bundles"),
-        el("div", { class: "fm-bundles__list" }, ...order.map((b) => bundleCard(st, b))),
-      ),
+    ];
+  }
+
+  /** The Community Center board: every bundle's sack, always in the same spot, and the open one below. */
+  function bundlesPanel(st: FarmState): HTMLElement[] {
+    const season = farmSeason();
+    openBundle ??= defaultBundle(st, season);
+    const open = BUNDLES.find((b) => b.id === openBundle) ?? BUNDLES[0]!;
+    const board = el("div", { class: "fm-board", role: "group", "aria-label": "Bundles" }, ...BUNDLES.map((b) => sackButton(st, b, season, b === open)));
+    return [board, bundleCard(st, open)];
+  }
+
+  /** One sack on the board: its label, a pip per item (filled once it's in the chest), and ★×N once done. */
+  function sackButton(st: FarmState, b: Bundle, season: Season, isOpen: boolean): HTMLElement {
+    const have = b.items.filter((k) => countOf(st, k) > 0).length;
+    const ready = bundleReady(st, b);
+    const times = timesDone(st, b);
+    // Whatever it's still missing can't turn up this season: it waits, a little faded (never hidden).
+    const asleep = !ready && bundleAsleep(st, b, season);
+    return el(
+      "button",
+      {
+        type: "button",
+        class: `fm-sack is-${b.id} ${ready ? "is-ready" : ""} ${asleep ? "is-asleep" : ""} ${isOpen ? "is-open" : ""}`,
+        "aria-label": `${b.name}, ${have} of ${b.items.length}${ready ? ", ready" : ""}`,
+        "aria-pressed": String(isOpen),
+        dataset: { focus: `sack-${b.id}`, bundle: b.id },
+        on: {
+          click: () => {
+            if (openBundle === b.id) return;
+            openBundle = b.id;
+            sfx("select");
+            render();
+          },
+        },
+      },
+      spriteIcon(bundleSackKey(b.id), { scale: 1.5, class: "fm-sack__icon" }),
+      el("span", { class: "fm-sack__label" }, shortName(b)),
+      el("span", { class: "fm-sack__pips", "aria-hidden": "true" }, ...b.items.map((k) => el("i", { class: countOf(st, k) > 0 ? "is-have" : "" }))),
+      times > 0 ? el("span", { class: "fm-sack__times", "aria-hidden": "true" }, starIcon(0.75), `×${times}`) : null,
     );
   }
 
@@ -455,6 +652,7 @@ function openChest(): void {
             "aria-label": got ? itemName(k) : `${itemName(k)} (missing)`,
             "aria-pressed": String(peeked === k),
             title: itemName(k),
+            dataset: { focus: `bslot-${k}` },
             on: {
               click: () => {
                 if (peeked === k) peek.delete(b.id);
@@ -472,11 +670,12 @@ function openChest(): void {
     let caption: HTMLElement | null = null;
     if (peeked && b.items.includes(peeked)) {
       const got = countOf(st, peeked) > 0;
+      const where = itemHint(peeked) ?? hint;
       caption = el(
         "p",
         { class: "fm-bundle__peek" },
         el("b", null, itemName(peeked)),
-        got ? " · in the chest ✓" : hint ? ` · ${hint.charAt(0).toLowerCase()}${hint.slice(1)}` : " · still missing",
+        got ? " · in the chest ✓" : where ? ` · ${where.charAt(0).toLowerCase()}${where.slice(1)}` : " · still missing",
       );
     } else if (!ready && hint) {
       caption = el("p", { class: "fm-bundle__peek is-hint" }, hint);
@@ -498,15 +697,10 @@ function openChest(): void {
           ? el(
               "span",
               { class: "fm-bundle__times", role: "img", "aria-label": `Completed ${plural(times, "time")}`, title: `Completed ${plural(times, "time")}` },
-              has("ui.star") ? spriteIcon("ui.star") : "★",
+              starIcon(),
               `×${times}`,
             )
           : null,
-      ),
-      el(
-        "div",
-        { class: "fm-bundle__row" },
-        slots,
         el(
           "span",
           { class: "fm-bundle__reward", role: "img", "aria-label": `Reward: ${plural(b.reward, "cloth", "cloth")}` },
@@ -514,44 +708,45 @@ function openChest(): void {
           spriteIcon("item.cloth"),
         ),
       ),
+      slots,
       caption,
       ready
         ? el(
             "button",
-            { type: "button", class: "sv-btn sv-btn--primary fm-bundle__go", disabled: busy, on: { click: () => void complete(b) } },
+            { type: "button", class: "sv-btn sv-btn--primary fm-bundle__go", disabled: busy, dataset: { focus: `go-${b.id}` }, on: { click: () => void complete(b) } },
             el("span", null, "Complete!"),
           )
         : null,
     );
   }
 
-  function scrollToReady(): void {
-    sfx("select");
-    root.querySelector(".fm-bundle.is-ready")?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }
-
   async function complete(b: Bundle): Promise<void> {
     if (busy) return;
-    // Where everything is right now, for the little "jump into the sack" animation.
-    const card = root.querySelector<HTMLElement>(`.fm-bundle[data-bundle="${b.id}"]`);
-    const from = card
-      ? [...card.querySelectorAll<HTMLElement>(".fm-bslot")].map((slot, i) => ({ key: b.items[i] ?? "", rect: slot.getBoundingClientRect() }))
-      : [];
-    const sack = card?.querySelector(".fm-bundle__sack")?.getBoundingClientRect() ?? null;
     busy = true;
     d.error(null);
     render();
+    let done = false;
     try {
       await api.completeBundle(b.id);
-      sfx("reward");
-      toast(`+${plural(b.reward, "cloth", "cloth")}`, { icon: "item.cloth" });
-      celebrate(b, from, sack);
+      done = true;
     } catch (err) {
       d.error(errorText(err));
     } finally {
       busy = false;
       render();
     }
+    if (!done) return;
+    sfx("reward");
+    toast(`+${plural(b.reward, "cloth", "cloth")}`, { icon: "item.cloth" });
+    // The "jump into the sack" animation, measured after the re-render (the card just lost its
+    // Complete! button, so the dialog may have moved): out of the card's slots and up into the
+    // bundle's sack on the board.
+    const card = root.querySelector<HTMLElement>(`.fm-bundle[data-bundle="${b.id}"]`);
+    const from = card
+      ? [...card.querySelectorAll<HTMLElement>(".fm-bslot")].map((slot, i) => ({ key: b.items[i] ?? "", rect: slot.getBoundingClientRect() }))
+      : [];
+    const sackEl = root.querySelector(`.fm-sack[data-bundle="${b.id}"] .fm-sack__icon`) ?? card?.querySelector(".fm-bundle__sack");
+    celebrate(b, from, sackEl?.getBoundingClientRect() ?? null);
   }
 
   function pick(item: ChestItem): void {

@@ -10,7 +10,8 @@ import { dayKey, type Season } from "../../shared/calendar";
 import { rng, type Entity, type FarmEnv, type Game } from "../engine/game";
 import { objectRegion } from "../art/regions";
 import { draw, has, registerArt, REGIONS } from "../engine/sprites";
-import { api, ApiError, store } from "../net";
+import { KEEPSAKE_KEYS, sendToChest } from "../entities/critter-keepsake";
+import { store } from "../net";
 import { toast } from "../ui/dom";
 import { contains, fromFraction, inflate, type Layout, type Rect } from "./layout";
 import { COFFEE_BEAN, FORAGE_BY_SEASON, forageKey } from "./world-art";
@@ -29,24 +30,29 @@ import { doorYard, keepClear, signFeet } from "./world-zones";
 const ARTIFACT_SPOT = "world.artifactSpot";
 REGIONS[ARTIFACT_SPOT] ??= objectRegion(590);
 
-/** What the worms were guarding: [name, Stardew item id, weight]. Mostly junk, sometimes a treasure. */
+/**
+ * What the worms were guarding: [name, Stardew item id, weight]. Mostly junk, sometimes a treasure.
+ * Every one belongs to a bundle (Treasure, Beachcomber, Sutro Baths, Rare Finds); the weights keep
+ * each of them filling in a month or two of short daily visits. (Changing a weight reshuffles which
+ * artifact turns up on which date; nothing stored depends on it.)
+ */
 const ARTIFACTS: readonly [string, number, number][] = [
   // The Treasure Bundle's three come up most (short visits should still fill it).
-  ["Rusty Spoon", 110, 10],
-  ["Rusty Cog", 112, 9],
-  ["Glass Shards", 118, 9],
+  ["Rusty Spoon", 110, 8],
+  ["Rusty Cog", 112, 7],
+  ["Glass Shards", 118, 7],
   ["Arrowhead", 101, 5],
   ["Chipped Amphora", 100, 4],
-  ["Ancient Doll", 103, 3],
-  ["Chicken Statue", 113, 3],
-  ["Ornamental Fan", 106, 3],
-  ["Dried Starfish", 116, 3],
-  ["Lost Book", 102, 3],
+  ["Ancient Doll", 103, 4],
+  ["Chicken Statue", 113, 4],
+  ["Ornamental Fan", 106, 4],
+  ["Dried Starfish", 116, 4],
+  ["Lost Book", 102, 4],
   ["Elvish Jewelry", 104, 2],
   ["Bone Flute", 119, 2],
-  ["Anchor", 117, 2],
-  ["Rare Disc", 108, 1],
-  ["Dinosaur Egg", 107, 1],
+  ["Anchor", 117, 3],
+  ["Rare Disc", 108, 2],
+  ["Dinosaur Egg", 107, 2],
 ];
 const artifactKey = (name: string) => `item.artifact.${name.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 for (const [name, id] of ARTIFACTS) REGIONS[artifactKey(name)] ??= objectRegion(id);
@@ -288,17 +294,7 @@ function leafBurst(leaves: { img: HTMLCanvasElement; flip: HTMLCanvasElement }[]
  */
 function toChest(key: string, text: string): void {
   toast(text, { icon: key });
-  const send = (retries: number): void => {
-    api.collectItem(key).catch((err: unknown) => {
-      const status = err instanceof ApiError ? err.status : 0;
-      if (retries > 0 && (status === 0 || status >= 500)) {
-        window.setTimeout(() => send(retries - 1), 4000);
-        return;
-      }
-      toast("Couldn't reach the chest...", { icon: key });
-    });
-  };
-  send(1);
+  sendToChest(key);
 }
 
 /** A wink for a few items, once per visit each (the plain "X → chest" otherwise). */
@@ -635,8 +631,12 @@ function inView(t: { x: number; y: number }, l: Layout): number {
   return overlapArea(canopy, { x: 0, y: 0, w: l.w, h: l.h }) - overlapArea(canopy, l.hudClock);
 }
 
-/** Bundle items turn up twice as often as other forage, so a season's bundle fills in a few short visits. */
-const BUNDLE_KEYS = new Set(BUNDLES.flatMap((b) => b.items));
+/**
+ * The four seasonal Foraging bundles' items turn up twice as often as other forage, so a season's
+ * bundle fills in a few short visits. (Only those four: every forage item is in some bundle now,
+ * and doubling everything would be the same as doubling nothing.)
+ */
+const BUNDLE_KEYS = new Set(BUNDLES.filter((b) => Object.hasOwn(FORAGE_BY_SEASON, b.id)).flatMap((b) => b.items));
 function pickForage(pool: readonly string[], r: number): string {
   const weight = (name: string) => (BUNDLE_KEYS.has(forageKey(name)) ? 2 : 1);
   let k = r * pool.reduce((t, name) => t + weight(name), 0);
@@ -657,9 +657,12 @@ function dayNumber(d: Date): number {
 (() => {
   const anywhere = new Set<string>([
     ...Object.values(FORAGE_BY_SEASON).flat().map(forageKey),
+    forageKey(COFFEE_BEAN),
     ...Object.values(TREE_DEF).map((t) => forageKey(t.seed)),
     ...Object.values(BERRIES).map((b) => forageKey(b)),
     ...ARTIFACTS.map(([name]) => artifactKey(name)),
+    // The rare visitors' keepsakes (entities/critter-keepsake.ts).
+    ...KEEPSAKE_KEYS,
   ]);
   for (const b of BUNDLES) {
     const pool = (FORAGE_BY_SEASON as Partial<Record<string, string[]>>)[b.id];
@@ -904,12 +907,12 @@ export class Nature {
     const coffee = r() < 0.12;
     const worms = r() < 0.8;
     const treasure = pickArtifact(r());
-    const worms2 = r() < 0.25;
+    const worms2 = r() < 0.5;
     const treasure2 = pickArtifact(r());
     names.forEach((name, i) => add(name, i, false));
     // Now and then a coffee bean, in any season.
     if (coffee) add(COFFEE_BEAN, 50, false);
-    // Most days, a patch of wiggly worms (sometimes two). Everyone in Stardew knows: you DIG there.
+    // Most days, a patch of wiggly worms (often two). Everyone in Stardew knows: you DIG there.
     if (worms) add(treasure, 100, true);
     if (worms2) add(treasure2, 101, true);
   }

@@ -1,13 +1,19 @@
 // A shooting star. Rarely, on a clear night, a sparkly streak zips across the top of the screen;
 // tap anywhere while it's streaking to make a wish. Meteor-shower nights (the Perseids around
-// Aug 12, the Geminids around Dec 13) bring a lot more of them. Force one with ?star=1.
+// Aug 12, the Geminids around Dec 13) bring a lot more of them. The first wish of an evening leaves
+// Stardust in the chest. Force one with ?star=1 (every wish then leaves Stardust).
 //
 // Drawn in a render pass above the night overlay and the fireflies, so it glows against the dark.
 
 import { sfx } from "../audio";
 import type { Game } from "../engine/game";
 import { toast } from "../ui/dom";
-import { chance, onAnyTap, onTick, params, rand, reducedMotion, report } from "./critter-util";
+import { eveningKey } from "./critter-bigfoot";
+import { keepsake, STARDUST } from "./critter-keepsake";
+import { chance, lsGet, lsSet, onAnyTap, onTick, params, rand, reducedMotion, report } from "./critter-util";
+
+/** The evening this phone last got Stardust from a wish (see eveningKey). */
+const STARDUST_NIGHT = "farm.stardust.night";
 
 interface Star {
   t: number;
@@ -136,6 +142,13 @@ export function initShootingStars(g: Game): void {
     s.wished = true;
     toast("Make a wish! ✨", { icon: "fx.sparkle.0" });
     sfx("sparkle");
+    // Stardust for the chest: the first wish of the evening on this phone (a meteor shower would
+    // otherwise fill it), any wish when forced with ?star.
+    const night = eveningKey(g.env.now);
+    if (forced || lsGet(STARDUST_NIGHT) !== night) {
+      lsSet(STARDUST_NIGHT, night);
+      keepsake(STARDUST, "Stardust");
+    }
     const h = head(s, Math.min(s.t, s.dur));
     const n = reducedMotion ? 4 : 14;
     for (let i = 0; i < n; i++) {
