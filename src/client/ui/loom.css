@@ -611,6 +611,14 @@ button.fm-slot:focus-visible {
   background: linear-gradient(transparent 70%, var(--bc-soft) 70%);
   border-bottom: 2px solid var(--bc);
 }
+/* Two lines of name: the stripe runs under them, not across the second one. */
+.fm-bundle__head.is-wrapped {
+  background: linear-gradient(transparent calc(100% - 6px), var(--bc-soft) calc(100% - 6px));
+}
+.fm-bundle__head.is-wrapped .fm-bundle__name {
+  margin-bottom: 2px;
+  line-height: 1; /* (a hair tighter, so a ready card still fits a 360x640 phone without scrolling) */
+}
 .fm-bundle__sack {
   flex: none;
   transform-origin: 50% 100%;

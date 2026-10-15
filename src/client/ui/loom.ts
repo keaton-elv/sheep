@@ -392,6 +392,8 @@ function openChest(): void {
   const peek = new Map<string, string>();
   /** The bundle open under the board (picked when the board first shows; see defaultBundle). */
   let openBundle: string | null = null;
+  /** The Bundles tab's tallest height so far, at this width (see holdBoard). */
+  let boardFloor = { w: 0, h: 0 };
 
   const d = openDialog({
     title: "Chest",
@@ -485,8 +487,25 @@ function openChest(): void {
       return;
     }
     root.setAttribute("aria-labelledby", `fm-chest-tab-${chestTab}`);
+    root.style.minHeight = "";
     root.replaceChildren(...(chestTab === "bundles" ? bundlesPanel(st) : chestPanel(st)));
+    if (chestTab === "bundles") holdBoard();
     if (focusKey) d.box.querySelector<HTMLElement>(`[data-focus="${focusKey}"]`)?.focus({ preventScroll: true });
+  }
+
+  /**
+   * After the Bundles tab renders: a card name on two lines (narrow phones) gets its ribbon stripe
+   * moved out from behind the words, and the tab only grows while the chest is open (a shorter card,
+   * with no Complete! button or a one-line name, would re-center the dialog and slide the board out
+   * from under your thumb).
+   */
+  function holdBoard(): void {
+    const name = root.querySelector<HTMLElement>(".fm-bundle__name");
+    if (name) name.parentElement?.classList.toggle("is-wrapped", name.offsetHeight > parseFloat(getComputedStyle(name).lineHeight) * 1.5);
+    const w = root.clientWidth;
+    const h = root.offsetHeight; // (layout height: the dialog's pop-in transform doesn't count)
+    boardFloor = w === boardFloor.w ? { w, h: Math.max(boardFloor.h, h) } : { w, h }; // (a new width starts over)
+    root.style.minHeight = `${boardFloor.h}px`;
   }
 
   /** The chest itself: the slots, a closer look at the selected one, and the lifetime wool. */
