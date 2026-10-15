@@ -366,11 +366,14 @@ export function initCoffee(g: Game, cat: CoffeeCat): void {
   onTick(g, "coffee", (dt) => {
     checkIn -= dt;
     if (mug?.state === "sit" && mug.shown && g.shown) {
-      if (mug.catAt === Infinity) mug.catAt = g.time + (force ? 12 : rand(60, 120));
+      // Soon after she sees it (a morning check is short, and the wait starts over on every visit).
+      if (mug.catAt === Infinity) mug.catAt = g.time + (force ? 12 : rand(8, 18));
       if (g.time >= mug.catAt && !coming) {
         mug.catAt = g.time + 4; // (he's busy: ask again in a few seconds)
         const at = mug.point;
-        if (cat.knock({ x: at.x, y: at.y }, mug.at.seat, hooks, force)) coming = true;
+        // Always "forced": the mug only comes out in the morning, and coffee gets him up even from his
+        // night's sleep (before sunrise in fall and winter he'd otherwise sleep right through it).
+        if (cat.knock({ x: at.x, y: at.y }, mug.at.seat, hooks, true)) coming = true;
       }
     }
     if (checkIn > 0) return;
