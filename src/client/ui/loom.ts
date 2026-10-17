@@ -356,7 +356,7 @@ function chestItems(st: FarmState): ChestItem[] {
       icon: "item.wool",
       name: "Wool",
       count: st.wool,
-      desc: `Soft, fluffy, full of memories... ${LOOM_WOOL_COST} makes a cloth.`,
+      desc: `${LOOM_WOOL_COST} makes a cloth.`,
     });
   }
   if (st.cloth > 0) {
@@ -365,7 +365,7 @@ function chestItems(st: FarmState): ChestItem[] {
       icon: "item.cloth",
       name: "Cloth",
       count: st.cloth,
-      desc: "Woven from your adventures. Buys decorations and hats.",
+      desc: "Buys decorations and hats.",
     });
   }
   // Everything picked up around the farm, by kind, each kind in the order it first landed in the chest.

@@ -116,7 +116,7 @@ const METEORS = { mark: "dot", quiet: true, tint: "#e8c23a" } as const;
 type Rule = (d: Date, y: number) => Festival | null;
 
 const RULES: Rule[] = [
-  (d) => (on(d, 0, 1) ? { name: "New Year's Day", note: "New year, new plans. Same sheep." } : null),
+  (d) => (on(d, 0, 1) ? { name: "New Year's Day", note: "" } : null),
   (d, y) => {
     const lny = LUNAR_NEW_YEAR[y];
     if (!lny || !on(d, lny[0], lny[1])) return null;
@@ -143,10 +143,10 @@ const RULES: Rule[] = [
     if (i === 8) return { ...f, mark: "dot", note: "Grand Parade day, from Civic Center to Japantown." };
     return i === 0 || i === 7 ? f : { ...f, mark: "dot" };
   },
-  (d) => (on(d, 3, 22) ? { name: "Earth Day", note: "The sheep do their part: lawn mowing, zero emissions." } : null),
+  (d) => (on(d, 3, 22) ? { name: "Earth Day", note: "" } : null),
   (d, y) =>
     on(d, 4, nth(y, 4, 0, 3))
-      ? { name: "Bay to Breakers", note: "Twelve kilometers of costumes, Bay to Ocean Beach. Running optional.", sf: true }
+      ? { name: "Bay to Breakers", note: "Twelve kilometers of costumes, Bay to Ocean Beach.", sf: true }
       : null,
   (d, y) => {
     // Memorial Day weekend, Saturday and Sunday.
@@ -188,7 +188,7 @@ const RULES: Rule[] = [
   (d, y) => (on(d, 10, nth(y, 10, 4, 4)) ? { name: "Thanksgiving", note: "Save room for pie. (Rhubarb, if Sumner gets a vote.)" } : null),
   (d) =>
     d.getMonth() === 11 && d.getDate() >= 13 && d.getDate() <= 14
-      ? { name: "Geminids", note: "The year's best meteor shower. Bundle up and look up.", ...METEORS }
+      ? { name: "Geminids", note: "The year's best meteor shower.", ...METEORS }
       : null,
   (d) =>
     on(d, 11, 25)

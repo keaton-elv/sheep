@@ -115,6 +115,10 @@ and desktop works great too.
 
 - **Minimal text.** Only write words when they're a reference, a joke, an easter egg, or a genuinely
   necessary interface explainer. Prefer icons, short labels and one-line empty states.
+- **Silly, not slick.** No ad-copy one-liners: "Scarecrows are a classic. Gnomes are a lifestyle.",
+  "That's just science.", "New name, same sheep.", "Not hungrily. Just... supervising.", "One scoop at a
+  time.", "The sheep feel seen." If a line sounds like a tagline or a fortune cookie, cut it. Goofy
+  beats clever (their own joke: "Snickers is a DOG.").
 - **No characters:** no villager portraits, names or voices. The only "people" who talk are animals:
   Snickers, Otto, Milo and the sheep themselves.
 - **Mailbox letters** are written by Snickers, Otto, or the sheep themselves (signed with the sheep's

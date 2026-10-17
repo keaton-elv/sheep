@@ -20,7 +20,6 @@ const inFlight = new Set<string>();
 const MEMORY_PLACEHOLDERS = ["The best part was...", "We laughed so hard when...", "Next time, let's...", "10/10 would shear again because..."];
 
 const GOLDEN_LINES = [
-  "Golden wool! Two for the chest. Even the stars are jealous.",
   "The wool is... glowing? Two for the chest!",
   "Golden wool! Two for the chest. Snickers would like to nap on it.",
 ];

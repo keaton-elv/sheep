@@ -56,7 +56,6 @@ const WEATHER_REPORT: Record<WeatherKind, string[]> = {
 
 /** "Livin' Off The Land" for sheep people: Stardew references and little jokes. */
 const TRIVIA = [
-  "Sheep in the valley cost 8,000g. These ones only cost a good idea.",
   "Up past 2am? You'll pass out. Go to bed...",
   "The Traveling Cart visits on Fridays and Sundays.",
   "The Egg Festival is on Spring 13. Bring a basket.",
@@ -67,17 +66,13 @@ const TRIVIA = [
   "Spirit's Eve is on Fall 27. Bring a lantern. And garlic ice cream.",
   "The Feast of the Winter Star is on Winter 25.",
   "Every Stardrop raises your max energy.",
-  "Crows won't land near a scarecrow. Rarecrows are just showing off.",
   "Ladybugs are lucky. A golden one is luckier...",
   "Legend says a tiny knight rides a bumblebee over the pasture...",
-  "Plans change. The ORIGINAL PLAN usually wins.",
   // The local news.
   "In the news: Mayor Lurie has not visited the farm yet. The sheep remain hopeful.",
   "Muni update: the J is 10 minutes away. It has been 10 minutes away for 20 minutes.",
   "Wildlife report: the parrots of Telegraph Hill are loud today. As usual.",
   "Traffic: light on the Golden Gate. Heavy porpoise traffic under it.",
-  "Tilden Little Farm, Berkeley: out of celery again. The cousins regret nothing.",
-  "A Pattern Language, no. 74: Animals. The sheep feel seen.",
   "Sumner, WA: still the Rhubarb Pie Capital of the World.",
   "Bonney Lake forecast: drizzle, with a chance of drizzle.",
   "Baa...",
@@ -89,7 +84,7 @@ const SEASON_NEWS: Partial<Record<Season, string[]>> = {
 };
 
 // Some days get their own news.
-const WINE_WEDNESDAY = ["It's Wine Wednesday. You know what to do."];
+const WINE_WEDNESDAY = ["It's Wine Wednesday!"];
 const THURSDAY = ["It's Thursday. No, wait: it's THURSDAY!!!!!", "Today's forecast: THURSDAY!!!!!"];
 
 // ---------- date flair ----------

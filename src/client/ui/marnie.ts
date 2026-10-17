@@ -30,9 +30,7 @@ const GREETINGS = [
   "Baa? Baa!",
   "This lamb practiced its baa all morning...",
   "Snickers already sniffed this one. Approved.",
-  "Raised in the fog. Extra fluffy.",
   "This lamb heard you two always end up on the ORIGINAL PLAN...",
-  "Fluffy, friendly, slightly judgmental.",
 ];
 
 /** What the lamb says about a date picked on the calendar. */
@@ -544,10 +542,10 @@ function openEditSheep(id: string, focus?: "date"): void {
           }
           sfx("select");
           const said = patch.name
-            ? `${v.name}? New name, same sheep.`
+            ? `New name: ${v.name}.`
             : patch.date !== undefined
               ? v.date
-                ? `${v.name}: new date, same sheep.`
+                ? `${v.name}: new date.`
                 : `${v.name}: no date for now.`
               : `${v.name} is all spruced up.`;
           toast(said, { icon: categoryIcon(v.category) });

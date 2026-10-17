@@ -14,7 +14,7 @@ export const DECOR_INFO: Record<DecorKind, DecorInfo> = {
   rarecrow: { name: "Rarecrow", desc: "A very unusual scarecrow. Collect all 8!", glyph: "★" },
   flowers: { name: "Flower Patch", desc: "Not lavender, but it's trying its best.", glyph: "✿" },
   lamppost: { name: "Lamp-post", desc: "For foggy nights. (Hi, Karl.)", glyph: "☼" },
-  campfire: { name: "Campfire", desc: "Ocean Beach bonfire, minus the wind. Marshmallows not included.", glyph: "♨" },
+  campfire: { name: "Campfire", desc: "Ocean Beach bonfire, minus the wind.", glyph: "♨" },
   haybale: { name: "Hay Bale", desc: "Snack and sofa in one. The sheep fully approve.", glyph: "▦" },
   beehouse: { name: "Bee House", desc: "Home for some very busy bees. Bzzz...", glyph: "⬢" },
   pumpkin: { name: "Pumpkin", desc: "A giant pumpkin. Half Moon Bay would be proud.", glyph: "●" },

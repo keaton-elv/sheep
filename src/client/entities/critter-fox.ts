@@ -113,12 +113,10 @@ const FOX_LINES = [
   "Otto spotted dolphins off Crissy Field! (Porpoises. Don't tell him.)",
   "Otto would like you to know this is HIS blanket. (Milo may borrow it.)",
   "Otto sniffs your hand. You smell like sheep...",
-  "Otto is watching the sheep. Not hungrily. Just... supervising.",
   'Otto blinks at you slowly. In fox, that means "I trust you."',
   "Otto pretends he didn't just pounce on a leaf...",
   "Otto has heard about karaoke. Otto is not going to karaoke.",
   "Otto swears he saw a ladybug knight riding a bumblebee. Milo believes him.",
-  "Otto's favorite season is whichever one has Milo in it.",
 ];
 const FOX_FOG_LINE = "Otto loves Karl the Fog. Perfect sneaking weather.";
 const FOX_SLEEP_LINES = [
@@ -827,7 +825,7 @@ class Hedgehog implements Entity {
       let line = pick(HOG_LINES);
       if (this.ballFrom === "sleep") line = pick(HOG_SLEEP_LINES);
       else if (chance(0.35)) {
-        if (season === "winter") line = "Milo's knit hat is slightly too big. It's perfect.";
+        if (season === "winter") line = "Milo's knit hat is slightly too big.";
         else if (season === "fall") line = "A leaf is stuck on Milo's spines. On purpose.";
         else if (season === "spring") line = "Milo is wearing a flower. Very fashionable.";
       }

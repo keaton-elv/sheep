@@ -312,7 +312,7 @@ const TOPICS: readonly TopicDef[] = [
     places: [[/garlic|stinking rose/, "garlic"]],
     mood: (n, place) =>
       place === "garlic"
-        ? [`Garlic ice cream? ${n} is intrigued. The vampires are not.`, `${n} is going vampire-proof. One scoop at a time.`]
+        ? [`Garlic ice cream? ${n} is intrigued.`, `${n} is going vampire-proof.`]
         : [`${n} can't decide: Bi-Rite or Mitchell's.`, `${n} wants two scoops. Minimum.`],
     done: (n, place) => (place === "garlic" ? [`${n} had the garlic ice cream. Vampire-proof for a week.`] : FOOD_DONE(n)),
     dreams: (place) => [place === "garlic" ? "garlic ice cream" : "two scoops from Bi-Rite"],
