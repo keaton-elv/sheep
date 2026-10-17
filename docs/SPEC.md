@@ -214,7 +214,9 @@ and desktop works great too.
     days, a second patch every other day.
   - **The ginkgos give one thing a day per phone** (a shake knocks it loose about a third of the time): whichever
     of nut, leaf and twig the chest has fewest of. Bare in winter, they only have twigs. After that, a shake
-    says "That's all the ginkgos have for you today." (once a visit) and nothing falls.
+    says "That's all the ginkgos have for you today." (once a visit) and nothing falls. Drops (and berries) land
+    where a tap reaches them: if the HUD covers the spot (on a narrow phone, the sound button sits right by a
+    ginkgo), they roll to the other side of the trunk.
   - **Never rename or re-id a bundle:** completions are counted per id on the server, and the mailbox finds a
     bundle's sack by its name. Snickers writes about the forage ones, Otto about the rest. (The Ginkgo Bundle was
     the Tree Seed Bundle: it keeps the "seeds" id, and `bundleNamed` finds it by either name.)

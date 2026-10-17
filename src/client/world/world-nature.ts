@@ -666,6 +666,36 @@ function pickForage(pool: readonly string[], r: number): string {
   }
 })();
 
+/**
+ * Can you tap something lying at (x, y)? Not if it's off screen, or under the HUD (on a narrow phone
+ * the sound button and its "Tap for sound" sit right beside the ginkgo by the clock). Asks the page
+ * itself, so it's right at any width: a few points across the item's icon must all reach the canvas.
+ */
+function tappable(g: Game, x: number, y: number): boolean {
+  const probes: [number, number][] = [[0, -8], [-6, -12], [6, -12], [-6, -2], [6, -2]];
+  return probes.every(([dx, dy]) => {
+    const c = g.toClient(x + dx, y + dy);
+    return document.elementFromPoint(c.x, c.y) === g.canvas;
+  });
+}
+
+/**
+ * Where a drop lands: as close to (x, y) as it can while staying tappable. Mostly that's just (x, y);
+ * if the HUD covers it, it rolls to the other side of the trunk, or a little further out or down.
+ * (Kept on screen either way: an off-screen seed can't be picked up, and it would block the next one
+ * until it rots.)
+ */
+function reachable(g: Game, x: number, y: number): { x: number; y: number } {
+  const clamp = (px: number, py: number) => ({ x: Math.max(10, Math.min(g.layout.w - 10, px)), y: Math.min(g.layout.h - 4, py) });
+  for (const dy of [0, 10, 20]) {
+    for (const dx of [0, -20, 20, -32, 32]) {
+      const p = clamp(x + dx, y + dy);
+      if (tappable(g, p.x, p.y)) return p;
+    }
+  }
+  return clamp(x, y);
+}
+
 export class Nature {
   private plants: Entity[] = [];
   private trees: Tree[] = [];
@@ -876,10 +906,8 @@ export class Nature {
     // Seeds don't land in the barn door yard (sheep and the cat need it): they roll to its edge.
     const yard = doorYard(g.layout);
     if (contains(inflate(yard, 6), x, y)) x = x < yard.x + yard.w / 2 ? yard.x - 8 : yard.x + yard.w + 8;
-    // A tree hanging off the screen edge drops toward the middle (an off-screen seed can't be picked up,
-    // and it would block that tree's next seed until it rots).
-    x = Math.max(10, Math.min(g.layout.w - 10, x));
-    const f = new Forage(this, name, index, 0, 0, { x: Math.round(x), y: Math.round(Math.min(g.layout.h - 4, y)) });
+    const at = reachable(g, x, y);
+    const f = new Forage(this, name, index, 0, 0, { x: Math.round(at.x), y: Math.round(at.y) });
     f.owner = from;
     f.dropFrom(height);
     this.seedsOut.add(f);
