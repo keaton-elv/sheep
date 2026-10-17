@@ -80,7 +80,7 @@ const TRIVIA = [
 
 // In season, these join the pool.
 const SEASON_NEWS: Partial<Record<Season, string[]>> = {
-  fall: ["Leaf report: the ginkgos are yellow now. Last week they were green, so that's the news."],
+  fall: ["Leaf report: the ginkgos are yellow now. Last week they were green."],
 };
 
 // Some days get their own news.

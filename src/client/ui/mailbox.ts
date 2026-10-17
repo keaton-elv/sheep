@@ -807,7 +807,7 @@ const POSTCARDS: readonly (readonly [greeting: string, body: string, picture: Po
   ["Brother,", "I found a cactus. I sat near it. Not on it. I learned.", "rocks"],
   ["Hi you two!", "The sunsets here are pink and orange and purple, all at the same time.", "sunset"],
   ["Brother,", "A roadrunner ran past. I did not chase it. Too hot.", "palm"],
-  ["Hi you two!", "A javelina looked at me today. It looks like a pig but it is not a pig. I looked back.", "sunset"],
+  ["Hi you two!", "A javelina looked at me today. It looks like a pig but it is not a pig.", "sunset"],
   ["Brother,", "It's a dry heat, they keep saying. I am melting anyway.", "skull"],
 ];
 

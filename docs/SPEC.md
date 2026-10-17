@@ -124,7 +124,9 @@ and desktop works great too.
   "I hate tomatoes but they like the pee I guess." Not fun facts with a wink (no "karaoke means empty orchestra"),
   not stock joke shapes ("a lot of flower for a hedgehog"), and no punchline at the end ("Worth it.",
   "Legends.", "Minimum." are the basic version). Here: "A level has a little bubble in it that wants to be
-  in the middle.", "${n} has grass stains and is a slightly greener sheep now."
+  in the middle.", "${n} has grass stains and is a slightly greener sheep now." Stop one beat early: one
+  detail, no extra little haha after it ("A sheep, but stone." not "...so it stays where you put it.";
+  "Nobody can see him in it." not "...including Otto.").
 - **Inside jokes stay as they are** ("Mow.", karaoke, the ORIGINAL PLAN, 1 hour of loafing, "Snickers is a
   DOG."). They're references, not the voice: "Snickers is a DOG." is her joke, so it isn't a model for new
   lines.

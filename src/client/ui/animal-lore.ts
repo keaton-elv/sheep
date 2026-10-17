@@ -273,7 +273,7 @@ const TOPICS: readonly TopicDef[] = [
     ],
     fallback: ["Blue Bottle", "Sightglass", "Ritual", "Philz"],
     mood: (n, place) => [
-      place === "Philz" ? `${n} wants a Mint Mojito from Philz. It's coffee, it's just called that.` : `${n} is vibrating slightly. It had ${place} and then it had more ${place}.`,
+      place === "Philz" ? `${n} wants a Mint Mojito from Philz. It's not a mojito.` : `${n} is vibrating slightly. It had ${place} and then it had more ${place}.`,
       `${n} smelled coffee. Its ears perked right up.`,
       `${n} takes coffee very seriously. (Washington roots.)`,
     ],

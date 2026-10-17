@@ -118,7 +118,7 @@ const FOX_LINES = [
   "Otto has heard about karaoke. Otto is not going to karaoke.",
   "Otto swears he saw a ladybug knight riding a bumblebee. Milo believes him.",
 ];
-const FOX_FOG_LINE = "Otto loves Karl the Fog. Nobody can see him in it, including Otto.";
+const FOX_FOG_LINE = "Otto loves Karl the Fog. Nobody can see him in it.";
 const FOX_SLEEP_LINES = [
   "Otto and Milo are fast asleep. Shhh...",
   "Zzz... Otto's paw twitches. He's dreaming about butterflies.",
