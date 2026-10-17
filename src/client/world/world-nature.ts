@@ -95,8 +95,9 @@ function registerSpotFallback(): void {
   registerArt(ARTIFACT_SPOT, c);
 }
 
-/** How often shaking a ginkgo knocks something loose (until you've had today's one). */
-const DROP_CHANCE = 0.35;
+/** How many shakes it takes to knock today's one thing loose (picked fresh each day, each phone). */
+const SHAKES_MIN = 15;
+const SHAKES_MAX = 25;
 /** Picked-list index for today's one thing out of the ginkgos (forage 0..99, digs 100+, berries 200+). */
 const TREE_INDEX = 300;
 /** Whose drop is on the ground: all the trees share one (see Nature.dropSeed). */
@@ -433,7 +434,7 @@ class Tree implements Entity {
       sayOnce("That's all the ginkgos have for you today.", 1);
       return;
     }
-    if (Math.random() < DROP_CHANCE) {
+    if (this.nature.shookLoose()) {
       const drop = this.nature.treeDrop(this.season);
       this.nature.dropSeed(g, this.x + (Math.random() < 0.5 ? -10 : 10), this.y + 4, drop, TREE_DROP, TREE_INDEX);
     } else if (fall) sayOnce("Somewhere in SF, a whole block just turned gold.", 0.35);
@@ -705,6 +706,8 @@ export class Nature {
   private seedsOut = new Set<Forage>();
   /** What this device already picked up today (forage spot / artifact spot / berry bush indexes). */
   private pickedToday = new Set<number>();
+  /** Shakes to go before the ginkgos give up today's one thing. */
+  private shakesLeft = SHAKES_MAX;
 
   constructor(
     private g: Game,
@@ -776,6 +779,12 @@ export class Nature {
     for (const e of this.plants) g.add(guard(e, "plant"));
   }
 
+  /** One more shake: true once there have been enough today (and again if the drop rotted unpicked). */
+  shookLoose(): boolean {
+    this.shakesLeft--;
+    return this.shakesLeft <= 0;
+  }
+
   /**
    * Which of the Ginkgo Bundle's things falls out: whichever the chest has fewest of (a coin flip
    * between ties), so a farmer's one a day goes where the bundle needs it.
@@ -826,6 +835,7 @@ export class Nature {
     this.forage = [];
     this.day = dayKey(g.env.now);
     this.pickedToday = new Set(readPicked(this.day));
+    this.shakesLeft = SHAKES_MIN + Math.floor(Math.random() * (SHAKES_MAX - SHAKES_MIN + 1));
     const season = g.env.season;
     const pool = FORAGE_BY_SEASON[season];
     const seed = Number(this.day.replaceAll("-", "")) || 1;
