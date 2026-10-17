@@ -16,7 +16,7 @@ Lives at **https://keatonelvins.com/sheep** (password-gated, remembered for 400 
 | Sheared sheep rests 3 days, then moves into the barn | Done plans become browsable memories |
 | Wool → Loom → Cloth → the carpenter's shop | Rewards: decorate the farm |
 | Hats from any sheep's card | Spend cloth on a plan you love |
-| Forage (shake trees, dig where the worms wiggle) → bundles | More cloth, and a Community Center board to fill |
+| Forage (pick it up, shake the ginkgos, dig where the worms wiggle, let Snickers knock the coffee over) → bundles | More cloth, and a Community Center board to fill |
 | Billboard calendar, mailbox | Dated plans, "what happened while you were away" |
 
 Real local time drives day and night, the real season drives the farm's look, and the real

@@ -158,9 +158,12 @@ and desktop works great too.
 - **Cheering section:** Otto and Milo cheer every shearing, yours or the other phone's. (`?cheer`)
 - **Trench Coat alibis:** the day's first reveal gets a letter: Otto vouches for the raccoons, Milo denies
   everything, Snickers ate one mosquito.
-- **The coffee on the fence post:** about one morning in six, Snickers swipes a steaming mug off a post
-  while looking you dead in the eye, and a coffee bean rolls out of the mess (once a day per phone; the
-  only place beans come from). (`?coffee`)
+- **The coffee on the fence post:** about one morning in six (the same mornings on both phones, 6:00 to 10:30,
+  dry weather), a steaming mug sits on a top-rail post (in landscape, the calendar board's roof). Snickers comes
+  for it 8-18 s after it's on screen (the wait starts on every visit, so you always see it), swipes it off while
+  looking you dead in the eye, and a coffee bean rolls out of the mess: once a day per phone, the only place
+  beans come from. The bean stays until it's picked up, and a reload before noon puts it back by the puddle.
+  (`?coffee`)
 - **The string, outside:** close the chest after poking the string and Snickers comes running, pounces, and loafs
   on it. Then it's gone. (`?string`)
 - **Free lunch:** now and then a seagull drops a fish by his dish and Snickers wins it (sometimes a salmon).
@@ -208,11 +211,18 @@ and desktop works great too.
   - **The twelve** (cloth): Spring, Summer (+ Fiddlehead Fern), Fall, Winter (+ Holly) Foraging (1 each);
     Bonney Lake (Salmonberry, Spring Onion, Morel; 1); Exotic Foraging (Red Mushroom, Chanterelle, Purple
     Mushroom, Coffee Bean; 2); Ginkgo (Ginkgo Nut, Ginkgo Leaf, Twig; 1); Treasure (Rusty Spoon, Rusty Cog,
-    Glass Shards; 1); Beachcomber (Anchor, Dried Starfish, Chipped Amphora; 2); Sutro Baths (Arrowhead, Ancient Doll, Chicken Statue,
-    Ornamental Fan, Lost Book; 2); Rare Finds (Elvish Jewelry, Bone Flute, Rare Disc, Dinosaur Egg; 3); Field
+    Glass Shards; 1); Beachcomber (Anchor, Dried Starfish, Chipped Amphora; 2); Sutro Baths (Arrowhead, Ancient
+    Doll, Chicken Statue, Ornamental Fan, Lost Book; 2); Rare Finds (Elvish Jewelry, Bone Flute, Rare Disc, Dinosaur Egg; 3); Field
     Research (the five keepsakes; 5, exactly a Sheep Statue).
-  - **Odds:** only the four seasonal Foraging bundles' items turn up twice as often as other forage. Worms most
-    days, a second patch every other day.
+  - **Odds:** each day the grass has 3-5 things from the season's list; only the four seasonal Foraging
+    bundles' items count twice, so the others each turn up on about 31% of days in season (Red Mushroom in
+    summer and fall, Chanterelle and Purple Mushroom in fall only). Coffee beans only come from Snickers' mug
+    (above). Worms most days, a second patch every other day.
+  - **Hints** (a bundle's card, under its slots; tap a slot for that item's): forage bundles say where and when
+    ("In the grass, in fall."), Ginkgo "Stuff falls out of a ginkgo if you shake it.", Treasure, Beachcomber and
+    Sutro Baths "Go poke around in the dirt...", Rare Finds "Some of the stuff under the worms is really old.",
+    the Coffee Bean "Some mornings somebody leaves their coffee out...". No hint repeats a limit the farm already
+    says out loud (the ginkgos' "That's all..." line covers one a day).
   - **The ginkgos give one thing a day per phone** (it takes 15-25 shakes, a fresh count each day): whichever
     of nut, leaf and twig the chest has fewest of. Bare in winter, they only have twigs. After that, a shake
     says "That's all the ginkgos have for you today." (once a visit) and nothing falls. Drops (and berries) land
