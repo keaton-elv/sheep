@@ -253,9 +253,9 @@ const BUNDLE_HINTS: Record<string, string> = {
   wild: "In the grass, in spring.",
   exotic: "In the grass, in fall.",
   seeds: "Stuff falls out of a ginkgo if you shake it.",
-  junk: "Go poke around in the dirt…",
-  beach: "Go poke around in the dirt…",
-  antiques: "Go poke around in the dirt…",
+  junk: "Go poke around in the dirt...",
+  beach: "Go poke around in the dirt...",
+  antiques: "Go poke around in the dirt...",
   rare: "Some of the stuff under the worms is really old.",
   research: "Rare visitors leave keepsakes...",
 };
