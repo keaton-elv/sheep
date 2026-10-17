@@ -55,7 +55,7 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
   const lore = planLore(s, choose);
   const loreDreams = lore.pool("dreams");
   const dream = loreDreams.length && r() < 0.6 ? choose(loreDreams) : choose(DREAMS[s.category] ?? DREAMS.other);
-  const golden = s.golden ? " It's shimmering. Legendary." : "";
+  const golden = s.golden ? " It's also gold." : "";
   const lamb = !!ctx.lamb && s.shearedAt === null;
   const karaoke = lore.has("karaoke");
 
@@ -143,7 +143,7 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
     const summer = moment.season === "summer" ? [`Summer in San Francisco: ${n} is glad it kept its wool.`] : [];
     return choose([`Foggy day. ${n} blends right in.`, `${n} lost the other sheep in the fog. Thanks, Karl.`, ...summer]) + golden;
   }
-  if (moment.weather === "windy" && r() < 0.5) return `${n}'s wool is blowing in the wind. Majestic.${golden}`;
+  if (moment.weather === "windy" && r() < 0.5) return `${n}'s wool is blowing in the wind. It's all going the same way.${golden}`;
 
   const DAY = 86_400_000;
   const createdToday = daysBetween(new Date(s.createdAt), moment.now) === 0;
@@ -175,6 +175,6 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
   if (createdToday) return `${n} is still getting used to the pasture.${golden}`;
   if (s.pets >= 8) return `${n} looks really happy today!${golden}`;
   if (s.pets >= 4 && r() < 0.5) return `${n} seems very content.${golden}`;
-  if (s.golden) return `${n} is shimmering. Legendary.`;
+  if (s.golden) return `${n} is like a regular sheep but gold.`;
   return choose([`${n} is daydreaming about ${dream}...`, `${n} is munching grass. Hmm... ${dream}...`]);
 }

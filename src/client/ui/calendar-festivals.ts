@@ -188,7 +188,7 @@ const RULES: Rule[] = [
   (d, y) => (on(d, 10, nth(y, 10, 4, 4)) ? { name: "Thanksgiving", note: "Save room for pie. (Rhubarb, if Sumner gets a vote.)" } : null),
   (d) =>
     d.getMonth() === 11 && d.getDate() >= 13 && d.getDate() <= 14
-      ? { name: "Geminids", note: "The year's best meteor shower, and it comes from a little asteroid called Phaethon.", ...METEORS }
+      ? { name: "Geminids", note: "The year's best meteor shower. It's cold out but that's where the meteors are.", ...METEORS }
       : null,
   (d) =>
     on(d, 11, 25)

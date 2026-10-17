@@ -119,11 +119,13 @@ and desktop works great too.
   "That's just science.", "New name, same sheep.", "Not hungrily. Just... supervising.", "One scoop at a
   time.", "The sheep feel seen." If a line sounds like a tagline or a fortune cookie, cut it. Goofy
   beats clever (their own joke: "Snickers is a DOG.").
-- **The voice is keatonelvins.com/me** (`src/pages/me.astro` in the site repo). Say the plain fact, like a
-  dictionary would, then let one odd or sweet detail ride along in the same flat sentence: "Mason jars are
-  glass jars used to preserve food... and grow in cardboard boxes by the curb." Real specifics, a lot of
-  "little" and "and", and no punchline at the end ("Worth it.", "Legends.", "Minimum." are the basic
-  version). Here: "Wool, but flat.", "Milo is wearing a flower, which is a lot of flower for a hedgehog."
+- **The voice is keatonelvins.com/me** (`src/pages/me.astro` in the site repo): "the deadpan statement of
+  obvious thing in an unexpected way." Say the plain thing like a kid explaining it, with kid logic and an
+  "I guess" if it helps: "They are constantly repainting since their homes are all peeling." "I hate
+  tomatoes but they like the pee I guess." Not fun facts with a wink (no "karaoke means empty orchestra"),
+  not stock joke shapes ("a lot of flower for a hedgehog"), and no punchline at the end ("Worth it.",
+  "Legends.", "Minimum." are the basic version). Here: "A level has a little bubble in it that wants to be
+  in the middle.", "${n} has grass stains and is a slightly greener sheep now."
 - **No characters:** no villager portraits, names or voices. The only "people" who talk are animals:
   Snickers, Otto, Milo and the sheep themselves.
 - **Mailbox letters** are written by Snickers, Otto, or the sheep themselves (signed with the sheep's

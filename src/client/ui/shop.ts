@@ -70,7 +70,7 @@ function shopLine(cloth: number): string {
   if (farmNow().getDay() === 3) return "WINE WEDNESDAY. (Cloth only, sadly.)";
   const lines = [
     "Built while you wait. (Valley magic.)",
-    "Most of this is wood. The gnome won't say what he's made of.",
+    "Sawdust is just wood that got very small.",
     "A level has a little bubble in it that wants to be in the middle.",
     "Light on two sides of every room. (See: A Pattern Language.)",
   ];

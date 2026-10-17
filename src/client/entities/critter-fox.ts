@@ -138,7 +138,7 @@ const HOG_LINES = [
 ];
 const HOG_SLEEP_LINES = [
   "Milo curls up tighter without waking up. Zzz...",
-  "Shhh... Milo is dreaming about beetles. There are about 400,000 kinds.",
+  "Shhh... Milo is dreaming about beetles. His nose is still sniffing.",
   "Milo scoots closer to Otto in his sleep. Zzz...",
 ];
 const STUMP_LINES = [
@@ -539,7 +539,7 @@ class Fox implements Entity {
     if (this.tapCount % 3 === 0) {
       const season = g.env.season;
       let line = pick(FOX_LINES);
-      if (this.state === "sunbathe") line = "Otto is sunbathing. Very cool shades.";
+      if (this.state === "sunbathe") line = "Otto is sunbathing. He has sunglasses on so it's hard to tell if he's awake.";
       else if (g.env.weather === "fog" && chance(0.5)) line = FOX_FOG_LINE;
       else if (season === "winter" && chance(0.3)) line = "Otto's little red scarf was a gift from Milo.";
       void say(line);
@@ -827,7 +827,7 @@ class Hedgehog implements Entity {
       else if (chance(0.35)) {
         if (season === "winter") line = "Milo's knit hat is slightly too big and covers one eye, so he sees half of everything.";
         else if (season === "fall") line = "A leaf is stuck on Milo's spines, and then another one, and now he is mostly leaf.";
-        else if (season === "spring") line = "Milo is wearing a flower, which is a lot of flower for a hedgehog.";
+        else if (season === "spring") line = "Milo is wearing a flower. He doesn't have pockets so that's where it goes.";
       }
       void say(line);
     }

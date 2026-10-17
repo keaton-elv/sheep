@@ -71,7 +71,7 @@ const TRIVIA = [
   // The local news.
   "In the news: Mayor Lurie has not visited the farm yet. The sheep remain hopeful.",
   "Muni update: the J is 10 minutes away. It has been 10 minutes away for 20 minutes.",
-  "Wildlife report: the Telegraph Hill parrots are cherry-headed conures and very loud.",
+  "Wildlife report: the parrots of Telegraph Hill are green and loud and there are a lot of them.",
   "Traffic: light on the Golden Gate. Heavy porpoise traffic under it.",
   "Sumner, WA: still the Rhubarb Pie Capital of the World.",
   "Bonney Lake forecast: drizzle, with a chance of drizzle.",

@@ -36,16 +36,16 @@ function memoryPlaceholder(lore: Lore, stuckToOriginal: boolean): string {
 
 /** A little wink after the snip, for the plans that earn one. */
 function shearWink(lore: Lore, stuckToOriginal: boolean): string | null {
-  if (lore.has("karaoke")) return 'Karaoke means "empty orchestra." Nobody is ready to talk about it.';
-  if (stuckToOriginal) return "It was the ORIGINAL PLAN all along, and everyone sort of knew.";
+  if (lore.has("karaoke")) return "At karaoke you read words off a TV out loud and everyone can hear you.";
+  if (stuckToOriginal) return "The ORIGINAL PLAN is the same as the first plan, it just took longer.";
   if (lore.hits.some((h) => h.topic === "vampires" || (h.topic === "icecream" && h.place === "garlic"))) return "No vampires came, so the garlic must have worked.";
-  if (lore.has("loafing") && Math.random() < 0.6) return pick(["1 hour of loafing, paws tucked in like a little loaf of bread.", "Back from the black hole. Time goes slower in there, so it felt like a minute."]);
+  if (lore.has("loafing") && Math.random() < 0.6) return pick(["Loafing is when you sit down and then keep sitting down for an hour.", "It's very dark in the black hole, so nobody knew it was 3 hours."]);
   if (lore.has("tilden") && Math.random() < 0.6) return "Celery is mostly water and crunch, and the cousins got every bit.";
   const fins = lore.hits.find((h) => h.topic === "dolphins");
   if (fins && Math.random() < 0.5) {
     return fins.place === "the Golden Gate"
-      ? "Probably porpoises. You can tell by their teeth, which is hard from the bridge."
-      : "Probably dolphins, or porpoises. You can tell by their teeth, if they let you.";
+      ? "The porpoises come up to breathe and go back down, so you only see a little bit at a time."
+      : "Dolphins, or maybe porpoises. They were both wet so it's hard to say.";
   }
   if (lore.has("sketch") && Math.random() < 0.5) return "Another sketching meetup, done!";
   try {

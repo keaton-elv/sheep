@@ -20,7 +20,7 @@ export const DECOR_INFO: Record<DecorKind, DecorInfo> = {
   pumpkin: { name: "Pumpkin", desc: "A giant pumpkin. Half Moon Bay would be proud.", glyph: "●" },
   tree: { name: "Tree", desc: "Not quite Muir Woods. The sheep nap under it anyway.", glyph: "♣" },
   pond: { name: "Pond", desc: "A very small Stow Lake, with no paddle boats yet.", glyph: "≈" },
-  gnome: { name: "Garden Gnome", desc: "Garden gnomes are said to help in the garden at night. This one mostly watches the sheep.", glyph: "♠" },
+  gnome: { name: "Garden Gnome", desc: "A little man in a pointy hat. He stands in the garden and that's his whole job.", glyph: "♠" },
   sheepstatue: { name: "Sheep Statue", desc: "A grand monument to fluff.", glyph: "♛" },
 };
 

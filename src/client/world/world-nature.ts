@@ -352,7 +352,7 @@ function ginkgoWink(taps: number): void {
 
 function bushLine(env: FarmEnv): string | null {
   if (env.weather === "rain" || env.weather === "storm") return "A banana slug was napping in there...";
-  if (env.season === "summer" && env.hour >= 19) return "A cricket in there stops chirping. Awkward...";
+  if (env.season === "summer" && env.hour >= 19) return "A cricket in there stops chirping and waits for you to leave.";
   return null;
 }
 
