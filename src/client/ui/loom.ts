@@ -252,11 +252,11 @@ const BUNDLE_HINTS: Record<string, string> = {
   winter: "Out in the snow, in winter.",
   wild: "In the grass, in spring.",
   exotic: "In the grass, in fall.",
-  seeds: "Shake a ginkgo, grab what falls. One a day each.",
-  junk: "Dig where the worms wiggle.",
-  beach: "Dig where the worms wiggle.",
-  antiques: "Dig where the worms wiggle.",
-  rare: "Keep digging where the worms wiggle.",
+  seeds: "Stuff falls out of a ginkgo if you shake it.",
+  junk: "The worms wiggle where stuff is buried I guess.",
+  beach: "The worms wiggle where stuff is buried I guess.",
+  antiques: "The worms wiggle where stuff is buried I guess.",
+  rare: "Some of the stuff under the worms is really old.",
   research: "Rare visitors leave keepsakes...",
 };
 
@@ -264,7 +264,6 @@ const BUNDLE_HINTS: Record<string, string> = {
 const ITEM_HINTS: Record<string, string> = {
   "item.forage.red-mushroom": "In the grass, in summer and fall.",
   "item.forage.coffee-bean": "Turns up now and then, any season.",
-  "item.forage.twig": "Shake a ginkgo, any season. One a day each.",
   [ROYAL_HONEY]: "Hail a Bumblesteed on a sunny day.",
   [POCKET_SUNSHINE]: "Catch a golden ladybug on a sunny day.",
   [BLURRY_PHOTO]: "Snap something tall at dusk...",
