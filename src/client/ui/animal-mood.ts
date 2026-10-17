@@ -70,7 +70,7 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
       choose([
         `${n} is cozy in the barn, remembering the good times...`,
         `${n} is happily retired. What a sheep.`,
-        `${n} tells the other sheep about that day. Constantly.`,
+        `${n} tells the other sheep about that day, and they always baa at the good part.`,
         `${n} is telling Snickers all about it. He's mostly asleep.`,
       ]) + golden
     );

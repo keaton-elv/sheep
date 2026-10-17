@@ -15,12 +15,12 @@ export const DECOR_INFO: Record<DecorKind, DecorInfo> = {
   flowers: { name: "Flower Patch", desc: "Not lavender, but it's trying its best.", glyph: "✿" },
   lamppost: { name: "Lamp-post", desc: "For foggy nights. (Hi, Karl.)", glyph: "☼" },
   campfire: { name: "Campfire", desc: "Ocean Beach bonfire, minus the wind.", glyph: "♨" },
-  haybale: { name: "Hay Bale", desc: "Snack and sofa in one. The sheep fully approve.", glyph: "▦" },
+  haybale: { name: "Hay Bale", desc: "Dried grass in a cube. The sheep sit on it and eat it, sometimes at the same time.", glyph: "▦" },
   beehouse: { name: "Bee House", desc: "Home for some very busy bees. Bzzz...", glyph: "⬢" },
   pumpkin: { name: "Pumpkin", desc: "A giant pumpkin. Half Moon Bay would be proud.", glyph: "●" },
   tree: { name: "Tree", desc: "Not quite Muir Woods. The sheep nap under it anyway.", glyph: "♣" },
-  pond: { name: "Pond", desc: "Stow Lake, farm-sized. The ducks will find it.", glyph: "≈" },
-  gnome: { name: "Garden Gnome", desc: "He's watching the sheep. Lovingly. Constantly...", glyph: "♠" },
+  pond: { name: "Pond", desc: "A very small Stow Lake, with no paddle boats yet.", glyph: "≈" },
+  gnome: { name: "Garden Gnome", desc: "Garden gnomes are said to help in the garden at night. This one mostly watches the sheep.", glyph: "♠" },
   sheepstatue: { name: "Sheep Statue", desc: "A grand monument to fluff.", glyph: "♛" },
 };
 

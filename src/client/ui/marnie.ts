@@ -29,7 +29,7 @@ const GREETINGS = [
   "Baa... (This lamb would like a plan, please.)",
   "Baa? Baa!",
   "This lamb practiced its baa all morning...",
-  "Snickers already sniffed this one. Approved.",
+  "Snickers already sniffed this one, all the way around, twice.",
   "This lamb heard you two always end up on the ORIGINAL PLAN...",
 ];
 

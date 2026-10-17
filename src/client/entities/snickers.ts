@@ -91,6 +91,7 @@ const FILL_LINES: Record<Food, string> = {
 const FULL_LINES = [
   "He'd eat salmon for every meal.",
   "Whisker Lickins are a treat, not dinner. Snickers disagrees.",
+  "It's still full. He checks again from the other side.",
 ];
 /** Rattling a full dish: a joke now and then, not every tap. */
 const FULL_TOAST_GAP = 12;

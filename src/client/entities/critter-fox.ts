@@ -138,7 +138,7 @@ const HOG_LINES = [
 ];
 const HOG_SLEEP_LINES = [
   "Milo curls up tighter without waking up. Zzz...",
-  "Shhh... Milo is dreaming about beetles. Big ones.",
+  "Shhh... Milo is dreaming about beetles. There are about 400,000 kinds.",
   "Milo scoots closer to Otto in his sleep. Zzz...",
 ];
 const STUMP_LINES = [
@@ -825,9 +825,9 @@ class Hedgehog implements Entity {
       let line = pick(HOG_LINES);
       if (this.ballFrom === "sleep") line = pick(HOG_SLEEP_LINES);
       else if (chance(0.35)) {
-        if (season === "winter") line = "Milo's knit hat is slightly too big.";
-        else if (season === "fall") line = "A leaf is stuck on Milo's spines. On purpose.";
-        else if (season === "spring") line = "Milo is wearing a flower. Very fashionable.";
+        if (season === "winter") line = "Milo's knit hat is slightly too big and covers one eye, so he sees half of everything.";
+        else if (season === "fall") line = "A leaf is stuck on Milo's spines, and then another one, and now he is mostly leaf.";
+        else if (season === "spring") line = "Milo is wearing a flower, which is a lot of flower for a hedgehog.";
       }
       void say(line);
     }
