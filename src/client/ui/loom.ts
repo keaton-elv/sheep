@@ -263,7 +263,7 @@ const BUNDLE_HINTS: Record<string, string> = {
 /** Where to find one item, when its bundle's hint isn't the whole story. */
 const ITEM_HINTS: Record<string, string> = {
   "item.forage.red-mushroom": "In the grass, in summer and fall.",
-  "item.forage.coffee-bean": "Turns up now and then, any season.",
+  "item.forage.coffee-bean": "Some mornings somebody leaves their coffee out...",
   [ROYAL_HONEY]: "Hail a Bumblesteed on a sunny day.",
   [POCKET_SUNSHINE]: "Catch a golden ladybug on a sunny day.",
   [BLURRY_PHOTO]: "Snap something tall at dusk...",

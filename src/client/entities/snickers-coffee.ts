@@ -3,9 +3,11 @@
 // by the yard. Tap it for a sip. A minute or two later Snickers strolls over (getting up from his
 // nap for it), sits down beside it, turns to look you dead in the eye, and pushes it off the post:
 // three swipes, eye contact the whole time. It smashes in the grass, leaves a little splash until
-// noon, and doesn't come back that day.
+// noon, and doesn't come back that day. A coffee bean rolls out of the mess (one a day per phone,
+// for the Exotic Foraging Bundle): it's the only place beans come from.
 // In landscape the top rail is way up past the barn, out of his reach: there it's left on the roof
 // of the calendar board.
+// About one morning in six, the same mornings on both phones, 6:00 to 10:30, dry weather.
 // Debug: ?coffee puts the mug out right away (any day, hour or weather) and he comes after 12 s
 // (even out of his night's sleep).
 
@@ -16,6 +18,7 @@ import type { Entity, Game } from "../engine/game";
 import { draw, REGIONS } from "../engine/sprites";
 import { toast } from "../ui/dom";
 import type { Layout, Point } from "../world/layout";
+import { dropCoffeeBean } from "../world/world-nature";
 import { hash2 } from "../world/world-pixels";
 import { freePosts, onLayoutChange, POST_TOP } from "./critter-place";
 import { addSafe, chance, dotPuff, lsGet, lsSet, onTick, params, rand, reducedMotion } from "./critter-util";
@@ -61,9 +64,9 @@ export interface CoffeeCat {
 
 const seedOf = (key: string) => Number(key.replaceAll("-", ""));
 
-/** About one morning in five, the same mornings on both phones. */
+/** About one morning in six, the same mornings on both phones. */
 function coffeeMorning(key: string): boolean {
-  return hash2(seedOf(key), 0xc0f, 0xfee) < 0.2;
+  return hash2(seedOf(key), 0xc0f, 0xfee) < 1 / 6;
 }
 
 interface Spotting {
@@ -161,7 +164,8 @@ class Mug implements Entity {
   constructor(
     private readonly g: Game,
     public at: Spotting,
-    private readonly onBroken: () => void,
+    /** It landed (and smashed) at (x, y). */
+    private readonly onBroken: (x: number, y: number) => void,
   ) {
     this.place(at);
   }
@@ -235,7 +239,7 @@ class Mug implements Entity {
       this.dx = cx - this.at.x;
       sfx("smash", { volume: 0.5 });
       dotPuff(cx, this.landY - 1, ["#6b3e1f", "#a8673a", "#e9dcc8"], 6);
-      this.onBroken();
+      this.onBroken(cx, this.landY);
     }
   }
 
@@ -355,9 +359,10 @@ export function initCoffee(g: Game, cat: CoffeeCat): void {
     },
   };
 
-  const broken = () => {
+  const broken = (x: number, y: number) => {
     coming = false;
     lsSet(DAY_KEY, today());
+    dropCoffeeBean(g, x, y + 3, true);
     if (lsGet(FIRST_KEY)) return;
     lsSet(FIRST_KEY, String(Date.now()));
     window.setTimeout(() => toast(EYE_LINE, { icon: "item.coffee" }), 600);
@@ -390,7 +395,11 @@ export function initCoffee(g: Game, cat: CoffeeCat): void {
     if (!mug && done && g.env.hour < 12 && yard && !force) {
       // Reloaded after he knocked it off: just the puddle, where it landed.
       const s = spotFor(l, yard, key);
-      if (s) splash = addSafe(g, new Splash(s.x + s.away * 12, s.rail + 6), "coffee splash");
+      if (s) {
+        splash = addSafe(g, new Splash(s.x + s.away * 12, s.rail + 6), "coffee splash");
+        // Its bean, if nobody picked it up yet.
+        dropCoffeeBean(g, s.x + s.away * 12, s.rail + 9, false);
+      }
       return;
     }
     const wanted = force || (!done && coffeeMorning(key) && morning());

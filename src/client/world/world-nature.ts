@@ -102,6 +102,9 @@ const SHAKES_MAX = 25;
 const TREE_INDEX = 300;
 /** Whose drop is on the ground: all the trees share one (see Nature.dropSeed). */
 const TREE_DROP = {};
+/** Picked-list index for the coffee bean out of Snickers' smashed mug (it was a forage spot's once). */
+const COFFEE_INDEX = 50;
+const COFFEE_DROP = {};
 
 const SEASON_X: Record<Season, number> = { spring: 0, summer: 146, fall: 292, winter: 438 };
 
@@ -552,11 +555,11 @@ class Forage implements Entity {
   ) {
     this.icon = spot ? artifactKey(name) : forageKey(name);
   }
-  /** A seed dropping out of a tree: starts in the canopy, bounces, sticks around for a while. */
-  dropFrom(height: number): void {
+  /** A seed dropping out of a tree: starts in the canopy, bounces, sticks around for `ttl` seconds. */
+  dropFrom(height: number, ttl: number): void {
     this.fall = height;
     this.fallV = 0;
-    this.ttl = 45;
+    this.ttl = ttl;
   }
   update(dt: number, g: Game): void {
     if (this.fixed) {
@@ -697,6 +700,20 @@ function reachable(g: Game, x: number, y: number): { x: number; y: number } {
   return clamp(x, y);
 }
 
+let current: Nature | null = null;
+
+/**
+ * Snickers just knocked the morning coffee off its post (entities/snickers-coffee.ts): a bean rolls
+ * out of the mess at (x, y), once a day per phone, and stays until it's picked up. `fresh`: it's
+ * bouncing out right now (otherwise it's been lying there since before a reload).
+ */
+export function dropCoffeeBean(g: Game, x: number, y: number, fresh: boolean): void {
+  const n = current;
+  // (Straight from storage too: the morning check can run before today's list is loaded.)
+  if (!n || n.wasPicked(COFFEE_INDEX) || readPicked(dayKey(g.env.now)).includes(COFFEE_INDEX)) return;
+  n.dropSeed(g, x, y, COFFEE_BEAN, COFFEE_DROP, COFFEE_INDEX, fresh ? 12 : 0, Infinity);
+}
+
 export class Nature {
   private plants: Entity[] = [];
   private trees: Tree[] = [];
@@ -713,6 +730,7 @@ export class Nature {
     private g: Game,
     private ground: Ground,
   ) {
+    current = this;
     registerSpotFallback();
     safeOn(g, "tick", "forage.day", (dt: number) => {
       this.dayCheck -= dt;
@@ -826,7 +844,7 @@ export class Nature {
   }
 
   /**
-   * Today's forage (3-5 things, now and then a coffee bean) and most days an artifact spot or two,
+   * Today's forage (3-5 things) and most days an artifact spot or two,
    * seeded by the date so both farmers find the same things in the same spots.
    */
   spawnForage(): void {
@@ -883,14 +901,12 @@ export class Nature {
     // Draw everything from the day's rng first, so what's picked never shifts what's left.
     const names: string[] = [];
     for (let i = 0; i < count; i++) names.push(pickForage(pool, r()));
-    const coffee = r() < 0.12;
+    r(); // (once the day's coffee bean: now it comes out of Snickers' mug, but the draws after it stay put)
     const worms = r() < 0.8;
     const treasure = pickArtifact(r());
     const worms2 = r() < 0.5;
     const treasure2 = pickArtifact(r());
     names.forEach((name, i) => add(name, i, false));
-    // Now and then a coffee bean, in any season.
-    if (coffee) add(COFFEE_BEAN, 50, false);
     // Most days, a patch of wiggly worms (often two). Everyone in Stardew knows: you DIG there.
     if (worms) add(treasure, 100, true);
     if (worms2) add(treasure2, 101, true);
@@ -910,7 +926,7 @@ export class Nature {
    * (x, y) to be picked up. One at a time per `from` (the trees share one). `index` >= 0 remembers the
    * pick for today, so it's one a day.
    */
-  dropSeed(g: Game, x: number, y: number, name: string, from: object, index = -1, height = 34): void {
+  dropSeed(g: Game, x: number, y: number, name: string, from: object, index = -1, height = 34, ttl = 45): void {
     for (const s of this.seedsOut) if (s.dead) this.seedsOut.delete(s);
     for (const s of this.seedsOut) if (s.owner === from) return;
     // Seeds don't land in the barn door yard (sheep and the cat need it): they roll to its edge.
@@ -919,7 +935,7 @@ export class Nature {
     const at = reachable(g, x, y);
     const f = new Forage(this, name, index, 0, 0, { x: Math.round(at.x), y: Math.round(at.y) });
     f.owner = from;
-    f.dropFrom(height);
+    f.dropFrom(height, ttl);
     this.seedsOut.add(f);
     g.add(guard(f, "seed"));
   }
