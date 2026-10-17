@@ -456,7 +456,7 @@ function openBuySheep(arg?: { date?: string }): void {
           if (sheep.golden) {
             setTimeout(() => {
               sfx("sparkle");
-              toast("A golden lamb?! Legendary...", { icon: "ui.star", ms: 4500 });
+              toast("A golden lamb?! It's a regular lamb but gold!", { icon: "ui.star", ms: 4500 });
             }, 700);
           }
         },

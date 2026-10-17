@@ -582,7 +582,7 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
           : /sketch/i.test(name)
             ? `I'm ${name}. Another sketching meetup? I'll pose. Baa.`
             : /pizza/i.test(name)
-              ? `I'm ${name}. Golden Boy or Tony's? ...Why not both.`
+              ? `I'm ${name}. Golden Boy or Tony's? I'll have to try both to know.`
               : /ice cream|gelato/i.test(name)
                 ? `I'm ${name}. Garlic, please. Keeps the vampires away...`
                 : pick([
@@ -673,7 +673,7 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
             ? `The crows are furious about the new ${thing}. Milo and I think it's great.`
             : pick([
                 `Milo and I snuck over to see the new ${thing}. Very fancy...`,
-                `We hiked all the way up Mt. Tam today, and the best view was still the new ${thing}.`,
+                `We hiked all the way up Mt. Tam today. You can see the whole Bay from up there but not the new ${thing}, so we came back.`,
                 `The fog rolled in, so Milo and I had to get REAL close to see the new ${thing}. Very fancy...`,
               ]);
       return {
@@ -712,7 +712,7 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
         ? {
             ...base,
             greeting: "Psst!",
-            body: `Word travels fast: the whole pasture is talking about the ${name}. Milo did a little victory roll.`,
+            body: `The whole pasture is talking about the ${name}. Milo did a little roll, which is how hedgehogs clap.`,
             sign: OTTO,
             gift: sack,
           }
@@ -805,9 +805,9 @@ const POSTCARDS: readonly (readonly [greeting: string, body: string, picture: Po
   ["Hi you two!", "Is it foggy there? Here the sun is out. ALWAYS. Please mail me some fog. Karl, if he's free.", "palm"],
   ["Brother,", "Monsoon season! It rained for four whole minutes. Everyone is still talking about it.", "monsoon"],
   ["Brother,", "I found a cactus. I sat near it. Not on it. I learned.", "rocks"],
-  ["Hi you two!", "The sunsets here are pink and orange and purple. Like lavender, but on fire.", "sunset"],
+  ["Hi you two!", "The sunsets here are pink and orange and purple, all at the same time.", "sunset"],
   ["Brother,", "A roadrunner ran past. I did not chase it. Too hot.", "palm"],
-  ["Hi you two!", "A javelina looked at me today. I looked back. We agreed never to speak of it.", "sunset"],
+  ["Hi you two!", "A javelina looked at me today. It looks like a pig but it is not a pig. I looked back.", "sunset"],
   ["Brother,", "It's a dry heat, they keep saying. I am melting anyway.", "skull"],
 ];
 

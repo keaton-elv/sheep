@@ -117,15 +117,17 @@ and desktop works great too.
   necessary interface explainer. Prefer icons, short labels and one-line empty states.
 - **Silly, not slick.** No ad-copy one-liners: "Scarecrows are a classic. Gnomes are a lifestyle.",
   "That's just science.", "New name, same sheep.", "Not hungrily. Just... supervising.", "One scoop at a
-  time.", "The sheep feel seen." If a line sounds like a tagline or a fortune cookie, cut it. Goofy
-  beats clever (their own joke: "Snickers is a DOG.").
-- **The voice is keatonelvins.com/me** (`src/pages/me.astro` in the site repo): "the deadpan statement of
-  obvious thing in an unexpected way." Say the plain thing like a kid explaining it, with kid logic and an
-  "I guess" if it helps: "They are constantly repainting since their homes are all peeling." "I hate
-  tomatoes but they like the pee I guess." Not fun facts with a wink (no "karaoke means empty orchestra"),
+  time.", "The sheep feel seen." If a line sounds like a tagline or a fortune cookie, cut it.
+- **The voice is Keaton's** (keatonelvins.com/me, `src/pages/me.astro` in the site repo): "the deadpan
+  statement of obvious thing in an unexpected way." Say the plain thing like a kid explaining it, with kid
+  logic and an "I guess" if it helps: "They are constantly repainting since their homes are all peeling."
+  "I hate tomatoes but they like the pee I guess." Not fun facts with a wink (no "karaoke means empty orchestra"),
   not stock joke shapes ("a lot of flower for a hedgehog"), and no punchline at the end ("Worth it.",
   "Legends.", "Minimum." are the basic version). Here: "A level has a little bubble in it that wants to be
   in the middle.", "${n} has grass stains and is a slightly greener sheep now."
+- **Inside jokes stay as they are** ("Mow.", karaoke, the ORIGINAL PLAN, 1 hour of loafing, "Snickers is a
+  DOG."). They're references, not the voice: "Snickers is a DOG." is her joke, so it isn't a model for new
+  lines.
 - **No characters:** no villager portraits, names or voices. The only "people" who talk are animals:
   Snickers, Otto, Milo and the sheep themselves.
 - **Mailbox letters** are written by Snickers, Otto, or the sheep themselves (signed with the sheep's

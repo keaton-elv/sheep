@@ -69,7 +69,7 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
     return (
       choose([
         `${n} is cozy in the barn, remembering the good times...`,
-        `${n} is happily retired. What a sheep.`,
+        `${n} is retired, so it doesn't have to be a plan anymore. It's just a sheep.`,
         `${n} tells the other sheep about that day, and they always baa at the good part.`,
         `${n} is telling Snickers all about it. He's mostly asleep.`,
       ]) + golden
@@ -130,7 +130,7 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
       choose([
         `${n} is practicing its baa... baa?`,
         `${n} tried to say "Mow" like Snickers. It came out "Baa."`,
-        `${n} is following Snickers around. Snickers is not amused.`,
+        `${n} is following Snickers around. Every time he stops, it stops.`,
         `${n} just discovered grass. It's a big day.`,
       ]) + golden
     );
@@ -141,7 +141,7 @@ export function moodLine(s: Sheep, ctx: MoodContext): string {
   if (moment.weather === "snow") return `${n}'s wool is keeping it toasty in the snow.${golden}`;
   if (moment.weather === "fog" && r() < 0.6) {
     const summer = moment.season === "summer" ? [`Summer in San Francisco: ${n} is glad it kept its wool.`] : [];
-    return choose([`Foggy day. ${n} blends right in.`, `${n} lost the other sheep in the fog. Thanks, Karl.`, ...summer]) + golden;
+    return choose([`Foggy day. ${n} blends right in.`, `${n} lost the other sheep in the fog. They're all white so it's really hard.`, ...summer]) + golden;
   }
   if (moment.weather === "windy" && r() < 0.5) return `${n}'s wool is blowing in the wind. It's all going the same way.${golden}`;
 

@@ -27,7 +27,7 @@ for (const [name, id] of Object.entries(FISH)) REGIONS[`item.fish.${name}`] ??= 
 const FISH_DAY = "farm.gull.fish";
 const FISH_FIRST = "farm.gull.fishFirst";
 const SALMON_LINE = "SALMON. He'll be talking about this for weeks.";
-const FREE_LUNCH = "Free lunch.";
+const FREE_LUNCH = "A seagull dropped a fish and Snickers ate it before anyone could say anything.";
 
 const easeOut = (k: number) => 1 - (1 - k) * (1 - k);
 

@@ -300,7 +300,7 @@ function dayFlavor(now: Date, season: Season, hour: number, weather: WeatherKind
   if (dow === 5 && hour >= 15 && chance(0.5)) return "The Stardrop Saloon is lively tonight.";
   if (weather === "fog" && chance(0.7)) return "Karl the Fog is visiting. He may stay a while.";
   if ((weather === "rain" || weather === "storm") && chance(0.5)) return "Rain! The banana slugs are thrilled.";
-  if (chance(0.05)) return "Garlic ice cream for dessert tonight? The vampires won't dare.";
+  if (chance(0.05)) return "Garlic ice cream for dessert tonight? It keeps vampires away and it's also ice cream.";
   const hello = hour < 12 ? "good morning" : hour < 18 ? "hello" : "good evening";
   return pickLine([
     `Baa... (The sheep say ${hello}.)`,

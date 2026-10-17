@@ -118,7 +118,7 @@ const FOX_LINES = [
   "Otto has heard about karaoke. Otto is not going to karaoke.",
   "Otto swears he saw a ladybug knight riding a bumblebee. Milo believes him.",
 ];
-const FOX_FOG_LINE = "Otto loves Karl the Fog. Perfect sneaking weather.";
+const FOX_FOG_LINE = "Otto loves Karl the Fog. Nobody can see him in it, including Otto.";
 const FOX_SLEEP_LINES = [
   "Otto and Milo are fast asleep. Shhh...",
   "Zzz... Otto's paw twitches. He's dreaming about butterflies.",
@@ -130,7 +130,7 @@ const HOG_LINES = [
   "Milo would like you to know he is NOT a chestnut.",
   "Milo's nose wiggles. He smells... a beetle.",
   "You try not to boop Milo. You fail. Boop.",
-  "Milo found a crumb of Arsicault croissant. Best day ever.",
+  "Milo found a crumb of Arsicault croissant and is holding it with both hands.",
   "Milo went to a sketching meetup. He drew Otto. (It's a circle.)",
   "Milo is guarding the stump. The raccoon owes him a favor.",
   "Milo snuffles like a tiny teakettle.",
@@ -142,7 +142,7 @@ const HOG_SLEEP_LINES = [
   "Milo scoots closer to Otto in his sleep. Zzz...",
 ];
 const STUMP_LINES = [
-  "A hollow stump. It smells like berries... and trash.",
+  "A hollow stump. It smells like berries and trash, which is what raccoons smell like.",
   "You knock. Something inside knocks back...",
   'A tiny sign: "RACCOON RESIDENCE. NO SOLICITING."',
   "There's a tiny coat hook on the stump. It's empty...",
@@ -152,7 +152,7 @@ const RACCOON_LINES: string[][] = [
   ["A raccoon pops out of the stump!", "It nods at your sheep approvingly... and ducks back inside."],
   ["A raccoon eyes the shared chest hopefully...", "...then waves a tiny paw instead."],
   ["A second, rounder raccoon peeks out.", "You hear tiny furniture being rearranged..."],
-  ["Something inside the stump goes clunk.", "The raccoon peeks out to see if you noticed. You did."],
+  ["Something inside the stump goes clunk.", "The raccoon peeks out to see if you noticed. You noticed, so it goes back in."],
 ];
 /** Every so often, a peek at how many raccoons actually live in there. */
 const TRENCH_RACCOON_LINES = ["A raccoon pops out of the stump!", "Behind it: ninety-nine more raccoons... and a trench coat on a tiny hook."];

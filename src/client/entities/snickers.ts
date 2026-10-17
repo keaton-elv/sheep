@@ -90,7 +90,7 @@ const FILL_LINES: Record<Food, string> = {
 /** Tapping a full one. */
 const FULL_LINES = [
   "He'd eat salmon for every meal.",
-  "Whisker Lickins are a treat, not dinner. Snickers disagrees.",
+  "Whisker Lickins are a treat, so you only get a few. Snickers counts them.",
   "It's still full. He checks again from the other side.",
 ];
 /** Rattling a full dish: a joke now and then, not every tap. */

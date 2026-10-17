@@ -63,7 +63,7 @@ const TRIVIA = [
   "The Luau is on Summer 11. Don't put anything weird in the soup.",
   "The Moonlight Jellies arrive on Summer 28.",
   "The Fair is on Fall 16. Go for the star tokens!",
-  "Spirit's Eve is on Fall 27. Bring a lantern. And garlic ice cream.",
+  "Spirit's Eve is on Fall 27. Bring a lantern and garlic ice cream.",
   "The Feast of the Winter Star is on Winter 25.",
   "Every Stardrop raises your max energy.",
   "Ladybugs are lucky. A golden one is luckier...",
@@ -72,7 +72,7 @@ const TRIVIA = [
   "In the news: Mayor Lurie has not visited the farm yet. The sheep remain hopeful.",
   "Muni update: the J is 10 minutes away. It has been 10 minutes away for 20 minutes.",
   "Wildlife report: the parrots of Telegraph Hill are green and loud and there are a lot of them.",
-  "Traffic: light on the Golden Gate. Heavy porpoise traffic under it.",
+  "Traffic: the cars are on top of the Golden Gate and the porpoises are under it.",
   "Sumner, WA: still the Rhubarb Pie Capital of the World.",
   "Bonney Lake forecast: drizzle, with a chance of drizzle.",
   "Baa...",
@@ -80,7 +80,7 @@ const TRIVIA = [
 
 // In season, these join the pool.
 const SEASON_NEWS: Partial<Record<Season, string[]>> = {
-  fall: ["Leaf report: it's ginkgo season. The sheep are big fans."],
+  fall: ["Leaf report: the ginkgos are yellow now. Last week they were green, so that's the news."],
 };
 
 // Some days get their own news.
