@@ -44,7 +44,7 @@ const ENTRIES: Entry[] = [
     text: `${LOOM_WOOL_COST} wool in the loom. Spend cloth at the carpenter's shop.`,
   },
   {
-    icons: [sprite("ui.icon.chest"), sprite("item.forage.acorn", 1, "ui.icon.chest")],
+    icons: [sprite("ui.icon.chest"), sprite("item.forage.ginkgo-nut", 1, "ui.icon.chest")],
     title: "Forage.",
     text: "Shake a tree, then grab what falls. It all goes in the chest. Fill a bundle, get cloth.",
   },

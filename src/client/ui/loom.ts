@@ -8,7 +8,7 @@ import { currentGame } from "../engine/game";
 import { has, isReal } from "../engine/sprites";
 import { BLURRY_PHOTO, KEEPSAKE_KEYS, POCKET_SUNSHINE, ROYAL_HONEY, STARDUST, SUSPICIOUS_FEDORA } from "../entities/critter-keepsake";
 import { api, serverNow, store } from "../net";
-import { COFFEE_BEAN, FORAGE_BY_SEASON, forageKey, GINKGO_NUT } from "../world/world-art";
+import { COFFEE_BEAN, FORAGE_BY_SEASON, forageKey, GINKGO_DROPS } from "../world/world-art";
 import { BUNDLES, ITEM_KEY_PATTERN, type Bundle } from "../../shared/bundles";
 import { seasonOf, type Season } from "../../shared/calendar";
 import { LOOM_DURATION_MS, LOOM_WOOL_COST, type FarmState } from "../../shared/types";
@@ -209,7 +209,10 @@ function itemName(key: string): string {
   );
 }
 
-const TREE_SEEDS: ReadonlySet<string> = new Set(["item.forage.acorn", "item.forage.maple-seed", "item.forage.pine-cone"]);
+/** What falls out of the ginkgos. */
+const TREE_DROPS: ReadonlySet<string> = new Set(Object.values(GINKGO_DROPS).flat().map(forageKey));
+/** What fell out of the oaks, maples and pines, before every tree was a ginkgo (no bundle wants it now). */
+const OLD_SEEDS: ReadonlySet<string> = new Set(["item.forage.acorn", "item.forage.maple-seed", "item.forage.pine-cone"]);
 
 /** A few things in the chest have something to say. */
 const ITEM_NOTES: Record<string, string> = {
@@ -219,6 +222,8 @@ const ITEM_NOTES: Record<string, string> = {
   "item.forage.pine-cone": "Smells like a hike up Mt. Tam.",
   "item.forage.dandelion": "Make a wish...",
   "item.forage.ginkgo-nut": "It smells bad so nobody eats it I guess.",
+  "item.forage.ginkgo-leaf": "Pressing it in a sketchbook.",
+  "item.forage.twig": "A good stick.",
   "item.artifact.rusty-spoon": "Snickers would like to knock this off a table.",
   "item.artifact.dried-starfish": "Washed up from Ocean Beach, probably.",
   "item.artifact.anchor": "A Fleet Week souvenir?",
@@ -233,7 +238,8 @@ const ITEM_NOTES: Record<string, string> = {
 
 function itemDesc(key: string): string {
   if (Object.hasOwn(ITEM_NOTES, key)) return ITEM_NOTES[key]!;
-  if (TREE_SEEDS.has(key)) return "Fell out of a tree. Bonk.";
+  if (TREE_DROPS.has(key)) return "Fell out of a ginkgo. Bonk.";
+  if (OLD_SEEDS.has(key)) return "From back when the trees weren't all ginkgos.";
   if (key.startsWith("item.artifact.")) return "Dug up where the worms were wiggling.";
   return "Picked up around the farm.";
 }
@@ -246,7 +252,7 @@ const BUNDLE_HINTS: Record<string, string> = {
   winter: "Out in the snow, in winter.",
   wild: "In the grass, in spring.",
   exotic: "In the grass, in fall.",
-  seeds: "Shake a tree, then grab what falls.",
+  seeds: "Shake a ginkgo, grab what falls. One a day each.",
   junk: "Dig where the worms wiggle.",
   beach: "Dig where the worms wiggle.",
   antiques: "Dig where the worms wiggle.",
@@ -258,7 +264,7 @@ const BUNDLE_HINTS: Record<string, string> = {
 const ITEM_HINTS: Record<string, string> = {
   "item.forage.red-mushroom": "In the grass, in summer and fall.",
   "item.forage.coffee-bean": "Turns up now and then, any season.",
-  "item.forage.ginkgo-nut": "Shake the golden tree, in fall.",
+  "item.forage.twig": "Shake a ginkgo, any season. One a day each.",
   [ROYAL_HONEY]: "Hail a Bumblesteed on a sunny day.",
   [POCKET_SUNSHINE]: "Catch a golden ladybug on a sunny day.",
   [BLURRY_PHOTO]: "Snap something tall at dusk...",
@@ -270,7 +276,6 @@ const ITEM_HINTS: Record<string, string> = {
 const BUG_KEEPSAKES: ReadonlySet<string> = new Set([ROYAL_HONEY, POCKET_SUNSHINE]);
 const KEEPSAKES: ReadonlySet<string> = new Set(KEEPSAKE_KEYS);
 const COFFEE_KEY = forageKey(COFFEE_BEAN);
-const GINKGO_KEY = forageKey(GINKGO_NUT);
 
 /** The farm's season (the world's, which can be overridden for testing), for the hints. */
 function farmSeason(): Season {
@@ -284,26 +289,26 @@ function farmSeason(): Season {
 }
 
 function bundleHint(b: Bundle): string {
-  // Trees don't drop seeds in winter (like Stardew), so "shake the trees" would just be a tease.
-  if (b.id === "seeds" && farmSeason() === "winter") return "The trees are napping till spring...";
   return BUNDLE_HINTS[b.id] ?? "";
 }
 
 function itemHint(key: string): string | null {
   if (BUG_KEEPSAKES.has(key) && farmSeason() === "winter") return "The bugs are napping till spring...";
+  // Bare ginkgos only have twigs to give.
+  if (TREE_DROPS.has(key) && !inSeason(key, farmSeason())) return "The ginkgos are bare till spring...";
   return Object.hasOwn(ITEM_HINTS, key) ? ITEM_HINTS[key]! : null;
 }
 
 /** Can this turn up on the farm this season? (Digs, coffee and most keepsakes: any season.) */
 function inSeason(key: string, season: Season): boolean {
-  if (BUG_KEEPSAKES.has(key) || TREE_SEEDS.has(key)) return season !== "winter";
-  if (key === GINKGO_KEY) return season === "fall";
+  if (BUG_KEEPSAKES.has(key)) return season !== "winter";
+  if (TREE_DROPS.has(key)) return GINKGO_DROPS[season].some((name) => forageKey(name) === key);
   if (!key.startsWith("item.forage.") || key === COFFEE_KEY) return true;
   return FORAGE_BY_SEASON[season].some((name) => forageKey(name) === key);
 }
 
 /**
- * "Spring Foraging Bundle" -> "Spring", "Tree Seed Bundle" -> "Tree Seed" (the board's labels). A
+ * "Spring Foraging Bundle" -> "Spring", "Ginkgo Bundle" -> "Ginkgo" (the board's labels). A
  * soft hyphen lets "Beach-comber" break on a 360px phone, where it's wider than its tile.
  */
 const shortName = (b: Bundle): string => b.name.replace(/ (Foraging )?Bundle$/, "").replace("Beachcomber", "Beach\u00adcomber");
@@ -335,11 +340,11 @@ function defaultBundle(st: FarmState, season: Season): string {
   return (BUNDLES.find((b) => bundleReady(st, b)) ?? BUNDLES.find((b) => !bundleAsleep(st, b, season)) ?? BUNDLES[0]!).id;
 }
 
-/** Chest order: forage, then tree seeds, then digs, then keepsakes (first-landed within each). */
+/** Chest order: forage, then what the trees dropped, then digs, then keepsakes (first-landed within each). */
 function itemRank(key: string): number {
   if (KEEPSAKES.has(key)) return 3;
   if (key.startsWith("item.artifact.")) return 2;
-  return TREE_SEEDS.has(key) ? 1 : 0;
+  return TREE_DROPS.has(key) || OLD_SEEDS.has(key) ? 1 : 0;
 }
 
 function starIcon(scale = 1): HTMLElement {

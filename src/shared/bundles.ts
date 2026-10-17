@@ -16,17 +16,19 @@ const artifact = (name: string) => `item.artifact.${name.toLowerCase().replace(/
 
 // The order is the Community Center board's (three rows of four, read left to right). Never rename
 // or re-id a bundle: completions are counted per id on the server (meta bundle_<id>), and the
-// mailbox finds a bundle's sack by its name. Everything the farm gives belongs to exactly one bundle.
+// mailbox finds a bundle's sack by its name (see bundleNamed for the one that was renamed). Everything
+// the farm gives belongs to exactly one bundle.
 export const BUNDLES: Bundle[] = [
   { id: "spring", name: "Spring Foraging Bundle", items: ["Wild Horseradish", "Daffodil", "Leek", "Dandelion"].map(forage), reward: 1 },
   { id: "summer", name: "Summer Foraging Bundle", items: ["Spice Berry", "Grape", "Sweet Pea", "Fiddlehead Fern"].map(forage), reward: 1 },
-  // The ginkgo nut falls out of the golden ginkgo, which only stands in fall.
-  { id: "fall", name: "Fall Foraging Bundle", items: ["Common Mushroom", "Wild Plum", "Hazelnut", "Blackberry", "Ginkgo Nut"].map(forage), reward: 1 },
+  { id: "fall", name: "Fall Foraging Bundle", items: ["Common Mushroom", "Wild Plum", "Hazelnut", "Blackberry"].map(forage), reward: 1 },
   { id: "winter", name: "Winter Foraging Bundle", items: ["Winter Root", "Crystal Fruit", "Snow Yam", "Crocus", "Holly"].map(forage), reward: 1 },
   // Salmonberries, wild onions and morels: what spring tastes like around Bonney Lake, WA.
   { id: "wild", name: "Bonney Lake Bundle", items: ["Salmonberry", "Spring Onion", "Morel"].map(forage), reward: 1 },
   { id: "exotic", name: "Exotic Foraging Bundle", items: ["Red Mushroom", "Chanterelle", "Purple Mushroom", "Coffee Bean"].map(forage), reward: 2 },
-  { id: "seeds", name: "Tree Seed Bundle", items: ["Acorn", "Maple Seed", "Pine Cone"].map(forage), reward: 1 },
+  // Every tree on the farm is a ginkgo, and each farmer gets one thing out of them a day. (It was the
+  // Tree Seed Bundle once, so it keeps that id: its completions are counted under "seeds".)
+  { id: "seeds", name: "Ginkgo Bundle", items: ["Ginkgo Nut", "Ginkgo Leaf", "Twig"].map(forage), reward: 1 },
   { id: "junk", name: "Treasure Bundle", items: ["Rusty Spoon", "Rusty Cog", "Glass Shards"].map(artifact), reward: 1 },
   { id: "beach", name: "Beachcomber Bundle", items: ["Anchor", "Dried Starfish", "Chipped Amphora"].map(artifact), reward: 2 },
   // Sutro's museum of curios once stood over the baths at Lands End.
@@ -40,6 +42,11 @@ export const BUNDLES: Bundle[] = [
     reward: 5,
   },
 ];
+
+/** The bundle with this name, as the event log wrote it (older events may use a bundle's old name). */
+export function bundleNamed(name: string): Bundle | undefined {
+  return BUNDLES.find((b) => b.name === name) ?? (name === "Tree Seed Bundle" ? BUNDLES.find((b) => b.id === "seeds") : undefined);
+}
 
 /** Keys the server accepts into the chest: "item.forage.<name>" or "item.artifact.<name>". */
 export const ITEM_KEY_PATTERN = /^item\.(forage|artifact)\.[a-z][a-z-]{0,39}$/;
