@@ -1,7 +1,7 @@
 // Trees & bushes around the farm (tap: they shake, leaves flutter, often a seed drops; berry bushes
-// drop berries in season; in fall one tree is a golden ginkgo that showers fan-shaped leaves), the
-// day's seasonal forage (tap to pick it up, like the spring onions by the farmhouse), and most days a
-// patch of wiggly worms: an artifact spot! Tap it to dig up a little treasure.
+// drop berries in season; in fall one tree is a golden ginkgo that showers fan-shaped leaves and
+// drops ginkgo nuts too), the day's seasonal forage (tap to pick it up, like the spring onions by the
+// farmhouse), and most days a patch of wiggly worms: an artifact spot! Tap it to dig up a little treasure.
 // Everything picked up goes into the shared chest (FarmState.items), where the bundles want it.
 
 import { sfx } from "../audio";
@@ -14,7 +14,7 @@ import { KEEPSAKE_KEYS, sendToChest } from "../entities/critter-keepsake";
 import { store } from "../net";
 import { toast } from "../ui/dom";
 import { contains, fromFraction, inflate, type Layout, type Rect } from "./layout";
-import { COFFEE_BEAN, FORAGE_BY_SEASON, forageKey } from "./world-art";
+import { COFFEE_BEAN, FORAGE_BY_SEASON, forageKey, GINKGO_NUT } from "./world-art";
 import { GINKGO_LEAF, GINKGO_LEAF_EDGE, GINKGO_LEAF_SMALL, type ArtData } from "./world-artdata";
 import { dustPuff, fx, reducedMotion } from "./world-fx";
 import type { Ground } from "./world-ground";
@@ -342,9 +342,9 @@ function treeLine(env: FarmEnv): string | null {
   return null;
 }
 
-/** Shaking the ginkgo: sometimes a wink, each once a visit. Keep shaking and it gets a warning. */
-function ginkgoWink(taps: number): void {
-  const line = taps >= 5 ? "Careful... ginkgos drop every leaf at once." : "Somewhere in SF, a whole block just turned gold.";
+/** Shaking the ginkgo and nothing falls out: sometimes a wink, once a visit. */
+function ginkgoWink(): void {
+  const line = "Somewhere in SF, a whole block just turned gold.";
   if (saidLines.has(line) || Math.random() > 0.35) return;
   saidLines.add(line);
   toast(line);
@@ -418,10 +418,13 @@ class Tree implements Entity {
     sfx("rustle");
     const a = this.art();
     if (this.golden) {
-      // No seed: a shower of golden fans, and a few more on the carpet.
+      // A shower of golden fans (a few more join the carpet), and often a ginkgo nut or its own seed.
       if (a) leafBurst(a.leaves, this.x, this.y - a.img.height * 0.6, 34, this.y + 4, 10);
       this.shaken = Math.min(14, this.shaken + 1);
-      ginkgoWink(this.shaken);
+      if (Math.random() < SEED_CHANCE) {
+        const drop = Math.random() < 0.5 ? GINKGO_NUT : TREE_DEF[this.kind].seed;
+        this.nature.dropSeed(g, this.x + (Math.random() < 0.5 ? -10 : 10), this.y + 4, drop, this);
+      } else ginkgoWink();
       return;
     }
     if (a) leafBurst(a.leaves, this.x, this.y - a.img.height * 0.6, 30, this.y + 4, 7);
@@ -631,6 +634,9 @@ function inView(t: { x: number; y: number }, l: Layout): number {
   return overlapArea(canopy, { x: 0, y: 0, w: l.w, h: l.h }) - overlapArea(canopy, l.hudClock);
 }
 
+/** A tree counts as in view (you can find it to shake it) with about 40% of its canopy showing. */
+const IN_VIEW = 1000;
+
 /**
  * The four seasonal Foraging bundles' items turn up twice as often as other forage, so a season's
  * bundle fills in a few short visits. (Only those four: every forage item is in some bundle now,
@@ -664,8 +670,10 @@ function dayNumber(d: Date): number {
     // The rare visitors' keepsakes (entities/critter-keepsake.ts).
     ...KEEPSAKE_KEYS,
   ]);
+  // The golden ginkgo only stands in fall, so its nut is fall forage too.
+  const seasonal: Partial<Record<string, string[]>> = { ...FORAGE_BY_SEASON, fall: [...FORAGE_BY_SEASON.fall, GINKGO_NUT] };
   for (const b of BUNDLES) {
-    const pool = (FORAGE_BY_SEASON as Partial<Record<string, string[]>>)[b.id];
+    const pool = seasonal[b.id];
     for (const key of b.items) {
       const ok = pool ? pool.some((n) => forageKey(n) === key) : anywhere.has(key);
       if (!ok) console.warn(`[world] nothing on the farm gives ${key} (${b.name})`);
@@ -755,10 +763,11 @@ export class Nature {
   }
 
   /**
-   * Oaks, maples and pines all have to be on the farm, or the Tree Seed Bundle can't be finished.
-   * With room for 3+ trees, any missing kind takes over a doubled-up tree (the rest keep their
-   * looks). On a cramped screen with only 1-2 trees, they take turns being each kind, day by day.
-   * In fall, one of them is the golden ginkgo.
+   * Oaks, maples and pines all have to be on the farm where you can shake them, or the Tree Seed
+   * Bundle can't be finished. Only trees in view count (on a phone, the ones up top are tucked under
+   * the clock or hang off the edge). With 3+ in view, any missing kind takes over a doubled-up tree
+   * (the rest keep their looks). With only 1-2 in view, they take turns being each kind, day by day.
+   * In fall, the most visible one is the golden ginkgo.
    */
   private assignTreeKinds(): void {
     const trees = this.trees;
@@ -769,17 +778,19 @@ export class Nature {
     }
     if (!trees.length) return;
     const n = dayNumber(this.g.env.now);
-    if (trees.length < TREE_KINDS.length) {
-      trees.forEach((t, i) => (t.kind = TREE_KINDS[(n + i) % TREE_KINDS.length]!));
+    const l = this.g.layout;
+    const seen = trees.filter((t) => inView(t, l) >= IN_VIEW);
+    const live = seen.length ? seen : trees;
+    if (live.length < TREE_KINDS.length) {
+      live.forEach((t, i) => (t.kind = TREE_KINDS[(n + i) % TREE_KINDS.length]!));
     } else {
-      this.coverTreeKinds();
+      this.coverTreeKinds(live);
     }
-    if (this.g.env.season === "fall") this.pickGinkgo(n);
+    if (this.g.env.season === "fall") this.pickGinkgo();
   }
 
-  /** Re-kind doubled-up trees until every kind is somewhere (needs 3+ trees). */
-  private coverTreeKinds(): void {
-    const trees = this.trees;
+  /** Re-kind doubled-up trees until every kind is somewhere among them (needs 3+ trees). */
+  private coverTreeKinds(trees: Tree[]): void {
     for (const kind of TREE_KINDS) {
       if (trees.some((t) => t.kind === kind)) continue;
       // Re-kind the last tree whose kind appears more than once.
@@ -793,30 +804,12 @@ export class Nature {
     }
   }
 
-  /**
-   * The ginkgo is the most visible doubled-up tree, so every seed stays on the farm. With no
-   * doubles (2-3 trees), it's the most visible tree and the others take turns being each kind, day
-   * by day. A lone tree is the ginkgo every fourth day.
-   */
-  private pickGinkgo(n: number): void {
-    const trees = this.trees;
-    if (trees.length === 1) {
-      trees[0]!.ginkgo = n % 4 === 3;
-      return;
-    }
+  /** The ginkgo is the most visible tree. It still drops its own kind's seed, so no seed goes missing. */
+  private pickGinkgo(): void {
     const l = this.g.layout;
-    const best = (list: Tree[]) => list.reduce((a, b) => (inView(b, l) > inView(a, l) ? b : a));
-    const doubled = trees.filter((t) => trees.some((o) => o !== t && o.kind === t.kind));
-    if (doubled.length) {
-      const gold = best(doubled);
-      gold.ginkgo = true;
-      this.showOff(gold);
-      return;
-    }
-    const gold = best(trees);
+    const gold = this.trees.reduce((a, b) => (inView(b, l) > inView(a, l) ? b : a));
     gold.ginkgo = true;
     this.showOff(gold);
-    trees.filter((t) => t !== gold).forEach((t, i) => (t.kind = TREE_KINDS[(n + i) % TREE_KINDS.length]!));
   }
 
   /**

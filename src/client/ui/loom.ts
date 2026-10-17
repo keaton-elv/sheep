@@ -8,7 +8,7 @@ import { currentGame } from "../engine/game";
 import { has, isReal } from "../engine/sprites";
 import { BLURRY_PHOTO, KEEPSAKE_KEYS, POCKET_SUNSHINE, ROYAL_HONEY, STARDUST, SUSPICIOUS_FEDORA } from "../entities/critter-keepsake";
 import { api, serverNow, store } from "../net";
-import { COFFEE_BEAN, FORAGE_BY_SEASON, forageKey } from "../world/world-art";
+import { COFFEE_BEAN, FORAGE_BY_SEASON, forageKey, GINKGO_NUT } from "../world/world-art";
 import { BUNDLES, ITEM_KEY_PATTERN, type Bundle } from "../../shared/bundles";
 import { seasonOf, type Season } from "../../shared/calendar";
 import { LOOM_DURATION_MS, LOOM_WOOL_COST, type FarmState } from "../../shared/types";
@@ -218,6 +218,7 @@ const ITEM_NOTES: Record<string, string> = {
   "item.forage.blackberry": "Grows wild all over Washington. Here too, apparently.",
   "item.forage.pine-cone": "Smells like a hike up Mt. Tam.",
   "item.forage.dandelion": "Make a wish...",
+  "item.forage.ginkgo-nut": "It smells bad so nobody eats it I guess.",
   "item.artifact.rusty-spoon": "Snickers would like to knock this off a table.",
   "item.artifact.dried-starfish": "Washed up from Ocean Beach, probably.",
   "item.artifact.anchor": "A Fleet Week souvenir?",
@@ -257,6 +258,7 @@ const BUNDLE_HINTS: Record<string, string> = {
 const ITEM_HINTS: Record<string, string> = {
   "item.forage.red-mushroom": "In the grass, in summer and fall.",
   "item.forage.coffee-bean": "Turns up now and then, any season.",
+  "item.forage.ginkgo-nut": "Shake the golden tree, in fall.",
   [ROYAL_HONEY]: "Hail a Bumblesteed on a sunny day.",
   [POCKET_SUNSHINE]: "Catch a golden ladybug on a sunny day.",
   [BLURRY_PHOTO]: "Snap something tall at dusk...",
@@ -268,6 +270,7 @@ const ITEM_HINTS: Record<string, string> = {
 const BUG_KEEPSAKES: ReadonlySet<string> = new Set([ROYAL_HONEY, POCKET_SUNSHINE]);
 const KEEPSAKES: ReadonlySet<string> = new Set(KEEPSAKE_KEYS);
 const COFFEE_KEY = forageKey(COFFEE_BEAN);
+const GINKGO_KEY = forageKey(GINKGO_NUT);
 
 /** The farm's season (the world's, which can be overridden for testing), for the hints. */
 function farmSeason(): Season {
@@ -294,6 +297,7 @@ function itemHint(key: string): string | null {
 /** Can this turn up on the farm this season? (Digs, coffee and most keepsakes: any season.) */
 function inSeason(key: string, season: Season): boolean {
   if (BUG_KEEPSAKES.has(key) || TREE_SEEDS.has(key)) return season !== "winter";
+  if (key === GINKGO_KEY) return season === "fall";
   if (!key.startsWith("item.forage.") || key === COFFEE_KEY) return true;
   return FORAGE_BY_SEASON[season].some((name) => forageKey(name) === key);
 }

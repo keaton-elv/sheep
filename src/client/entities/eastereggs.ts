@@ -102,7 +102,7 @@ function initKeys(g: Game): void {
   });
 }
 
-// ---------- the lucky clover (tap empty grass 7 times, fast) ----------
+// ---------- the lucky clover (tap one patch of empty grass 7 times in a row, fast) ----------
 
 const FEET = { anchor: "feet" } as const;
 
@@ -158,24 +158,39 @@ class Clover implements Entity {
   }
 }
 
+/** The 7 taps all land within this many game px of the first (one patch of grass). */
+const CLOVER_PATCH = 20;
+/** One clover, then the grass needs a while before it grows another (seconds). */
+const CLOVER_REST = 600;
+
 function initClover(g: Game): void {
-  const taps: number[] = [];
+  const taps: { t: number; x: number; y: number }[] = [];
   let clover: Clover | null = null;
+  let lastClover = -Infinity;
+  // Every tap counts up, so a tap that lands on something (a tree, a sheep) breaks the run. Missing a
+  // tree you're shaking a lot shouldn't add up to a clover.
+  let tapNo = 0;
+  let lastGroundTap = -1;
+  g.on("tap", () => tapNo++);
   g.on("groundtap", (p: { x: number; y: number }) => {
-    taps.push(g.time);
-    if (taps.length > 7) taps.shift();
-    if (taps.length === 7 && taps[6]! - taps[0]! < 3.5) {
-      taps.length = 0;
-      if (clover && !clover.dead) clover.dead = true;
-      // Don't let it sprout where the bottom fence rail would hide it.
-      const l = g.layout;
-      const hideTop = l.pasture.y + l.pasture.h - FENCE_HIDE;
-      let y = p.y + 4;
-      if (p.x > l.fence.x && p.x < l.fence.x + l.fence.w && y > hideTop && y < l.fence.y + l.fence.h + 6) y = hideTop;
-      clover = addSafe(g, new Clover(p.x, y), "clover");
-      sfx("secret");
-      sparkleBurst(p.x, p.y - 2, 6, 14);
-    }
+    const first = taps[0];
+    const run = !!first && lastGroundTap === tapNo - 1 && g.time - first.t < 3.5 && Math.hypot(p.x - first.x, p.y - first.y) <= CLOVER_PATCH;
+    if (!run) taps.length = 0;
+    lastGroundTap = tapNo;
+    taps.push({ t: g.time, x: p.x, y: p.y });
+    if (taps.length < 7) return;
+    taps.length = 0;
+    if (g.time - lastClover < CLOVER_REST) return;
+    lastClover = g.time;
+    if (clover && !clover.dead) clover.dead = true;
+    // Don't let it sprout where the bottom fence rail would hide it.
+    const l = g.layout;
+    const hideTop = l.pasture.y + l.pasture.h - FENCE_HIDE;
+    let y = p.y + 4;
+    if (p.x > l.fence.x && p.x < l.fence.x + l.fence.w && y > hideTop && y < l.fence.y + l.fence.h + 6) y = hideTop;
+    clover = addSafe(g, new Clover(p.x, y), "clover");
+    sfx("secret");
+    sparkleBurst(p.x, p.y - 2, 6, 14);
   });
 }
 

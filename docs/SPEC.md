@@ -61,6 +61,8 @@ and desktop works great too.
   - a rare shooting star at night
   - seasonal touches: a jack-o'-lantern on Oct 31, a gift on Winter Star, a bouquet on Feb 14
   - a raccoon peeks out of a stump, very rarely
+  - tap one patch of empty grass 7 times in a row, fast, and a four-leaf clover sprouts (one every 10 minutes at
+    most; a tap on anything else in between starts the count over)
 
 ## Updates since the first build
 
@@ -186,7 +188,8 @@ and desktop works great too.
 - **Things she loves:** 1 hour of loafing (and avoiding 3 hours in the black hole: loaf too long and you get
   stuck there; Snickers is never in it, he always gets up in time), salmon sashimi (also the ranch's joke
   prices, never "hugs"), garlic ice cream (vampire-proof), Tilden Little Farm (our sheep's celery-eating
-  cousins), ginkgo trees (a golden ginkgo on the farm in fall), Christopher Alexander, dolphins.
+  cousins), ginkgo trees (a golden ginkgo on the farm in fall; shake it for ginkgo nuts and its tree seeds),
+  Christopher Alexander, dolphins.
 - **Couple jokes:** he's secretly a hundred raccoons / a hundred hedgehogs / ten thousand mosquitoes in a trench
   coat (the Trench Coat easter egg); she goes to sketching meetups all the time; nobody wants to go to karaoke;
   Wine Wednesday; sometimes Thursday is THURSDAY!!!!!; they always end up on the ORIGINAL PLAN.
@@ -201,7 +204,7 @@ and desktop works great too.
     has its sack, a short label, a pip per item and ★×N once done; ready ones wiggle with a gold ring; one whose
     missing items can't turn up this season fades (never hides). The open bundle's card sits below the board:
     slots (tap one for where to find it), +N cloth, Complete!
-  - **The twelve** (cloth): Spring, Summer (+ Fiddlehead Fern), Fall, Winter (+ Holly) Foraging (1 each);
+  - **The twelve** (cloth): Spring, Summer (+ Fiddlehead Fern), Fall (+ Ginkgo Nut), Winter (+ Holly) Foraging (1 each);
     Bonney Lake (Salmonberry, Spring Onion, Morel; 1); Exotic Foraging (Red Mushroom, Chanterelle, Purple
     Mushroom, Coffee Bean; 2); Tree Seed (1); Treasure (Rusty Spoon, Rusty Cog, Glass Shards; 1); Beachcomber
     (Anchor, Dried Starfish, Chipped Amphora; 2); Sutro Baths (Arrowhead, Ancient Doll, Chicken Statue,

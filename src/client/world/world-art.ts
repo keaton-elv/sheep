@@ -468,6 +468,23 @@ function buildObjects(): void {
 /** Rare forage that can turn up in any season. */
 export const COFFEE_BEAN = "Coffee Bean";
 
+/** What the golden ginkgo drops when it's shaken (so: fall only). */
+export const GINKGO_NUT = "Ginkgo Nut";
+
+/** Stardew's cherry pair (objects.png), repainted: apricot-gold fruit on a ginkgo-gold leaf. */
+const CHERRY = 638;
+const GINKGO_NUT_COLORS: Record<string, string> = {
+  "#460006": "#5e300a",
+  "#7d0000": "#b4661a",
+  "#bf0000": "#e39a2e",
+  "#f74040": "#f7c55c",
+  "#ff7207": "#fff0b0",
+  "#003f00": "#8a5a12",
+  "#1b632b": "#e9ab2f",
+  "#008b00": "#ffd94a",
+  "#63b500": "#fff3a0",
+};
+
 export interface ForageDef {
   name: string;
   key: string;
@@ -530,6 +547,9 @@ function buildForage(): void {
   const cell = newPx(16, 16);
   blitPx(cell, generic, 3, 6);
   for (const name of Object.keys(FORAGE_IDS)) registerArt(forageKey(name), pxCanvas(cell));
+  const r = objectRegion(CHERRY);
+  const cherry = sheetPx(r.sheet, r.x, r.y, r.w, r.h);
+  registerArt(forageKey(GINKGO_NUT), pxCanvas(cherry ? remapPx(cherry, GINKGO_NUT_COLORS) : cell));
 }
 
 // ---------- entry ----------

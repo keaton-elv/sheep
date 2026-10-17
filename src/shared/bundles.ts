@@ -20,7 +20,8 @@ const artifact = (name: string) => `item.artifact.${name.toLowerCase().replace(/
 export const BUNDLES: Bundle[] = [
   { id: "spring", name: "Spring Foraging Bundle", items: ["Wild Horseradish", "Daffodil", "Leek", "Dandelion"].map(forage), reward: 1 },
   { id: "summer", name: "Summer Foraging Bundle", items: ["Spice Berry", "Grape", "Sweet Pea", "Fiddlehead Fern"].map(forage), reward: 1 },
-  { id: "fall", name: "Fall Foraging Bundle", items: ["Common Mushroom", "Wild Plum", "Hazelnut", "Blackberry"].map(forage), reward: 1 },
+  // The ginkgo nut falls out of the golden ginkgo, which only stands in fall.
+  { id: "fall", name: "Fall Foraging Bundle", items: ["Common Mushroom", "Wild Plum", "Hazelnut", "Blackberry", "Ginkgo Nut"].map(forage), reward: 1 },
   { id: "winter", name: "Winter Foraging Bundle", items: ["Winter Root", "Crystal Fruit", "Snow Yam", "Crocus", "Holly"].map(forage), reward: 1 },
   // Salmonberries, wild onions and morels: what spring tastes like around Bonney Lake, WA.
   { id: "wild", name: "Bonney Lake Bundle", items: ["Salmonberry", "Spring Onion", "Morel"].map(forage), reward: 1 },
