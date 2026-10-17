@@ -13,7 +13,7 @@ import { sfx } from "../audio";
 import { currentGame } from "../engine/game";
 import { has } from "../engine/sprites";
 import { serverNow, store } from "../net";
-import { BUNDLES } from "../../shared/bundles";
+import { bundleNamed } from "../../shared/bundles";
 import { dayKey, parseDayKey, stardewDate } from "../../shared/calendar";
 import type { DecorKind, FarmEvent, FarmEventKind, FarmState } from "../../shared/types";
 import { openMemory } from "./barn";
@@ -695,10 +695,10 @@ function letterFor(e: FarmEvent, isNew: boolean): Letter {
         gift: gift(spriteIcon("ui.star")),
       };
     case "bundled": {
-      const bundle = BUNDLES.find((b) => b.name === name);
+      const bundle = bundleNamed(name);
       const sack = gift(spriteIcon(bundle ? bundleSackKey(bundle.id) : "item.cloth"));
       if (bundle?.id === "seeds") {
-        return { ...base, greeting: "Psst!", body: "The squirrels are furious about the Tree Seed Bundle. Milo and I are staying out of it...", sign: OTTO_MILO, gift: sack };
+        return { ...base, greeting: "Psst!", body: "Milo sniffed a ginkgo nut. He's still not over it...", sign: OTTO_MILO, gift: sack };
       }
       if (bundle?.id === "junk") {
         return { ...base, greeting: "Mow.", body: "You traded the rusty spoon for cloth. I was going to knock that off a table...", sign: SNICKERS, gift: sack };

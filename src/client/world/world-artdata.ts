@@ -390,3 +390,27 @@ export const GINKGO_LEAF_SMALL: ArtData = {
   rows: [".ooooo.", "oLLoMMo", ".oLMDo.", "..oDo..", "...s...", "...s..."],
   pal: GINKGO_PAL,
 };
+
+/** Spring and summer's fans: the same leaves, still green. */
+export const GINKGO_GREEN_PAL = { o: "#2f5a1a", L: "#c8ec7a", M: "#8acb48", D: "#5a9a30", s: "#4a3a18" };
+
+/** The Ginkgo Leaf in the chest: a big golden fan, veined, notched at the top. */
+export const GINKGO_LEAF_ITEM: ArtData = {
+  rows: [
+    "oooooo..oooooo",
+    "oLLLLLooMMMMDo",
+    ".oLDLLLMMDMDo.",
+    ".oLLDLLMDMMDo.",
+    "..oLDLLMDMDo..",
+    "..oLLDLMDDDo..",
+    "...oLDLMDDo...",
+    "...oLLDMDDo...",
+    "....oLMDDo....",
+    ".....oMDo.....",
+    "......os......",
+    "......s.......",
+    "......s.......",
+    ".....s........",
+  ],
+  pal: GINKGO_PAL,
+};

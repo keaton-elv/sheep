@@ -188,32 +188,38 @@ and desktop works great too.
 - **Things she loves:** 1 hour of loafing (and avoiding 3 hours in the black hole: loaf too long and you get
   stuck there; Snickers is never in it, he always gets up in time), salmon sashimi (also the ranch's joke
   prices, never "hugs"), garlic ice cream (vampire-proof), Tilden Little Farm (our sheep's celery-eating
-  cousins), ginkgo trees (a golden ginkgo on the farm in fall; shake it for ginkgo nuts and its tree seeds),
+  cousins), ginkgo trees (every tree on the farm is a ginkgo, golden in fall; shake one for the Ginkgo Bundle),
   Christopher Alexander, dolphins.
 - **Couple jokes:** he's secretly a hundred raccoons / a hundred hedgehogs / ten thousand mosquitoes in a trench
   coat (the Trench Coat easter egg); she goes to sketching meetups all the time; nobody wants to go to karaoke;
   Wine Wednesday; sometimes Thursday is THURSDAY!!!!!; they always end up on the ORIGINAL PLAN.
 - **ORIGINAL PLAN** covers the plan's name and its date (moving the date away and back counts too).
-- **Chest & bundles:** forage, tree seeds, dug-up artifacts and the rare visitors' keepsakes go into the shared
+- **Chest & bundles:** forage, what falls out of the ginkgos, dug-up artifacts and the rare visitors' keepsakes go into the shared
   chest; Community Center–style bundles trade one of each item for cloth, again and again. Every item the farm
   gives belongs to exactly one bundle.
-  - **The chest has two tabs** (remembered for the visit): *Chest* (the 6-wide slots, forage → tree seeds → digs →
+  - **The chest has two tabs** (remembered for the visit): *Chest* (the 6-wide slots, forage → ginkgo drops → digs →
     keepsakes; tap one for a closer look, and "For the X Bundle" opens that bundle) and *Bundles*, with a gold dot
     when one is ready.
   - **Bundles tab = the Community Center board:** 12 sacks in a fixed 4 x 3 order, never reshuffled. Each tile
     has its sack, a short label, a pip per item and ★×N once done; ready ones wiggle with a gold ring; one whose
     missing items can't turn up this season fades (never hides). The open bundle's card sits below the board:
     slots (tap one for where to find it), +N cloth, Complete!
-  - **The twelve** (cloth): Spring, Summer (+ Fiddlehead Fern), Fall (+ Ginkgo Nut), Winter (+ Holly) Foraging (1 each);
+  - **The twelve** (cloth): Spring, Summer (+ Fiddlehead Fern), Fall, Winter (+ Holly) Foraging (1 each);
     Bonney Lake (Salmonberry, Spring Onion, Morel; 1); Exotic Foraging (Red Mushroom, Chanterelle, Purple
-    Mushroom, Coffee Bean; 2); Tree Seed (1); Treasure (Rusty Spoon, Rusty Cog, Glass Shards; 1); Beachcomber
-    (Anchor, Dried Starfish, Chipped Amphora; 2); Sutro Baths (Arrowhead, Ancient Doll, Chicken Statue,
+    Mushroom, Coffee Bean; 2); Ginkgo (Ginkgo Nut, Ginkgo Leaf, Twig; 1); Treasure (Rusty Spoon, Rusty Cog,
+    Glass Shards; 1); Beachcomber (Anchor, Dried Starfish, Chipped Amphora; 2); Sutro Baths (Arrowhead, Ancient Doll, Chicken Statue,
     Ornamental Fan, Lost Book; 2); Rare Finds (Elvish Jewelry, Bone Flute, Rare Disc, Dinosaur Egg; 3); Field
     Research (the five keepsakes; 5, exactly a Sheep Statue).
   - **Odds:** only the four seasonal Foraging bundles' items turn up twice as often as other forage. Worms most
     days, a second patch every other day.
+  - **The ginkgos give one thing a day per phone** (a shake knocks it loose about a third of the time): whichever
+    of nut, leaf and twig the chest has fewest of. Bare in winter, they only have twigs. After that, a shake
+    says "That's all the ginkgos have for you today." (once a visit) and nothing falls. Drops (and berries) land
+    where a tap reaches them: if the HUD covers the spot (on a narrow phone, the sound button sits right by a
+    ginkgo), they roll to the other side of the trunk.
   - **Never rename or re-id a bundle:** completions are counted per id on the server, and the mailbox finds a
-    bundle's sack by its name. Snickers writes about the forage ones, Otto about the rest.
+    bundle's sack by its name. Snickers writes about the forage ones, Otto about the rest. (The Ginkgo Bundle was
+    the Tree Seed Bundle: it keeps the "seeds" id, and `bundleNamed` finds it by either name.)
 - **Keepsakes (the Field Research Bundle):** the first tap per sighting leaves one in the shared chest, with a
   "→ chest" toast after the event's own. Hail a Bumblesteed: Royal Honey. Catch a golden ladybug: Pocket
   Sunshine. Snap Bigfoot: the Blurry Photo. Unmask the Trench Coat: a Suspicious Fedora. Wish on a shooting

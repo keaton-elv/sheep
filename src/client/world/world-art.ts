@@ -20,6 +20,7 @@ import {
   MINI_SHEEP,
   PUMPKIN,
   PUMPKIN_LIT,
+  GINKGO_LEAF_ITEM,
   ZED,
   type ArtData,
 } from "./world-artdata";
@@ -468,8 +469,17 @@ function buildObjects(): void {
 /** Rare forage that can turn up in any season. */
 export const COFFEE_BEAN = "Coffee Bean";
 
-/** What the golden ginkgo drops when it's shaken (so: fall only). */
+/** What the ginkgos drop when they're shaken (one a day per farmer): the Ginkgo Bundle's three. */
 export const GINKGO_NUT = "Ginkgo Nut";
+export const GINKGO_LEAF = "Ginkgo Leaf";
+export const TWIG = "Twig";
+/** Bare in winter, so all a ginkgo has to give then is a twig. */
+export const GINKGO_DROPS: Record<Season, readonly string[]> = {
+  spring: [GINKGO_NUT, GINKGO_LEAF, TWIG],
+  summer: [GINKGO_NUT, GINKGO_LEAF, TWIG],
+  fall: [GINKGO_NUT, GINKGO_LEAF, TWIG],
+  winter: [TWIG],
+};
 
 /** Stardew's cherry pair (objects.png), repainted: apricot-gold fruit on a ginkgo-gold leaf. */
 const CHERRY = 638;
@@ -491,7 +501,7 @@ export interface ForageDef {
 }
 
 /**
- * Forage (and the seeds trees drop) are real objects.png icons, by Stardew item id. The ids the
+ * Forage (and what the trees drop) are real objects.png icons, by Stardew item id. The ids the
  * shared regions module knows come from OBJECT_IDS; the rest are the same game's ids.
  */
 const FORAGE_IDS: Record<string, number> = {
@@ -518,6 +528,10 @@ const FORAGE_IDS: Record<string, number> = {
   "Snow Yam": 416,
   "Winter Root": 412,
   Crocus: 418,
+  // Stardew's debris twig.
+  [TWIG]: 294,
+  // What the oaks, maples and pines used to drop: no bundle wants them now, but any still in the
+  // chest keep their icons.
   Acorn: 309,
   "Maple Seed": 310,
   "Pine Cone": 311,
@@ -550,6 +564,9 @@ function buildForage(): void {
   const r = objectRegion(CHERRY);
   const cherry = sheetPx(r.sheet, r.x, r.y, r.w, r.h);
   registerArt(forageKey(GINKGO_NUT), pxCanvas(cherry ? remapPx(cherry, GINKGO_NUT_COLORS) : cell));
+  const leaf = newPx(16, 16);
+  blitPx(leaf, rowsToPx(GINKGO_LEAF_ITEM.rows, GINKGO_LEAF_ITEM.pal), 1, 1);
+  registerArt(forageKey(GINKGO_LEAF), pxCanvas(leaf));
 }
 
 // ---------- entry ----------

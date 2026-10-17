@@ -318,6 +318,12 @@ export class Game {
     return { x: ((clientX - r.left) / r.width) * this.w, y: ((clientY - r.top) / r.height) * this.h };
   }
 
+  /** Convert world (game pixel) coords to client coords (the inverse of toWorld). */
+  toClient(x: number, y: number): { x: number; y: number } {
+    const r = this.canvas.getBoundingClientRect();
+    return { x: r.left + (x / this.w) * r.width, y: r.top + (y / this.h) * r.height };
+  }
+
   private bindInput(): void {
     let down: { x: number; y: number; id: number } | null = null;
     this.canvas.addEventListener("pointerdown", (ev) => {
