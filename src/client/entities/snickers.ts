@@ -77,7 +77,7 @@ const PET_LINES = [
 /** Pet mid-loaf, now and then. */
 const LOAF_LINE = "Snickers is on minute 47 of his 1 hour of loafing.";
 /** Pet him asleep a few times. */
-const BLACK_HOLE_LINE = "Zzz... Snickers is doing his 3 hours in the black hole.";
+const BLACK_HOLE_LINE = "Zzz... Snickers is only napping. He gets up every hour so he doesn't fall into the black hole.";
 /** What the name tag says, now and then, instead of his name. */
 const TAG_MOW = "Mow!";
 const TAG_PAPA = "Papa Snickers";

@@ -250,9 +250,9 @@ const TOPICS: readonly TopicDef[] = [
     // Her two favorite units of time.
     topic: "loafing",
     re: /\bloafing\b|\bloaf (around|day)\b|black hole|\bnaps?\b|napping|lazy (day|morning|saturday|sunday)|do(ing)? nothing/,
-    mood: (n) => [`${n} has 1 hour of loafing penciled in. It's in pencil in case it's two.`, `${n} is worried this turns into 3 hours in the black hole.`, `Snickers loafs every day. ${n} is watching how he tucks his paws in.`],
+    mood: (n) => [`${n} is getting ready to loaf by not doing anything yet.`, `${n} is worried this turns into 3 hours in the black hole.`, `Snickers loafs every day. ${n} is watching how he tucks his paws in.`],
     done: (n) => [`${n} loafed for the whole hour and didn't get up once.`, `${n} made it out of the black hole and is blinking a lot.`],
-    dreams: () => ["1 hour of loafing", "3 hours in the black hole"],
+    dreams: () => ["1 hour of loafing", "a nap that ends on time"],
     memory: ["We loafed for..."],
   },
   {

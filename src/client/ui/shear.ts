@@ -39,7 +39,7 @@ function shearWink(lore: Lore, stuckToOriginal: boolean): string | null {
   if (lore.has("karaoke")) return "At karaoke you read words off a TV out loud and everyone can hear you.";
   if (stuckToOriginal) return "The ORIGINAL PLAN is the same as the first plan, it just took longer.";
   if (lore.hits.some((h) => h.topic === "vampires" || (h.topic === "icecream" && h.place === "garlic"))) return "No vampires came, so the garlic must have worked.";
-  if (lore.has("loafing") && Math.random() < 0.6) return pick(["Loafing is when you sit down and then keep sitting down for an hour.", "It's very dark in the black hole, so nobody knew it was 3 hours."]);
+  if (lore.has("loafing") && Math.random() < 0.6) return pick(["Loafing is when you sit down and then keep sitting down for an hour.", "You got up after 1 hour, so nobody fell into the black hole."]);
   if (lore.has("tilden") && Math.random() < 0.6) return "Celery is mostly water and crunch, and the cousins got every bit.";
   const fins = lore.hits.find((h) => h.topic === "dolphins");
   if (fins && Math.random() < 0.5) {

@@ -15,7 +15,7 @@ const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const QUIPS = [
   "The auto-grabber is on strike again...",
-  "There's a truffle in the corner. Nobody here is a pig, so nobody knows how it got there.",
+  "There's a truffle in the corner. It looks like a little rock but you're supposed to eat it.",
   "A warm, cat-shaped dent in the hay. Snickers was here.",
   "Old beams, warm hay. Built the timeless way...",
   "Baa... (from somewhere in the dark)",

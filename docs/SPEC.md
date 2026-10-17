@@ -23,7 +23,7 @@ and desktop works great too.
 | Shears tool + tap (or "Shear" on the card) | "We did it!" Snip animation, wool pops into the chest, optional memory note |
 | Sheared sheep rests in the pasture 3 days, then walks into the barn | The other person sees it was done, and it then becomes a memory |
 | Barn | Browsable memories of everything you've done |
-| 4 wool → Loom (168 s, i.e. 4 in-game hours) → 1 cloth | Reward currency |
+| 3 wool → Loom (168 s, i.e. 4 in-game hours) → 1 cloth | Reward currency |
 | Cloth → carpenter's shop decorations, placed by tapping the pasture | Decorate the farm together |
 | Billboard calendar | Dated plans by month |
 | Mailbox letters | What happened while you were away |
@@ -181,7 +181,8 @@ and desktop works great too.
   wild onions and morels, what spring tastes like there). Lavender. Coffee.
 - **Snickers:** says "Mow", loves string, Fancy Feast and Whisker Lickins, would eat salmon for every meal; his
   brother **KitKat** lives in Arizona (sends the occasional postcard).
-- **Things she loves:** 1 hour of loafing, 3 hours in the black hole, salmon sashimi (also the ranch's joke
+- **Things she loves:** 1 hour of loafing (and avoiding 3 hours in the black hole: loaf too long and you get
+  stuck there; Snickers is never in it, he always gets up in time), salmon sashimi (also the ranch's joke
   prices, never "hugs"), garlic ice cream (vampire-proof), Tilden Little Farm (our sheep's celery-eating
   cousins), ginkgo trees (a golden ginkgo on the farm in fall), Christopher Alexander, dolphins.
 - **Couple jokes:** he's secretly a hundred raccoons / a hundred hedgehogs / ten thousand mosquitoes in a trench
@@ -214,7 +215,7 @@ and desktop works great too.
   star: Stardust (the first wish of an evening per phone, so a meteor shower doesn't fill the chest). The bugs
   sleep through winter, so honey and sunshine wait for spring. Forcing an event with its debug flag (`?bumblesteed`,
   `?golden`, `?bigfoot`, `?trenchcoat`, `?star`, which also skips the Stardust limit) drops a real keepsake.
-- **Economy (short sessions):** the loom takes 4 wool; 10% of sheep are golden (2 wool).
+- **Economy (short sessions):** the loom takes 3 wool; 10% of sheep are golden (2 wool).
 
 ## Mobile & accessibility rules
 
