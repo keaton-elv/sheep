@@ -292,7 +292,7 @@ export function initNight(g: Game): void {
       s.scatter(x, y);
       if (g.time - lastToast > 90) {
         lastToast = g.time;
-        toast("Bzzz... Not enough mosquitoes for a trench coat. Yet.", { icon: "critter.trenchcoat.icon" });
+        toast("Bzzz... It takes a lot of mosquitoes to fill a trench coat and there are only some.", { icon: "critter.trenchcoat.icon" });
       }
     }
   });

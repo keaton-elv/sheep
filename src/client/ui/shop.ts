@@ -63,16 +63,15 @@ export function decorFullName(kind: DecorKind, variant: number): string {
 }
 
 /** What the chalkboard by the door says today (the shop speaks for itself: no shopkeeper). */
-function shopLine(cloth: number, owned: number): string {
+function shopLine(cloth: number): string {
   const hour = farmNow().getHours();
   if (cloth === 0) return "CLOTH ONLY. No credit...";
-  if (owned === 0) return "First visit? Scarecrows are a classic. Gnomes are a lifestyle.";
   if (hour >= 20 || hour < 6) return "OPEN LATE. Night owls welcome...";
   if (farmNow().getDay() === 3) return "WINE WEDNESDAY. (Cloth only, sadly.)";
   const lines = [
     "Built while you wait. (Valley magic.)",
-    "Decorations improve sheep morale. That's just science.",
-    "Full refunds. Even on gnomes.",
+    "Sawdust is just wood that got very small.",
+    "A level has a little bubble in it that wants to be in the middle.",
     "Light on two sides of every room. (See: A Pattern Language.)",
   ];
   return lines[Math.floor(Math.random() * lines.length)]!;
@@ -88,7 +87,7 @@ function openShop(): void {
   }
   const variants = new Map<DecorKind, number>();
   const root = el("div", { class: "fm-shop fm-menu" });
-  const line = shopLine(st.cloth, st.decorations.length);
+  const line = shopLine(st.cloth);
 
   const d = openDialog({
     title: "Carpenter's Shop",

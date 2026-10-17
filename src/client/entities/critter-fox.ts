@@ -113,14 +113,12 @@ const FOX_LINES = [
   "Otto spotted dolphins off Crissy Field! (Porpoises. Don't tell him.)",
   "Otto would like you to know this is HIS blanket. (Milo may borrow it.)",
   "Otto sniffs your hand. You smell like sheep...",
-  "Otto is watching the sheep. Not hungrily. Just... supervising.",
   'Otto blinks at you slowly. In fox, that means "I trust you."',
   "Otto pretends he didn't just pounce on a leaf...",
   "Otto has heard about karaoke. Otto is not going to karaoke.",
   "Otto swears he saw a ladybug knight riding a bumblebee. Milo believes him.",
-  "Otto's favorite season is whichever one has Milo in it.",
 ];
-const FOX_FOG_LINE = "Otto loves Karl the Fog. Perfect sneaking weather.";
+const FOX_FOG_LINE = "Otto loves Karl the Fog. Nobody can see him in it.";
 const FOX_SLEEP_LINES = [
   "Otto and Milo are fast asleep. Shhh...",
   "Zzz... Otto's paw twitches. He's dreaming about butterflies.",
@@ -132,7 +130,7 @@ const HOG_LINES = [
   "Milo would like you to know he is NOT a chestnut.",
   "Milo's nose wiggles. He smells... a beetle.",
   "You try not to boop Milo. You fail. Boop.",
-  "Milo found a crumb of Arsicault croissant. Best day ever.",
+  "Milo found a crumb of Arsicault croissant and is holding it with both hands.",
   "Milo went to a sketching meetup. He drew Otto. (It's a circle.)",
   "Milo is guarding the stump. The raccoon owes him a favor.",
   "Milo snuffles like a tiny teakettle.",
@@ -140,11 +138,11 @@ const HOG_LINES = [
 ];
 const HOG_SLEEP_LINES = [
   "Milo curls up tighter without waking up. Zzz...",
-  "Shhh... Milo is dreaming about beetles. Big ones.",
+  "Shhh... Milo is dreaming about beetles. His nose is still sniffing.",
   "Milo scoots closer to Otto in his sleep. Zzz...",
 ];
 const STUMP_LINES = [
-  "A hollow stump. It smells like berries... and trash.",
+  "A hollow stump. It smells like berries and trash, which is what raccoons smell like.",
   "You knock. Something inside knocks back...",
   'A tiny sign: "RACCOON RESIDENCE. NO SOLICITING."',
   "There's a tiny coat hook on the stump. It's empty...",
@@ -154,7 +152,7 @@ const RACCOON_LINES: string[][] = [
   ["A raccoon pops out of the stump!", "It nods at your sheep approvingly... and ducks back inside."],
   ["A raccoon eyes the shared chest hopefully...", "...then waves a tiny paw instead."],
   ["A second, rounder raccoon peeks out.", "You hear tiny furniture being rearranged..."],
-  ["Something inside the stump goes clunk.", "The raccoon peeks out to see if you noticed. You did."],
+  ["Something inside the stump goes clunk.", "The raccoon peeks out to see if you noticed. You noticed, so it goes back in."],
 ];
 /** Every so often, a peek at how many raccoons actually live in there. */
 const TRENCH_RACCOON_LINES = ["A raccoon pops out of the stump!", "Behind it: ninety-nine more raccoons... and a trench coat on a tiny hook."];
@@ -541,7 +539,7 @@ class Fox implements Entity {
     if (this.tapCount % 3 === 0) {
       const season = g.env.season;
       let line = pick(FOX_LINES);
-      if (this.state === "sunbathe") line = "Otto is sunbathing. Very cool shades.";
+      if (this.state === "sunbathe") line = "Otto is sunbathing. He has sunglasses on so it's hard to tell if he's awake.";
       else if (g.env.weather === "fog" && chance(0.5)) line = FOX_FOG_LINE;
       else if (season === "winter" && chance(0.3)) line = "Otto's little red scarf was a gift from Milo.";
       void say(line);
@@ -827,9 +825,9 @@ class Hedgehog implements Entity {
       let line = pick(HOG_LINES);
       if (this.ballFrom === "sleep") line = pick(HOG_SLEEP_LINES);
       else if (chance(0.35)) {
-        if (season === "winter") line = "Milo's knit hat is slightly too big. It's perfect.";
-        else if (season === "fall") line = "A leaf is stuck on Milo's spines. On purpose.";
-        else if (season === "spring") line = "Milo is wearing a flower. Very fashionable.";
+        if (season === "winter") line = "Milo's knit hat is slightly too big and covers one eye, so he sees half of everything.";
+        else if (season === "fall") line = "A leaf is stuck on Milo's spines, and then another one, and now he is mostly leaf.";
+        else if (season === "spring") line = "Milo is wearing a flower. He doesn't have pockets so that's where it goes.";
       }
       void say(line);
     }

@@ -228,14 +228,14 @@ class Ladybug implements Entity {
       lsSet(GOLDEN_KEY, today);
       sfx("secret");
       sparkleBurst(this.px, this.py - 2, 8, 14);
-      toast("A golden ladybug!! Rarer than a sunny day in the Sunset.", { icon: "critter.goldbug.icon" });
+      toast("A golden ladybug!! It still has the spots, they're just on gold.", { icon: "critter.goldbug.icon" });
       // (It flies off, so this happens once per golden ladybug.)
       keepsake(POCKET_SUNSHINE, "Pocket Sunshine");
       return;
     }
     if (lsGet(LUCKY_KEY) !== today) {
       lsSet(LUCKY_KEY, today);
-      toast(chance(0.5) ? "A ladybug! Lucky day 🍀" : "A ladybug! Luckier than parking in the Mission 🍀", { icon: "critter.ladybug.icon" });
+      toast(chance(0.5) ? "A ladybug! Lucky day 🍀" : "A ladybug! They're good luck if you find one, and you found one 🍀", { icon: "critter.ladybug.icon" });
     }
   }
 }

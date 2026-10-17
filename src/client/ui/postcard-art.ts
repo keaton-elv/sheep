@@ -259,7 +259,7 @@ const scatter = (i: number, salt: number) => {
 // ---------- the scenes ----------
 
 const PAINT: Record<PostcardScene, (ctx: Ctx) => void> = {
-  /** Saguaros against a pink, orange and purple sunset ("like lavender, but on fire"). */
+  /** Saguaros against a pink, orange and purple sunset ("pink and orange and purple, all at the same time"). */
   sunset(ctx) {
     sky(ctx, [
       ["#4b2f7a", 7],

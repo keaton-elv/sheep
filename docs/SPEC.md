@@ -23,7 +23,7 @@ and desktop works great too.
 | Shears tool + tap (or "Shear" on the card) | "We did it!" Snip animation, wool pops into the chest, optional memory note |
 | Sheared sheep rests in the pasture 3 days, then walks into the barn | The other person sees it was done, and it then becomes a memory |
 | Barn | Browsable memories of everything you've done |
-| 4 wool → Loom (168 s, i.e. 4 in-game hours) → 1 cloth | Reward currency |
+| 3 wool → Loom (168 s, i.e. 4 in-game hours) → 1 cloth | Reward currency |
 | Cloth → carpenter's shop decorations, placed by tapping the pasture | Decorate the farm together |
 | Billboard calendar | Dated plans by month |
 | Mailbox letters | What happened while you were away |
@@ -115,6 +115,21 @@ and desktop works great too.
 
 - **Minimal text.** Only write words when they're a reference, a joke, an easter egg, or a genuinely
   necessary interface explainer. Prefer icons, short labels and one-line empty states.
+- **Silly, not slick.** No ad-copy one-liners: "Scarecrows are a classic. Gnomes are a lifestyle.",
+  "That's just science.", "New name, same sheep.", "Not hungrily. Just... supervising.", "One scoop at a
+  time.", "The sheep feel seen." If a line sounds like a tagline or a fortune cookie, cut it.
+- **The voice is Keaton's** (keatonelvins.com/me, `src/pages/me.astro` in the site repo): "the deadpan
+  statement of obvious thing in an unexpected way." Say the plain thing like a kid explaining it, with kid
+  logic and an "I guess" if it helps: "They are constantly repainting since their homes are all peeling."
+  "I hate tomatoes but they like the pee I guess." Not fun facts with a wink (no "karaoke means empty orchestra"),
+  not stock joke shapes ("a lot of flower for a hedgehog"), and no punchline at the end ("Worth it.",
+  "Legends.", "Minimum." are the basic version). Here: "A level has a little bubble in it that wants to be
+  in the middle.", "${n} has grass stains and is a slightly greener sheep now." Stop one beat early: one
+  detail, no extra little haha after it ("A sheep, but stone." not "...so it stays where you put it.";
+  "Nobody can see him in it." not "...including Otto.").
+- **Inside jokes stay as they are** ("Mow.", karaoke, the ORIGINAL PLAN, 1 hour of loafing, "Snickers is a
+  DOG."). They're references, not the voice: "Snickers is a DOG." is her joke, so it isn't a model for new
+  lines.
 - **No characters:** no villager portraits, names or voices. The only "people" who talk are animals:
   Snickers, Otto, Milo and the sheep themselves.
 - **Mailbox letters** are written by Snickers, Otto, or the sheep themselves (signed with the sheep's
@@ -168,7 +183,8 @@ and desktop works great too.
   wild onions and morels, what spring tastes like there). Lavender. Coffee.
 - **Snickers:** says "Mow", loves string, Fancy Feast and Whisker Lickins, would eat salmon for every meal; his
   brother **KitKat** lives in Arizona (sends the occasional postcard).
-- **Things she loves:** 1 hour of loafing, 3 hours in the black hole, salmon sashimi (also the ranch's joke
+- **Things she loves:** 1 hour of loafing (and avoiding 3 hours in the black hole: loaf too long and you get
+  stuck there; Snickers is never in it, he always gets up in time), salmon sashimi (also the ranch's joke
   prices, never "hugs"), garlic ice cream (vampire-proof), Tilden Little Farm (our sheep's celery-eating
   cousins), ginkgo trees (a golden ginkgo on the farm in fall), Christopher Alexander, dolphins.
 - **Couple jokes:** he's secretly a hundred raccoons / a hundred hedgehogs / ten thousand mosquitoes in a trench
@@ -201,7 +217,7 @@ and desktop works great too.
   star: Stardust (the first wish of an evening per phone, so a meteor shower doesn't fill the chest). The bugs
   sleep through winter, so honey and sunshine wait for spring. Forcing an event with its debug flag (`?bumblesteed`,
   `?golden`, `?bigfoot`, `?trenchcoat`, `?star`, which also skips the Stardust limit) drops a real keepsake.
-- **Economy (short sessions):** the loom takes 4 wool; 10% of sheep are golden (2 wool).
+- **Economy (short sessions):** the loom takes 3 wool; 10% of sheep are golden (2 wool).
 
 ## Mobile & accessibility rules
 

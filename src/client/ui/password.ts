@@ -40,9 +40,9 @@ const RARE_CHANCE = 1 / 10;
 const TEASES = [
   "Snickers blinks at you. Slowly. That's a no.",
   "Mow?! Look into his eyes again...",
-  "Snickers stares deep into your soul. Nope.",
+  "Snickers stares deep into your soul. The password isn't in there.",
   "Beautiful, yes. But that's not it.",
-  "His eyes say no. Very beautifully.",
+  "His eyes are very beautiful and they are saying no.",
   "Snickers closes his eyes in protest...",
   "A sheep gazes into his eyes too. Ba-nope.",
   "Close! (It wasn't close.)",

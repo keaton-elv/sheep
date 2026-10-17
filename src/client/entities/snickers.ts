@@ -77,7 +77,7 @@ const PET_LINES = [
 /** Pet mid-loaf, now and then. */
 const LOAF_LINE = "Snickers is on minute 47 of his 1 hour of loafing.";
 /** Pet him asleep a few times. */
-const BLACK_HOLE_LINE = "Zzz... Snickers is doing his 3 hours in the black hole.";
+const BLACK_HOLE_LINE = "Zzz... Snickers is only napping. He gets up every hour so he doesn't fall into the black hole.";
 /** What the name tag says, now and then, instead of his name. */
 const TAG_MOW = "Mow!";
 const TAG_PAPA = "Papa Snickers";
@@ -89,9 +89,9 @@ const FILL_LINES: Record<Food, string> = {
 };
 /** Tapping a full one. */
 const FULL_LINES = [
-  "He'd eat salmon for every meal. He'd like that in writing.",
-  "It's full. He'd like it fuller.",
-  "Whisker Lickins are a treat, not dinner. Snickers disagrees.",
+  "He'd eat salmon for every meal.",
+  "Whisker Lickins are a treat, so you only get a few. Snickers counts them.",
+  "It's still full. He checks again from the other side.",
 ];
 /** Rattling a full dish: a joke now and then, not every tap. */
 const FULL_TOAST_GAP = 12;

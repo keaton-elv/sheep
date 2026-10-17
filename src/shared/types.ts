@@ -19,7 +19,7 @@ export const MAX_PETS = 10;
 /** A sheared sheep hangs around the pasture this long before retiring to the barn. */
 export const RETIRE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 /** Wool needed per loom batch, and how long the loom takes (4 in-game hours = 168 real seconds). */
-export const LOOM_WOOL_COST = 4;
+export const LOOM_WOOL_COST = 3;
 export const LOOM_DURATION_MS = 168 * 1000;
 /** A newly bought sheep is a lamb for its first day, then grows up. */
 export const LAMB_MS = 24 * 60 * 60 * 1000;

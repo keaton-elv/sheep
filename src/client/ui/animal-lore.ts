@@ -135,7 +135,7 @@ const TOPICS: readonly TopicDef[] = [
     mood: (n) => [
       `Another sketching meetup? ${n} is shocked. Shocked!`,
       `${n} is sketching the other sheep. They won't hold still.`,
-      `${n} packed a tiny sketchbook. And six pencils.`,
+      `${n} packed a tiny sketchbook and six pencils in case five break.`,
       `${n} has been to more sketching meetups than most sheep.`,
     ],
     done: (n) => [`${n} would love to see the sketches.`, `${n} is posing for the next sketching meetup.`],
@@ -154,7 +154,7 @@ const TOPICS: readonly TopicDef[] = [
   {
     topic: "lavender",
     re: /lavender/,
-    mood: (n) => [`${n} smells faintly of lavender. Fancy.`, `${n} is daydreaming about rows and rows of lavender...`, `${n} would like lavender everything, please.`],
+    mood: (n) => [`${n} smells faintly of lavender and is standing very still so it doesn't wear off.`, `${n} is daydreaming about rows and rows of lavender...`, `${n} would like lavender everything, please.`],
     done: (n) => [`${n} still smells like lavender.`],
     dreams: () => ["fields of lavender", "the lavender farms back in Washington"],
     memory: ["It smelled like..."],
@@ -190,7 +190,7 @@ const TOPICS: readonly TopicDef[] = [
     ],
     fallback: ["Washington"],
     mood: (n, place) => [
-      ...(place === "Sumner" ? [`Sumner: Rhubarb Pie Capital of the World. ${n} would know.`] : []),
+      ...(place === "Sumner" ? [`Sumner is the Rhubarb Pie Capital of the World. It says so on a sign, I think.`] : []),
       `${n} hopes for a little drizzle. Like home.`,
       `${n} can see Mt. Rainier from here. (It can't.)`,
     ],
@@ -209,7 +209,7 @@ const TOPICS: readonly TopicDef[] = [
     fallback: ["the show"],
     mood: (n, place) => {
       if (place === "Bay to Breakers") return [`${n} is working on its Bay to Breakers costume.`];
-      if (place === "Outside Lands") return [`${n} is making an Outside Lands schedule. It's color-coded.`];
+      if (place === "Outside Lands") return [`${n} is making an Outside Lands schedule. Every color means something but it forgot what.`];
       if (place === "Fleet Week") return [`${n} keeps looking up. Was that the Blue Angels?`];
       if (place === "Hardly Strictly") return [`${n} is practicing its banjo face.`];
       return [`${n} is practicing its dance moves.`, `${n} is making a playlist.`];
@@ -232,7 +232,7 @@ const TOPICS: readonly TopicDef[] = [
     mood: (n, place) =>
       place === "the Golden Gate"
         ? [`${n} is watching for the porpoises under the Golden Gate.`, `${n} heard the porpoises are back. It's bringing binoculars.`]
-        : [`${n} is practicing its dolphin noises. They come out "baa."`, `${n} would like to be friends with a dolphin. Or several.`],
+        : [`${n} is practicing its dolphin noises. They come out "baa."`, `${n} would like to be friends with a dolphin and is working on what to say.`],
     done: (n) => [`${n} is still doing dolphin noises. They sound like baas.`],
     dreams: () => ["dolphins", "the porpoises under the Golden Gate"],
     memory: ["We saw..."],
@@ -242,7 +242,7 @@ const TOPICS: readonly TopicDef[] = [
     topic: "ginkgo",
     re: /ginkgo|gingko|leaf peep|fall colou?rs|fall leaves|autumn leaves/,
     mood: (n) => [`${n} is hunting for the goldest ginkgo in the city.`, `${n} found a fan-shaped leaf. It's keeping it.`],
-    done: (n) => [`${n} has a ginkgo leaf stuck in its wool. On purpose.`],
+    done: (n) => [`${n} has a ginkgo leaf stuck in its wool. It's shaped like a fan but it doesn't do anything.`],
     dreams: () => ["streets full of golden ginkgo"],
     memory: ["The goldest tree was..."],
   },
@@ -250,9 +250,9 @@ const TOPICS: readonly TopicDef[] = [
     // Her two favorite units of time.
     topic: "loafing",
     re: /\bloafing\b|\bloaf (around|day)\b|black hole|\bnaps?\b|napping|lazy (day|morning|saturday|sunday)|do(ing)? nothing/,
-    mood: (n) => [`${n} has 1 hour of loafing penciled in. Maybe two.`, `${n} is worried this turns into 3 hours in the black hole.`, `Snickers is a professional loafer. ${n} is taking notes.`],
-    done: (n) => [`${n} loafed like a pro. Snickers approves.`, `${n} made it out of the black hole. Eventually.`],
-    dreams: () => ["1 hour of loafing", "3 hours in the black hole"],
+    mood: (n) => [`${n} is getting ready to loaf by not doing anything yet.`, `${n} is worried this turns into 3 hours in the black hole.`, `Snickers loafs every day. ${n} is watching how he tucks his paws in.`],
+    done: (n) => [`${n} loafed for the whole hour and didn't get up once.`, `${n} made it out of the black hole and is blinking a lot.`],
+    dreams: () => ["1 hour of loafing", "a nap that ends on time"],
     memory: ["We loafed for..."],
   },
   {
@@ -273,7 +273,7 @@ const TOPICS: readonly TopicDef[] = [
     ],
     fallback: ["Blue Bottle", "Sightglass", "Ritual", "Philz"],
     mood: (n, place) => [
-      place === "Philz" ? `${n} wants a Mint Mojito. From Philz, obviously.` : `${n} is vibrating slightly. Too much ${place}.`,
+      place === "Philz" ? `${n} wants a Mint Mojito from Philz. It's not a mojito.` : `${n} is vibrating slightly. It had ${place} and then it had more ${place}.`,
       `${n} smelled coffee. Its ears perked right up.`,
       `${n} takes coffee very seriously. (Washington roots.)`,
     ],
@@ -292,7 +292,7 @@ const TOPICS: readonly TopicDef[] = [
       [/ferry building/, "the Ferry Building"],
     ],
     fallback: ["Tartine", "Arsicault", "b. Patisserie"],
-    mood: (n, place) => [`${n} would wait in the ${place} line for this.`, `${n} is thinking about croissants. Flaky ones.`, `${n} wants to split a morning bun. Maybe two.`],
+    mood: (n, place) => [`${n} would wait in the ${place} line for this.`, `${n} is thinking about croissants, which are mostly little layers and air.`, `${n} wants to split a morning bun, which is a croissant that curled up like a snail.`],
     done: FOOD_DONE,
     dreams: () => ["an Arsicault croissant", "a morning bun"],
     memory: ["The best bite was..."],
@@ -300,7 +300,7 @@ const TOPICS: readonly TopicDef[] = [
   {
     topic: "pizza",
     re: /pizza|golden boy|tony'?s napoletana/,
-    mood: (n) => [`${n} is saving room for pizza. A lot of room.`, `${n} can't decide: Golden Boy or Tony's.`, `${n} would eat pizza in any park in the city.`],
+    mood: (n) => [`${n} is saving room for pizza and hasn't eaten any grass since this morning.`, `${n} can't decide: Golden Boy or Tony's.`, `${n} would eat pizza in any park in the city.`],
     done: FOOD_DONE,
     dreams: () => ["a square of Golden Boy", "pizza in the park"],
     memory: ["The best slice was..."],
@@ -312,23 +312,23 @@ const TOPICS: readonly TopicDef[] = [
     places: [[/garlic|stinking rose/, "garlic"]],
     mood: (n, place) =>
       place === "garlic"
-        ? [`Garlic ice cream? ${n} is intrigued. The vampires are not.`, `${n} is going vampire-proof. One scoop at a time.`]
-        : [`${n} can't decide: Bi-Rite or Mitchell's.`, `${n} wants two scoops. Minimum.`],
-    done: (n, place) => (place === "garlic" ? [`${n} had the garlic ice cream. Vampire-proof for a week.`] : FOOD_DONE(n)),
+        ? [`Garlic ice cream? ${n} is intrigued.`, `${n} is going vampire-proof.`]
+        : [`${n} can't decide: Bi-Rite or Mitchell's.`, `${n} wants two scoops stacked up like a little snowman.`],
+    done: (n, place) => (place === "garlic" ? [`${n} had the garlic ice cream and nobody will stand very close to it.`] : FOOD_DONE(n)),
     dreams: (place) => [place === "garlic" ? "garlic ice cream" : "two scoops from Bi-Rite"],
     memory: ["The best scoop was..."],
   },
   {
     topic: "vampires",
     re: /\bvampires?\b|dracula|nosferatu|\bgarlic\b/,
-    mood: (n) => [`${n} packed garlic. Just in case.`, `${n} knows the trick for vampires: garlic ice cream.`],
-    done: (n) => [`No vampires. ${n} credits the garlic.`],
+    mood: (n) => [`${n} packed garlic in case of vampires, and also in case of pasta.`, `${n} knows the trick for vampires: garlic ice cream.`],
+    done: (n) => [`${n} didn't see a single vampire the whole time.`],
     dreams: () => ["garlic ice cream"],
   },
   {
     topic: "burrito",
     re: /burritos?|\btacos?\b|taqueria/,
-    mood: (n) => [`${n} is dreaming about La Taqueria. No rice, obviously.`, `${n} wants a burrito the size of a lamb.`],
+    mood: (n) => [`${n} is dreaming about La Taqueria. They don't put rice in, so there's more room for burrito.`, `${n} wants a burrito the size of a lamb.`],
     done: FOOD_DONE,
     dreams: () => ["a La Taqueria burrito"],
     memory: ["The best bite was..."],
@@ -347,12 +347,12 @@ const TOPICS: readonly TopicDef[] = [
     ],
     fallback: ["the trail"],
     mood: (n, place) => [
-      `${n} packed trail snacks. And backup trail snacks.`,
+      `${n} packed trail snacks and then more snacks for when those are gone.`,
       `${n} spotted a banana slug. It's mesmerized.`,
       `${n} is ready for ${place}. (Mostly the snacks.)`,
       `${n} has been training on Bernal Hill.`,
     ],
-    done: (n) => [`${n}'s legs are sore. Worth it.`, `${n} made friends with a banana slug.`],
+    done: (n) => [`${n}'s legs are wobbly again, like when it was a lamb.`, `${n} made friends with a banana slug.`],
     dreams: (place) => [place === "the trail" || place === "Muir Woods" ? "the redwoods at Muir Woods" : `the view from ${place}`],
     memory: ["The view from the top...", "We saw a banana slug..."],
   },
@@ -366,7 +366,7 @@ const TOPICS: readonly TopicDef[] = [
       `${n} is practicing its picnic-blanket fold.`,
       `${n} is hoping Karl the Fog sleeps in.`,
     ],
-    done: (n) => [`${n} has grass stains. Good ones.`],
+    done: (n) => [`${n} has grass stains and is a slightly greener sheep now.`],
     dreams: (place) => [`a sunny afternoon in ${place}`],
     memory: ["Our spot was..."],
   },

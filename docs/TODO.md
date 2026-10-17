@@ -9,7 +9,7 @@
 
 ## Saved for later
 
-- **"Snickers is a DOG."** (their joke). Ideas for where it could go: after the hen's first stare-down ("Snickers has never
+- **"Snickers is a DOG."** (her joke, an inside joke). Ideas for where it could go: after the hen's first stare-down ("Snickers has never
   lost a staring contest."), about one later chase in three toasts "Snickers is a DOG." (guarding the yard is a dog's job;
   `critter-hen.ts`, next to STARE_LINE); and/or National Dog Day (Aug 26) as a quiet dot on the calendar with the same note
   (`calendar-festivals.ts`, after the Perseids).

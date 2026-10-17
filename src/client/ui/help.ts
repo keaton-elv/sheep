@@ -54,7 +54,7 @@ const ENTRIES: Entry[] = [
   {
     icons: [critter("fox.sit.0", "ui.star"), critter("hedgehog.idle.0", "ui.star")],
     title: "Otto & Milo.",
-    text: "Fox and hedgehog. Best friends, champion nappers.",
+    text: "Fox and hedgehog. Best friends.",
   },
   { icons: [sprite("ui.icon.snickers", 1.5)], title: "Snickers.", text: "Pet his head. Rumor has it he has a secret button..." },
   { icons: [sprite("ui.icon.stamp", 1.5)], title: "ORIGINAL PLAN.", text: "Change a plan... then change it back.", secret: true, stamp: true },

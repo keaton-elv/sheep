@@ -1,7 +1,8 @@
 # 🐑 Papa Snickers's Sheep Farm
 
 A tiny private Stardew Valley–style farm that doubles as our shared todo list.
-Every plan (dates, workshops, trips...) is a sheep. Did the thing? Shear the sheep.
+Every plan (dates, workshops, trips...) is a sheep. When you do the plan you shear the sheep, and
+then it moves into the barn as a memory.
 
 Lives at **https://keatonelvins.com/sheep** (password-gated, remembered for 400 days).
 
@@ -14,10 +15,25 @@ Lives at **https://keatonelvins.com/sheep** (password-gated, remembered for 400 
 | Shear it ✂ | Mark it done (+ write a little memory) |
 | Sheared sheep rests 3 days, then moves into the barn | Done plans become browsable memories |
 | Wool → Loom → Cloth → the carpenter's shop | Rewards: decorate the farm |
+| Hats from any sheep's card | Spend cloth on a plan you love |
+| Forage (shake trees, dig where the worms wiggle) → bundles | More cloth, and a Community Center board to fill |
 | Billboard calendar, mailbox | Dated plans, "what happened while you were away" |
 
 Real local time drives day and night, the real season drives the farm's look, and the real
 weather where you are makes it rain or snow on the farm. Changes sync live between both phones.
+
+## Writing copy
+
+The farm talks like Keaton writes (keatonelvins.com/me): the deadpan statement of an obvious thing
+in an unexpected way, the way a kid would explain it.
+
+- "A level has a little bubble in it that wants to be in the middle."
+- "Loafing is when you sit down and then keep sitting down for an hour."
+- "[sheep] has grass stains and is a slightly greener sheep now."
+
+No ad-copy one-liners ("Scarecrows are a classic. Gnomes are a lifestyle."), no fun facts with a wink,
+and no one-word punchline at the end ("Legends.", "Worth it."). Inside jokes ("Mow.", karaoke, the
+ORIGINAL PLAN) stay as they are. The full rules are under *Copy rules* in `docs/SPEC.md`.
 
 ## Stack
 

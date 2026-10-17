@@ -14,9 +14,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const QUIPS = [
-  "Smells like hay and good decisions...",
   "The auto-grabber is on strike again...",
-  "Somebody left a truffle in the corner. Suspicious...",
+  "There's a truffle in the corner. It looks like a little rock but you're supposed to eat it.",
   "A warm, cat-shaped dent in the hay. Snickers was here.",
   "Old beams, warm hay. Built the timeless way...",
   "Baa... (from somewhere in the dark)",

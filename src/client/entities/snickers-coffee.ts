@@ -27,7 +27,7 @@ REGIONS["item.coffee"] ??= objectRegion(395);
 const DAY_KEY = "farm.coffee.day";
 const FIRST_KEY = "farm.snickers.coffee";
 const HOT_LINE = "Still hot.";
-const ROAST_LINE = "Blue Bottle? Sightglass? Ritual? Philz? ...Yes.";
+const ROAST_LINE = "It's from Blue Bottle or Sightglass or Ritual or Philz. Snickers can't tell, he's a cat.";
 const EYE_LINE = "He made eye contact the whole time.";
 
 /** The mug's opaque pixels in its 16x16 cell: columns 1..12, rows 2..14 (handle on the left). */
